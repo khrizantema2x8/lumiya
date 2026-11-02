@@ -1,0 +1,43 @@
+{
+  "computeBackend": "auto",
+  "epsilon": 4.0,
+  "computeLevel": 1.0,
+  "seed": 0,
+  "steps": 50,
+  "guidancePrompt": "",
+  "geoAnchorLow": 1.7,
+  "geoAnchorHigh": 7.1,
+  "temporalWeight": 0.5,
+  "maskAugFactor": 1.0,
+  "workingDim": 768,
+  "precision": "fp16",
+  "reserveVramMb": 600,
+  "jpegQuality": 98,
+  "preserveExif": true,
+  "preserveIcc": true,
+  "pollMs": 1000,
+  "tempWarnC": 62.0,
+  "tempCritC": 85.0,
+  "tempErraticDelta": 12.0,
+  "loadWarnPct": 85.0,
+  "overrideHardware": false,
+  "stegoMode": "off",
+  "stegoText": "PORTtralica Lumiya - Protected Asset",
+  "stegoPayload": "text",
+  "stegoStrength": 4.0,
+  "stegoScale": 40.0,
+  "stegoPlacement": "center",
+  "stegoMark": "",
+  "favoriteAlgos": [
+    "photoguard"
+  ],
+  "algoLastUsed": {},
+  "layers": {
+    "photoguard": true,
+    "blurguard": false,
+    "diffusionguard": false,
+    "antiInpainting": false,
+    "veto": false,
+    "mirage": false
+  }
+}

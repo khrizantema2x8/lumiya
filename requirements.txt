@@ -1,0 +1,13 @@
+# Core Compute: install.bat picks the CUDA build the driver supports (https://download.pytorch.org/whl/cuXXX)
+torch==2.15.0
+torchvision==0.29.2
+
+# Diffusion, image and telemetry
+accelerate==1.15.0
+diffusers==0.42.1
+huggingface_hub==2.4.0
+numpy==2.5.4
+pillow==13.0.0
+psutil==7.2.2
+safetensors==0.8.0
+transformers==5.22.1
