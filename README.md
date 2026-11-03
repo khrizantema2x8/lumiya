@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="PORTtralica Lumiya" width="460">
+  <img src="logo.png" alt="PORTtralica Lumiya" width="100%">
 </p>
 
 # PORTtralica Lumiya
