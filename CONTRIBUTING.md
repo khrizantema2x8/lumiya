@@ -33,6 +33,6 @@ Each new algorithm folder submitted to `algos/<algo_name>/` must contain:
 
 ## Code of Conduct and Scope
 
-- Core codebase contributions (`protect.py`, `ui.html`, `cleaner.py`, `stego/`) should focus on stability, performance, local privacy, and bug fixes.
+- Core codebase contributions (`protect.py`, `ui.html`, `core/`, `stego/`) should focus on stability, performance, local privacy, and bug fixes.
 - All contributions remain subject to the terms of the PolyForm Shield License 1.0.0.
 

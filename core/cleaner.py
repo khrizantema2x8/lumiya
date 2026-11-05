@@ -81,12 +81,15 @@ def cleanMemoryAndStorage(
         except Exception:
             pass
 
-    for tmpFile in rootDir.glob("*.tmp"):
-        try:
-            tmpFile.unlink()
-            report["tempFilesRemoved"] += 1
-        except OSError:
-            pass
+    for pattern in ("*.tmp", "*.partial"):
+        for base in (rootDir, rootDir / "user"):
+            if base.exists():
+                for tmpFile in base.glob(pattern):
+                    try:
+                        tmpFile.unlink()
+                        report["tempFilesRemoved"] += 1
+                    except OSError:
+                        pass
 
     if resultsDir.exists():
         for subDir in resultsDir.iterdir():

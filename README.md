@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="logo.png" alt="PORTtralica Lumiya" width="100%">
+  <img src="identity/logo.png" alt="PORTtralica Lumiya" width="100%">
 </p>
 
 # PORTtralica Lumiya
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyTorch 2.15+](https://img.shields.io/badge/PyTorch-2.15%2B%20cu132-EE4C2C.svg)](https://pytorch.org/)
-[![Platform Windows](https://img.shields.io/badge/Platform-Windows%2064--bit-0078D6.svg)](#system-requirements)
+[![Platform: Windows & Debian/Ubuntu](https://img.shields.io/badge/Platform-Windows%20%7C%20Debian%20%2F%20Ubuntu-0078D6.svg)](#system-requirements)
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-gold.svg)](LICENSE)
 
 PORTtralica Lumiya is a stand-alone backend and WebUI deployment for hosting photo-defense algorithms targeting AI photo manipulation, style mimicry, data scraping; and forensic toolkit for Intellectual Property validation. Adapted to use open-sourced algorithms contributed by scientific researches and journals; steganographic watermark embedding, decoding, and analysing.
@@ -17,7 +17,7 @@ Everything executes locally on your machine.
 
 ## Important Disclaimer
 
-PORTtralica Lumiya is an early evaluative pilot developed and maintained as a solo-developer research operation. It is not yet a complete commercial-grade product. Full algorithmic builds, exhaustive GPU kernel porting across every scientific paper, and plug-and-play coverage across all hardware configurations are actively evolving and are not to be expected out-of-the-box. Community participation and reproducible academic contributions to the `algos/` directory are welcome under the terms of the PolyForm Shield 1.0.0 license (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+PORTtralica Lumiya is an early evaluative pilot developed and maintained as a solo-developer research operation. It is not yet a complete commercial-grade product. Community participation and reproducible academic contributions to the `algos/` directory are welcome under the terms of the PolyForm Shield 1.0.0 license (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ---
 
@@ -25,7 +25,7 @@ PORTtralica Lumiya is an early evaluative pilot developed and maintained as a so
 
 | Component | Minimum | Recommended |
 |---|---|---|
-| OS | Windows 10 / 11 (64-bit) | Windows 11 (64-bit) |
+| OS | Windows 10 / 11 (64-bit) or Debian-based Linux (Debian 11/12, Ubuntu 22.04/24.04 LTS) | Windows 11 (64-bit) / Ubuntu 22.04+ LTS |
 | Python | Python 3.10+ | Python 3.13 (via Miniconda3) |
 | GPU | NVIDIA GPU with 4 GB VRAM (CUDA 12.6+) or CPU | NVIDIA RTX GPU with 6+ GB VRAM (CUDA 12.8+) |
 | RAM | 8 GB System Memory | 16+ GB System Memory |
@@ -38,18 +38,46 @@ PORTtralica Lumiya is an early evaluative pilot developed and maintained as a so
 ### Option 1: One-Click Startup (Recommended)
 
 1. Clone or download the repository to your local drive.
-2. Launch `run.bat`:
+2. Launch the launcher for your operating system:
 
+   **Windows:**
    ```cmd
    run.bat
    ```
-   *Lumiya runs automatic pre-flight verification on startup. If the environment or PyTorch packages are not yet provisioned, `run.bat` prompts you to launch `install.bat` automatically to detect your hardware, install the matched CUDA build (`cu132 / cu130 / cu128 / cu126`), set up all dependencies, and launch the WebUI.*
+
+   **Linux:**
+   ```bash
+   chmod +x run.sh
+   ./run.sh
+   ```
+   *Lumiya runs automatic pre-flight verification on startup. If the environment or PyTorch packages are not yet provisioned, the launcher prompts you to install automatically, detecting your hardware, installing the matched CUDA build (`cu132 / cu130 / cu128 / cu126`), setting up all dependencies, and launching the WebUI.*
 
 ### Option 2: Direct Automated Installer
 
 To run the automated dependency and environment installation upfront:
+
+**Windows:**
 ```cmd
 install.bat
+```
+
+**Linux:**
+```bash
+./run.sh install    # or ./run.sh --install
+```
+
+### Uninstallation
+
+To cleanly remove Lumiya's isolated dependencies (`.env` or Conda `lumiya`) while preserving all exported photos in `results/` and configurations in `user/`:
+
+**Windows:**
+```cmd
+uninstall.bat
+```
+
+**Linux:**
+```bash
+./run.sh uninstall  # or ./run.sh --uninstall (-y for non-interactive)
 ```
 
 ### Option 3: Manual Installation
@@ -73,9 +101,68 @@ python protect.py
 
 ---
 
+## Repository Structure
+
+```
+lumiya/
+|-- algos/                   # 29 Literature-derived defense algorithm implementations
+|   |-- photoguard/          # PhotoGuard ICML 2023 encoder attack
+|   |-- veto/                # VETO cross-attention transformer cloak (MMDiT / FLUX)
+|   |-- mist/                # Mist v2 Nyquist checkerboard adversarial target
+|   |-- antiprompt/          # AntiPrompt semantic invariance decoupling
+|   |-- idguardian/          # Zero-checkpoint biometric contour defense
+|   `-- ...                  # MetaCloak, DiffusionGuard, BlurGuard, SRIM, etc.
+|-- core/                    # Modular core subsystem package (PEP 420 namespace)
+|   |-- cleaner.py           # Memory management, garbage collection, and process termination
+|   |-- config.py            # Configuration validation, persistence, and SSE snapshots
+|   |-- loader.py            # Dynamic algorithm discovery, AST parsing, and hardware gating
+|   |-- security.py          # Origin verification and Windows device stem sanitization
+|   |-- telemetry.py         # NVML GPU wattage/temp/vram sensors and system telemetry
+|   `-- init.py              # Package coordinator (zero __init__.py)
+|-- stego/                   # 3-mode steganography and resilient visual marker engine
+|   |-- lsb.py               # 2-bit cyclic LSB text and binary stream (LMY1) embedding
+|   |-- mark.py              # TrueType visual watermark placement and QIM recovery
+|-- identity/                # Brand identity assets and icons
+|   |-- logo.png             # High-resolution film-strip banner for README.md
+|   |-- lumiya_blk.ico       # Browser tab favicon
+|   `-- lumiya_t.ico         # WebUI header and About card emblem
+|-- user/                    # Persistent user configuration, history, and install manifests
+|   |-- config.json          # Default application and algorithm suite configuration
+|   |-- history.json         # Local artifact history log (git-ignored)
+|   `-- install_manifest.log # Environment installation log (git-ignored)
+|-- results/                 # Exported protected batches (git-ignored)
+|-- install.bat              # Automated environment and driver-matched CUDA installer (Windows)
+|-- run.bat                  # Production application launcher with pre-flight checks (Windows)
+|-- run.sh                   # All-in-one launcher, installer (--install), and uninstaller (Debian / Ubuntu)
+|-- uninstall.bat            # Clean uninstaller for Conda environment and dependencies (Windows)
+|-- protect.py               # Main HTTP server, PGD native-tiling engine, and compute worker
+|-- requirements.txt         # Core dependencies
+|-- ui.html                  # Single-file WebUI (10-lens forensic darkroom, A/B & split-curtain)
+|-- CONTRIBUTING.md          # Scientific paper guidelines for algo contributions
+|-- LICENSE                  # PolyForm Shield License 1.0.0
+`-- README.md
+```
+
+---
+
+## Configuration and Defaults
+
+Lumiya ships with `user/config.json` containing default application and protection parameters. The core engine (`protect.py:SuiteConfig`) also contains hardcoded internal defaults, ensuring the suite can gracefully boot with clean settings even if `user/config.json` is missing.
+
+Key configuration fields include:
+* `epsilon`: Default perturbation budget (4.0/255).
+* `steps`: Optimization iteration budget (50 steps).
+* `precision`: Numerical precision (`fp16` or `fp32`).
+* `reserveVramMb`: Safety margin reserved for OS and display rendering (600 MB).
+* `jpegQuality`: Export compression quality (98).
+* `overrideHardware`: Enforces hardware safety tiers (`false` by default).
+* `favoriteAlgos`: Pinned algorithms in the WebUI.
+
+---
+
 ## Installation Process and Manifest Log
 
-`install.bat` sets up the project dependencies and writes a full log to `install_manifest.log` so you can verify everything that was installed.
+`install.bat` sets up the project dependencies and writes a full log to `user/install_manifest.log` so you can verify everything that was installed.
 
 ### 1. Environment Check (`run.bat`)
 When you launch `run.bat`, it checks your system before running:
@@ -98,8 +185,8 @@ When `install.bat` runs, it:
 5. Installs required libraries: `diffusers`, `transformers`, `accelerate`, `safetensors`, `Pillow`, `psutil`, and `numpy`.
 6. Clears pip and Conda cache files to save disk space.
 
-### 3. What is in `install_manifest.log`
-Each time the installer runs, it writes `install_manifest.log` to document:
+### 3. What is in `user/install_manifest.log`
+Each time the installer runs, it writes `user/install_manifest.log` to document:
 * System info: Date, time, Windows username, and Conda path.
 * Hardware detected: GPU model and the chosen PyTorch build.
 * Package list:
@@ -284,58 +371,6 @@ Lumiya integrates 21 modular adversarial defense algorithms published across mac
 ### Batch Queue and Hardware Telemetry (Expected)
 * Drag-and-Drop Batching: Queue multiple photo sets, reorder images, split batches, and adjust perturbation budgets and step counts.
 * Hardware Monitor: Real-time NVML hardware telemetry displaying GPU load, VRAM allocation, GPU temperatures, and power draw.
-
----
-
-## Repository Structure
-
-```
-lumiya/
-|-- algos/                   # 29 Literature-derived defense algorithm implementations
-|   |-- photoguard/          # PhotoGuard ICML 2023 encoder attack
-|   |-- veto/                # VETO cross-attention transformer cloak (MMDiT / FLUX)
-|   |-- mist/                # Mist v2 Nyquist checkerboard adversarial target
-|   |-- antiprompt/          # AntiPrompt semantic invariance decoupling
-|   |-- idguardian/          # Zero-checkpoint biometric contour defense
-|   `-- ...                  # MetaCloak, DiffusionGuard, BlurGuard, SRIM, etc.
-|-- core/                    # Modular core subsystem package (PEP 420 namespace)
-|   |-- config.py            # Configuration validation, persistence, and SSE snapshots
-|   |-- loader.py            # Dynamic algorithm discovery, AST parsing, and hardware gating
-|   |-- security.py          # Origin verification and Windows device stem sanitization
-|   |-- telemetry.py         # NVML GPU wattage/temp/vram sensors and system telemetry
-|   `-- init.py              # Package coordinator (zero __init__.py)
-|-- stego/                   # 3-mode steganography and resilient visual marker engine
-|   |-- lsb.py               # 2-bit cyclic LSB text and binary stream (LMY1) embedding
-|   |-- mark.py              # TrueType visual watermark placement and QIM recovery
-|-- results/                 # Exported protected batches (git-ignored)
-|-- cleaner.py               # Memory management and worker process termination
-|-- config.json              # Default application and algorithm suite configuration
-|-- install.bat              # Automated environment and driver-matched CUDA installer
-|-- run.bat                  # Production application launcher with pre-flight checks
-|-- uninstall.bat            # Clean uninstaller for Conda environment and dependencies
-|-- protect.py               # Main HTTP server, PGD native-tiling engine, and compute worker
-|-- requirements.txt         # Core dependencies
-|-- ui.html                  # Single-file WebUI (10-lens forensic darkroom, A/B & split-curtain)
-|-- logo.png                 # High-resolution film-strip banner for README.md
-|-- CONTRIBUTING.md          # Scientific paper guidelines for algo contributions
-|-- LICENSE                  # PolyForm Shield License 1.0.0
-`-- README.md
-```
-
----
-
-## Configuration and Defaults
-
-Lumiya ships with `config.json` containing default application and protection parameters. The core engine (`protect.py:SuiteConfig`) also contains hardcoded internal defaults, ensuring the suite can gracefully boot with clean settings even if `config.json` is missing.
-
-Key configuration fields include:
-* `epsilon`: Default perturbation budget (4.0/255).
-* `steps`: Optimization iteration budget (50 steps).
-* `precision`: Numerical precision (`fp16` or `fp32`).
-* `reserveVramMb`: Safety margin reserved for OS and display rendering (600 MB).
-* `jpegQuality`: Export compression quality (98).
-* `overrideHardware`: Enforces hardware safety tiers (`false` by default).
-* `favoriteAlgos`: Pinned algorithms in the WebUI.
 
 ---
 

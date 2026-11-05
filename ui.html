@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>PORTtralica Lumiya</title>
-<link rel="icon" type="image/x-icon" href="/lumiya_blk.ico">
+<link rel="icon" type="image/x-icon" href="/identity/lumiya_blk.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
@@ -1221,10 +1221,40 @@
     color: var(--green);
     border: 1px solid var(--green);
   }
-  .cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
-  .cfg-panel { background: var(--panel); border: 1px solid var(--line); padding: 20px; }
-  .cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .cfg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    padding: 24px;
+    align-items: stretch;
+  }
+  .cfg-panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    min-height: 52px;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    gap: 16px;
+  }
   .cfg-row:last-child { border-bottom: none; }
+  .cfg-row .label-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
   .cfg-input, select {
     background: #161616;
     border: 1px solid var(--lineStrong);
@@ -1233,6 +1263,15 @@
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
     width: 190px;
+    box-sizing: border-box;
+  }
+  .cfg-row .cfg-input, .cfg-row select {
+    width: 290px;
+    max-width: 50%;
+    flex-shrink: 0;
+    height: 34px;
+    padding: 0 10px;
+    box-sizing: border-box;
   }
   .cfg-input:disabled {
     opacity: 0.35;
@@ -1242,14 +1281,16 @@
   .manifest-box {
     background: #111;
     border: 1px solid var(--line);
-    padding: 12px;
+    padding: 14px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     color: var(--muted);
-    height: 200px;
+    flex: 1 1 0px;
+    min-height: 260px;
     overflow-y: auto;
     white-space: pre-wrap;
-    margin-top: 12px;
+    margin-top: 14px;
+    box-sizing: border-box;
   }
   .about-panel {
     margin: 0 24px 24px 24px;
@@ -1754,7 +1795,7 @@
 <header>
   <div class="header-left">
     <div class="brand" title="PORTtralica Lumiya">
-      <img class="brand-logo-img" src="/lumiya_t.ico" alt="PORTtralica Lumiya" onerror="this.style.display='none';document.getElementById('brand-fallback').style.display='inline';">
+      <img class="brand-logo-img" src="/identity/lumiya_t.ico" alt="PORTtralica Lumiya" onerror="this.style.display='none';document.getElementById('brand-fallback').style.display='inline';">
       <span class="brand-fallback" id="brand-fallback">PORTtralica Lumiya</span>
     </div>
     <div class="browser-tabs">
@@ -1765,7 +1806,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="hdr-version-badge" id="hdr-version">v0.5.099.9310 (Pilot)</span>
+    <span class="hdr-version-badge" id="hdr-version">v0.6.017.4110 (Pilot)</span>
     <button class="q-btn" onclick="sysMaint('run_cleaner')" title="Clean VRAM, RAM Working Set & Temp Files">Clean Memory &amp; Temps</button>
     <button class="q-btn" onclick="sysMaint('restart_service')" title="Clean memory &amp; restart the PORTtralica Lumiya backend service">Restart Service</button>
     <div class="folder-tag" id="folder" onclick="sysMaint('open_results')" title="Open results root folder in foreground">RESULTS: ...</div>
@@ -2601,13 +2642,13 @@
       <div class="heading"><span>Environment, Dependencies &amp; Recommended Versions</span></div>
       <div id="deps-list"></div>
       <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
-        <button class="q-btn primary" onclick="sysMaint('install')">Run Installer (install.bat)</button>
+        <button class="q-btn primary" onclick="sysMaint('install')">Run Installer (install.bat / run.sh)</button>
         <button class="q-btn" onclick="loadManifest()">Refresh Manifest Log</button>
         <button class="q-btn" onclick="sysMaint('run_cleaner')">Run Memory &amp; Storage Cleaner</button>
-        <span style="color:var(--muted);font-size:11px;">To uninstall: close Lumiya and run uninstall.bat. It removes dependencies only; delete this folder, and Python, Miniconda and Git, manually.</span>
+        <span style="color:var(--muted);font-size:11px;">To uninstall: close Lumiya and run uninstall.bat (or ./run.sh uninstall on Linux). It removes dependencies only; delete this folder, and Python, Miniconda and Git, manually.</span>
         
       </div>
-      <div class="manifest-box" id="manifest-box">Click "Refresh Manifest Log" to inspect install_manifest.log...</div>
+      <div class="manifest-box" id="manifest-box">Click "Refresh Manifest Log" to inspect user/install_manifest.log...</div>
     </div>
 
     <div class="cfg-panel">
@@ -2755,7 +2796,7 @@
             <span class="info-tooltip">Automatically snaps Perturbation Budget and algorithm-specific parameters to the published paper defaults when selecting a defense algorithm.</span>
           </span>
         </div>
-        <input type="checkbox" id="c-auto-paper" checked style="width:18px;height:18px;cursor:pointer;">
+        <input type="checkbox" id="c-auto-paper" checked style="width:18px;height:18px;cursor:pointer;margin-right:8px;">
       </div>
 
       <div class="cfg-row">
@@ -2765,10 +2806,10 @@
             <span class="info-tooltip">Streams intermediate VAE forward activations to pinned System RAM (save_on_cpu) and enables tiled VAE encoding so 8 GB+ algorithms and native-resolution tiles run on lower-VRAM GPUs at reduced speed.</span>
           </span>
         </div>
-        <input type="checkbox" id="c-ram-spill" checked style="width:18px;height:18px;cursor:pointer;">
+        <input type="checkbox" id="c-ram-spill" checked style="width:18px;height:18px;cursor:pointer;margin-right:8px;">
       </div>
 
-      <div style="display:flex;gap:8px;margin-top:16px;">
+      <div style="display:flex;gap:8px;margin-top:auto;padding-top:20px;">
         <button class="q-btn primary" onclick="saveGlobalConfig()">Save Configuration</button>
         <button class="q-btn" onclick="localStorage.removeItem('lumiyaMuteDeleteUntil');localStorage.removeItem('lumiyaMuteHistoryUntil');localStorage.removeItem('lumiyaMultiAlgoMute');alert('Confirmation prompts restored.')">Reset 30-Min Prompt Mutes</button>
       </div>
@@ -2779,11 +2820,11 @@
   <div class="about-panel">
     <div class="heading"><span>About</span></div>
     <div style="display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:8px 4px;">
-      <img src="/lumiya_t.ico" alt="PORTtralica Lumiya Logo" style="height:64px;width:auto;display:block;">
+      <img src="/identity/lumiya_t.ico" alt="PORTtralica Lumiya Logo" style="height:64px;width:auto;display:block;">
       <div>
         <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:0.3px;">PORTtralica Lumiya Evaluative Suite</div>
         <div class="mono" style="font-size:12px;color:var(--gold);margin-top:4px;" id="about-version-line">
-          Version v0.5.099.9310 (Pilot) (64-bit)
+          Version v0.6.017.4110 (Pilot) (64-bit)
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px;">
           &copy; 2026 PORTtralica Media Group. All rights reserved.
@@ -4022,7 +4063,7 @@ function requestClearHistory() {
   document.getElementById('del-modal-title').innerText = 'Clear Artifact History';
   document.getElementById('del-confirm-btn').innerText = 'Confirm Delete';
   document.getElementById('del-catalog-btn').style.display = 'none';
-  document.getElementById('del-modal-text').innerText = 'Clear all entries from the persistent History log (history.json)? Exported files in results/ will remain untouched.';
+  document.getElementById('del-modal-text').innerText = 'Clear all entries from the persistent History log (user/history.json)? Exported files in results/ will remain untouched.';
   document.getElementById('del-mute-chk').checked = false;
   modal.classList.add('open');
 

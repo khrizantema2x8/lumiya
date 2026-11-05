@@ -1,6 +1,7 @@
 """PEP 420 namespace entry point for PORTtralica Lumiya core modules (no __init__.py)."""
 from __future__ import annotations
 
+from core.cleaner import cleanMemoryAndStorage
 from core.config import (
     DEFAULT_ALGO_IDS,
     MAX_STEPS,
@@ -32,6 +33,7 @@ __all__ = [
     "SuiteConfig",
     "TelemetryMonitor",
     "atomicWrite",
+    "cleanMemoryAndStorage",
     "hardwareBlockReason",
     "isTrustedRequest",
     "openPathForeground",

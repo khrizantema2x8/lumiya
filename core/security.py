@@ -76,7 +76,9 @@ def verifyBrandAssets(rootDir: Path) -> Dict[str, Any]:
     assets = ("logo.png", "lumiya_blk.ico", "lumiya_t.ico")
     report: Dict[str, Any] = {"ok": True, "assets": {}, "tampered": []}
     for name in assets:
-        p = rootDir / name
+        p = rootDir / "identity" / name
+        if not p.exists() and (rootDir / name).exists():
+            p = rootDir / name
         if not p.exists() and (rootDir / "assets" / name).exists():
             p = rootDir / "assets" / name
         if not p.exists():
@@ -104,6 +106,16 @@ def openPathForeground(targetPath: Path) -> None:
     if sys.platform == "win32":
         try:
             subprocess.Popen(["explorer.exe", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+    elif sys.platform == "darwin":
+        try:
+            subprocess.Popen(["open", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+    else:
+        try:
+            subprocess.Popen(["xdg-open", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
 

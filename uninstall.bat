@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.5.099.9310 (Pilot) - Environment Uninstaller
+title PORTtralica Lumiya v0.6.017.4110 (Pilot) - Environment Uninstaller
 cd /d "%~dp0"
 
 echo ========================================================================
-echo   PORTtralica Lumiya v0.5.099.9310 (Pilot) - DELTA-AWARE UNINSTALLER
+echo   PORTtralica Lumiya v0.6.017.4110 (Pilot) - DELTA-AWARE UNINSTALLER
 echo ========================================================================
 echo.
 echo This removes Lumiya's isolated Python dependencies (the .env folder and
@@ -14,9 +14,11 @@ echo Pre-existing system foundations (Git, Miniconda/Anaconda, base Python)
 echo and your exported photos in results\ are NEVER touched.
 echo.
 
-if exist "%~dp0install_manifest.log" (
+set "MANIFEST_PATH=%~dp0user\install_manifest.log"
+if not exist "%MANIFEST_PATH%" if exist "%~dp0install_manifest.log" set "MANIFEST_PATH=%~dp0install_manifest.log"
+if exist "%MANIFEST_PATH%" (
     echo --- Package Delta from install_manifest.log ---
-    findstr /C:"[ENV]" /C:"[NEW]" "%~dp0install_manifest.log"
+    findstr /C:"[ENV]" /C:"[NEW]" "%MANIFEST_PATH%"
     echo -----------------------------------------------
     echo.
 )

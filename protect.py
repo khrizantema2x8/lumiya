@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from cleaner import cleanMemoryAndStorage
+from core.cleaner import cleanMemoryAndStorage
 from core.init import (
     DEFAULT_ALGO_IDS,
     MAX_STEPS,
@@ -50,7 +50,7 @@ from stego.mark import PLACEMENTS, MarkError, embedMark, inspectStego, prepareMa
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 APP_NAME = "PORTtralica Lumiya"
-APP_VERSION = "v0.5.099.9310 (Pilot)"
+APP_VERSION = "v0.6.017.4110 (Pilot)"
 
 if sys.platform == "win32":
     kernel32 = ctypes.windll.kernel32
@@ -302,10 +302,12 @@ probeStartupDeps()
 ROOT_DIR = Path(__file__).resolve().parent
 ALGOS_DIR = ROOT_DIR / "algos"
 RESULTS_ROOT = ROOT_DIR / "results"
+IDENTITY_DIR = ROOT_DIR / "identity"
+USER_DIR = ROOT_DIR / "user"
 UI_FILE = ROOT_DIR / "ui.html"
-CONFIG_FILE = ROOT_DIR / "config.json"
-HISTORY_FILE = ROOT_DIR / "history.json"
-MANIFEST_FILE = ROOT_DIR / "install_manifest.log"
+CONFIG_FILE = USER_DIR / "config.json"
+HISTORY_FILE = USER_DIR / "history.json"
+MANIFEST_FILE = USER_DIR / "install_manifest.log"
 
 BRAND_STATUS = verifyBrandAssets(ROOT_DIR)
 CFG = SuiteConfig.load(CONFIG_FILE)
@@ -1226,9 +1228,10 @@ class RuntimeState:
     history: List[Dict[str, Any]] = field(default_factory=list)
 
     def loadHistory(self) -> None:
-        if HISTORY_FILE.exists():
+        target = HISTORY_FILE if HISTORY_FILE.exists() else (ROOT_DIR / "history.json")
+        if target.exists():
             try:
-                self.history = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+                self.history = json.loads(target.read_text(encoding="utf-8"))
             except Exception:
                 self.history = []
 
@@ -1288,7 +1291,7 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
             rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
             TermLog.emit(
                 f"No active browser tabs — purged caches (VRAM freed: {rep['vramFreedMb']} MB, buffers: {rep['ramBuffersCleared']})",
-                "cleaner.py",
+                "core/cleaner.py",
                 "INFO",
             )
 
@@ -1501,9 +1504,18 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif parsed.path in ("/lumiya_blk.ico", "/lumiya_t.ico", "/logo.png"):
-                assetName = parsed.path.lstrip("/")
-                assetPath = ROOT_DIR / assetName
+            elif parsed.path in (
+                "/lumiya_blk.ico",
+                "/lumiya_t.ico",
+                "/logo.png",
+                "/identity/lumiya_blk.ico",
+                "/identity/lumiya_t.ico",
+                "/identity/logo.png",
+            ):
+                assetName = Path(parsed.path).name
+                assetPath = IDENTITY_DIR / assetName
+                if not assetPath.exists() and (ROOT_DIR / assetName).exists():
+                    assetPath = ROOT_DIR / assetName
                 if not assetPath.exists() and (ROOT_DIR / "assets" / assetName).exists():
                     assetPath = ROOT_DIR / "assets" / assetName
                 if assetPath.exists():
@@ -1601,7 +1613,8 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
                 res = inspectStego(imgBytes)
                 self.sendJson({"ok": True, **res})
             elif parsed.path == "/api/manifest":
-                text = MANIFEST_FILE.read_text(encoding="utf-8") if MANIFEST_FILE.exists() else "No install_manifest.log found."
+                manifestPath = MANIFEST_FILE if MANIFEST_FILE.exists() else (ROOT_DIR / "install_manifest.log")
+                text = manifestPath.read_text(encoding="utf-8") if manifestPath.exists() else "No user/install_manifest.log found."
                 self.sendJson({"manifest": text})
             else:
                 self.send_error(HTTPStatus.NOT_FOUND)
@@ -1806,7 +1819,18 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
             elif parsed.path == "/api/system_maint":
                 cmdType = qs.get("cmd", [""])[0]
                 if cmdType == "install":
-                    subprocess.Popen(["cmd.exe", "/c", "start", "PORTtralica Installer", "cmd.exe", "/k", str(ROOT_DIR / "install.bat")])
+                    if sys.platform == "win32":
+                        subprocess.Popen(["cmd.exe", "/c", "start", "PORTtralica Installer", "cmd.exe", "/k", str(ROOT_DIR / "install.bat")])
+                    else:
+                        shPath = str(ROOT_DIR / "run.sh")
+                        term = shutil.which("x-terminal-emulator") or shutil.which("gnome-terminal") or shutil.which("konsole") or shutil.which("xfce4-terminal") or shutil.which("xterm")
+                        cmd = ["bash", "-c", f"bash '{shPath}' --install; echo; read -n 1 -s -r -p 'Press any key to close...';"]
+                        if term and "gnome-terminal" in Path(term).name:
+                            subprocess.Popen([term, "--"] + cmd)
+                        elif term:
+                            subprocess.Popen([term, "-e"] + cmd)
+                        else:
+                            subprocess.Popen(["bash", shPath, "--install"])
                     self.sendJson({"ok": True})
                 elif cmdType == "run_cleaner":
                     rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine)

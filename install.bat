@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.5.099.9310 (Pilot) - Environment Installer
+title PORTtralica Lumiya v0.6.017.4110 (Pilot) - Environment Installer
 cd /d "%~dp0"
 
 chcp 65001 >nul 2>&1
@@ -13,12 +13,14 @@ set "RED=%ESC%[91m"
 set "CYAN=%ESC%[96m"
 set "RESET=%ESC%[0m"
 
-set "MANIFEST=%~dp0install_manifest.log"
+set "USER_DIR=%~dp0user"
+if not exist "%USER_DIR%" mkdir "%USER_DIR%"
+set "MANIFEST=%USER_DIR%\install_manifest.log"
 set "PRE_LIST=%TEMP%\lumiya_pre.txt"
 set "POST_LIST=%TEMP%\lumiya_post.txt"
 
 echo ======================================================================== > "%MANIFEST%"
-echo   PORTtralica Lumiya v0.5.099.9310 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
+echo   PORTtralica Lumiya v0.6.017.4110 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
 echo   Timestamp : %DATE% %TIME% >> "%MANIFEST%"
 echo   Username  : %USERNAME% >> "%MANIFEST%"
 echo ======================================================================== >> "%MANIFEST%"
@@ -42,7 +44,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya v0.5.099.9310 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
+echo   %DIM%PORTtralica Lumiya v0.6.017.4110 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
 echo   ====================================================================================================
 echo.
 
@@ -226,7 +228,7 @@ for /d /r "%~dp0" %%D in (__pycache__) do @if exist "%%~D" rd /s /q "%%~D"
 echo.
 echo   ====================================================================================================
 echo   [%GREEN%COMPLETE%RESET%] Environment '!ENV_NAME!' is ready. Manifest saved to:
-echo              install_manifest.log
+echo              user\install_manifest.log
 echo   ====================================================================================================
 echo.
 echo   Press any key to close installer...

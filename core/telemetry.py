@@ -91,7 +91,12 @@ class TelemetryMonitor:
         candidates = (
             ["nvml.dll", r"C:\Windows\System32\nvml.dll", r"C:\Program Files\NVIDIA Corporation\NVSMI\nvml.dll"]
             if sys.platform == "win32"
-            else ["libnvidia-ml.so.1", "libnvidia-ml.so"]
+            else [
+                "libnvidia-ml.so.1",
+                "libnvidia-ml.so",
+                "/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1",
+                "/usr/lib/x86_64-linux-gnu/libnvidia-ml.so",
+            ]
         )
         for pathStr in candidates:
             try:

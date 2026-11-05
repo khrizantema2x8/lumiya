@@ -41,6 +41,7 @@ DEFAULT_ALGO_IDS = (
 
 def atomicWrite(path: Path, text: str) -> None:
     """Writes via a sibling file so a crash mid-save cannot leave a truncated file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmpPath = path.with_name(f"{path.name}.{threading.get_ident()}.partial")
     tmpPath.write_text(text, encoding="utf-8")
     os.replace(tmpPath, path)
@@ -180,9 +181,12 @@ class SuiteConfig:
     @classmethod
     def load(cls, configFile: Path) -> "SuiteConfig":
         cfg = cls()
-        if configFile.exists():
+        target = configFile
+        if not target.exists() and (target.parent.parent / target.name).exists():
+            target = target.parent.parent / target.name
+        if target.exists():
             try:
-                raw = json.loads(configFile.read_text(encoding="utf-8"))
+                raw = json.loads(target.read_text(encoding="utf-8"))
                 if isinstance(raw, dict):
                     cfg.applyDict(raw)
             except Exception:
