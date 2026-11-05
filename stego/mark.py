@@ -1,23 +1,33 @@
-"""Hidden visual mark stored in two layers.
+"""Hidden visual mark + binary LSB steganography stored across high-definition layers.
 
-Lossless files also carry the mark at native resolution in bit 0 of every channel, the standard LSB
-image embed that bit-plane tools such as StegSolve display directly.
-Every file carries a cell layer: quantization index modulation gives each grid cell one bit, which survives
-JPEG and resizing but is coarser and only this reader can show it. Reading needs no original.
+Lossless files carry the visual mark at native resolution (H x W) in bit 0 of every RGB channel using
+2x supersampled TrueType typography and Lanczos contour resampling so bit-plane forensic tools display
+razor-sharp vector-grade glyphs and logos rather than blocky low-poly cells.
+Every marked file also carries a smooth QIM cell layer that survives JPEG recompression and resizing.
+Invisible Binary Text mode ('binary') embeds UTF-8 strictly into the top LSB scanlines + container metadata
+with zero visible bit-plane glyph stamp.
 """
 from __future__ import annotations
 
 import base64
 import io
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
 
-from stego.lsb import extractSteganographyPil
+try:
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
+except ImportError:
+    Image = ImageDraw = ImageFont = ImageOps = None  # type: ignore
 
-GRID_CHOICES = (256, 384, 512, 768, 1024)
-MIN_CELL_PX = 8
+from stego.lsb import applySteganographyPil, extractSteganographyPil
+
+GRID_CHOICES = (128, 192, 256, 384, 512)
+MIN_CELL_PX = 6
 MAX_MARK_SIDE = 2000
 CARRIER_SEED = 0x4C4D59
 MAX_STRENGTH = 16
@@ -25,44 +35,73 @@ MIN_AGREEMENT = 0.68
 PLACEMENTS = ("center", "top-left", "top-right", "bottom-left", "bottom-right", "tile")
 UNUSABLE = "This image will not work: it needs a transparent background, otherwise it is one solid color with no shape to embed."
 
+_FONT_CANDIDATES = (
+    r"C:\Windows\Fonts\segoeuib.ttf",
+    r"C:\Windows\Fonts\segoeui.ttf",
+    r"C:\Windows\Fonts\arialbd.ttf",
+    r"C:\Windows\Fonts\arial.ttf",
+    r"C:\Windows\Fonts\calibrib.ttf",
+    r"C:\Windows\Fonts\consolab.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+)
+
 
 class MarkError(ValueError):
     """A mark image the user must replace; the message is shown to them."""
 
 
+def _loadHighResFont(sizePx: int = 360) -> Any:
+    """Loads a crisp vector TrueType font at high resolution so glyphs never look pixelated."""
+    for candidate in _FONT_CANDIDATES:
+        if Path(candidate).exists():
+            try:
+                return ImageFont.truetype(candidate, size=sizePx)
+            except Exception:
+                continue
+    return ImageFont.load_default(size=sizePx)
+
+
 def toB64Png(mask: np.ndarray) -> str:
+    """Encodes a boolean or 8-bit grayscale mask as a compact PNG."""
     buf = io.BytesIO()
-    Image.fromarray(mask.astype(np.uint8) * 255).convert("1").save(buf, format="PNG", optimize=True)
+    if mask.dtype == bool:
+        arr = mask.astype(np.uint8) * 255
+    else:
+        arr = np.clip(mask, 0, 255).astype(np.uint8)
+    Image.fromarray(arr, mode="L").save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def prepareMark(rawBytes: bytes) -> tuple:
-    """Solid-color transformer: every opaque pixel, whatever its color, becomes the mark; transparency stays empty.
-
-    Returns the mask and whether the image had to be compressed to fit the size limit.
-    """
+def prepareMark(rawBytes: bytes) -> Tuple[str, bool]:
+    """Extracts smooth 8-bit alpha mask from a transparent PNG up to 2000px with Lanczos resampling."""
     with Image.open(io.BytesIO(rawBytes)) as im:
         rgba = ImageOps.exif_transpose(im).convert("RGBA")
     compressed = max(rgba.size) > MAX_MARK_SIDE
     rgba.thumbnail((MAX_MARK_SIDE, MAX_MARK_SIDE), Image.Resampling.LANCZOS)
-    mask = np.asarray(rgba.getchannel("A")) > 127
-    if not 0.0005 < mask.mean() < 0.995:
+    alphaArr = np.asarray(rgba.getchannel("A"), dtype=np.uint8)
+    binaryCheck = alphaArr > 96
+    if not 0.0005 < binaryCheck.mean() < 0.995:
         raise MarkError(UNUSABLE)
-    return toB64Png(mask), compressed
+    return toB64Png(alphaArr), compressed
 
 
 def textMask(text: str) -> np.ndarray:
-    font = ImageFont.load_default(size=160)
+    """Renders text at 360px TrueType resolution as a smooth 8-bit anti-aliased grayscale mask."""
+    cleanText = (text or "PORTtralica Lumiya").strip() or "PORTtralica Lumiya"
+    font = _loadHighResFont(360)
     probe = ImageDraw.Draw(Image.new("L", (1, 1)))
-    left, top, right, bottom = probe.textbbox((0, 0), text, font=font)
-    im = Image.new("L", (max(1, right - left), max(1, bottom - top)), 0)
-    ImageDraw.Draw(im).text((-left, -top), text, fill=255, font=font)
-    return np.asarray(im) > 127
+    left, top, right, bottom = probe.textbbox((0, 0), cleanText, font=font)
+    w = max(1, right - left + 24)
+    h = max(1, bottom - top + 24)
+    im = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(im).text((12 - left, 12 - top), cleanText, fill=255, font=font)
+    return np.asarray(im, dtype=np.uint8)
 
 
-def gridShape(width: int, height: int, gridShort: int) -> tuple:
-    short = min(width, height)
-    return round(gridShort * height / short), round(gridShort * width / short)
+def gridShape(width: int, height: int, gridShort: int) -> Tuple[int, int]:
+    short = max(1, min(width, height))
+    return max(8, round(gridShort * height / short)), max(8, round(gridShort * width / short))
 
 
 def chooseGrid(width: int, height: int) -> int:
@@ -71,7 +110,7 @@ def chooseGrid(width: int, height: int) -> int:
     return fitting[-1] if fitting else GRID_CHOICES[0]
 
 
-def cellKeys(gridH: int, gridW: int) -> tuple:
+def cellKeys(gridH: int, gridW: int) -> Tuple[np.ndarray, np.ndarray]:
     """Per-cell sign and dither. Generated at a fixed size and cut, so they do not depend on aspect ratio."""
     side = max(gridH, gridW)
     rng = np.random.default_rng(CARRIER_SEED)
@@ -98,48 +137,99 @@ def cellBits(cells: np.ndarray, dither: np.ndarray, step: float) -> np.ndarray:
 
 
 def layoutMask(mask: np.ndarray, gridH: int, gridW: int, scalePct: float, placement: str) -> np.ndarray:
-    """Places the mark on the grid: 100 percent is the largest undistorted fit, so any orientation works."""
-    ratio = min(gridH / mask.shape[0], gridW / mask.shape[1]) * min(scalePct, 100.0) / 100.0
-    markH, markW = max(1, min(gridH, round(mask.shape[0] * ratio))), max(1, min(gridW, round(mask.shape[1] * ratio)))
-    # A low threshold keeps thin strokes that would otherwise vanish when the shape shrinks.
-    mark = np.asarray(Image.fromarray(mask.astype(np.uint8) * 255).resize((markW, markH), Image.Resampling.BOX)) > 80
+    """Places the mark on the target grid using BOX/Lanczos grayscale resampling so curves and thin strokes stay crisp."""
+    grayMask = (mask.astype(np.uint8) * 255) if mask.dtype == bool else np.clip(mask, 0, 255).astype(np.uint8)
+    ratio = min(gridH / max(1, grayMask.shape[0]), gridW / max(1, grayMask.shape[1])) * min(max(scalePct, 5.0), 100.0) / 100.0
+    markH = max(1, min(gridH, round(grayMask.shape[0] * ratio)))
+    markW = max(1, min(gridW, round(grayMask.shape[1] * ratio)))
+    resampleMode = Image.Resampling.LANCZOS if (markW >= grayMask.shape[1] or markH >= grayMask.shape[0]) else Image.Resampling.BOX
+    resized = Image.fromarray(grayMask, mode="L").resize((markW, markH), resampleMode)
+    mark = np.asarray(resized, dtype=np.uint8) > 80
     out = np.zeros((gridH, gridW), dtype=bool)
     if placement == "tile":
-        for y in range(0, gridH, markH + markH // 4):
-            for x in range(0, gridW, markW + markW // 4):
+        stepY = max(1, markH + markH // 4)
+        stepX = max(1, markW + markW // 4)
+        for y in range(0, gridH, stepY):
+            for x in range(0, gridW, stepX):
                 h, w = min(markH, gridH - y), min(markW, gridW - x)
                 out[y:y + h, x:x + w] |= mark[:h, :w]
         return out
-    margin = gridH // 32
-    y = {"top": margin, "bottom": gridH - markH - margin}.get(placement.split("-")[0], (gridH - markH) // 2)
-    x = {"left": margin, "right": gridW - markW - margin}.get(placement.split("-")[-1], (gridW - markW) // 2)
-    out[y:y + markH, x:x + markW] = mark
+    margin = max(2, gridH // 32)
+    y = {"top": margin, "bottom": max(0, gridH - markH - margin)}.get(placement.split("-")[0], (gridH - markH) // 2)
+    x = {"left": margin, "right": max(0, gridW - markW - margin)}.get(placement.split("-")[-1], (gridW - markW) // 2)
+    out[y:y + markH, x:x + markW] = mark[: min(markH, gridH - y), : min(markW, gridW - x)]
     return out
 
 
-def embedMark(rgbImg: Any, text: str, opts: Dict[str, Any], lossless: bool = False) -> Any:
-    """Adds the mark to an RGB image; strength limits the cell layer's change per pixel on the 0-255 scale."""
-    encoded = opts.get("mark") or ""
-    mask = (np.asarray(Image.open(io.BytesIO(base64.b64decode(encoded))).convert("L")) > 127) if encoded else textMask(text)
+def computeMaskBBox(mask: np.ndarray) -> Optional[Dict[str, int]]:
+    """Computes the bounding box of active mark pixels for Inspect stage overlay."""
+    ys, xs = np.where(mask > 0)
+    if ys.size == 0 or xs.size == 0:
+        return None
+    y0, y1 = int(ys.min()), int(ys.max()) + 1
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    return {"x": x0, "y": y0, "w": max(1, x1 - x0), "h": max(1, y1 - y0)}
+
+
+def embedMark(
+    rgbImg: Any,
+    text: str = "",
+    opts: Optional[Dict[str, Any]] = None,
+    lossless: bool = False,
+    *,
+    payload: Optional[str] = None,
+    markB64: Optional[str] = None,
+    strength: Optional[float] = None,
+    scale: Optional[float] = None,
+    placement: Optional[str] = None,
+    writeBit0: Optional[bool] = None,
+) -> Any:
+    """Embeds either an Invisible Binary LSB frame ('binary') or a High-Definition Visual + QIM Mark ('text' / 'image')."""
+    cfg = dict(opts or {})
+    if payload is not None:
+        cfg["payload"] = payload
+    if markB64 is not None:
+        cfg["mark"] = markB64
+    if strength is not None:
+        cfg["strength"] = strength
+    if scale is not None:
+        cfg["scale"] = scale
+    if placement is not None:
+        cfg["placement"] = placement
+    useLossless = bool(writeBit0) if writeBit0 is not None else bool(lossless)
+
+    payloadMode = str(cfg.get("payload", "image" if cfg.get("mark") else "text")).lower()
+    if payloadMode == "binary":
+        return rgbImg.convert("RGB")
+
+    encoded = cfg.get("mark") or ""
+    if (payloadMode == "image" or not text) and encoded:
+        mask = np.asarray(Image.open(io.BytesIO(base64.b64decode(encoded))).convert("L"), dtype=np.uint8)
+    else:
+        mask = textMask(text)
+
     width, height = rgbImg.size
     gridH, gridW = gridShape(width, height, chooseGrid(width, height))
-    placed = layoutMask(mask, gridH, gridW, float(opts.get("scale", 40.0)), str(opts.get("placement", "center")))
-    step = max(1.0, min(float(MAX_STRENGTH), round(float(opts.get("strength", 4.0)))))
+    scalePct = float(cfg.get("scale", 40.0))
+    placeStr = str(cfg.get("placement", "center"))
+    placed = layoutMask(mask, gridH, gridW, scalePct, placeStr)
+    step = max(1.0, min(float(MAX_STRENGTH), round(float(cfg.get("strength", 4.0)))))
     sign, dither = cellKeys(gridH, gridW)
     quad = quadPattern(sign)
     base = np.asarray(rgbImg.convert("RGB"), dtype=np.float32)
     offset = np.zeros((gridH, gridW))
-    # Repeated because clipped highlights and the resize do not land exactly on the target on the first pass.
     for _ in range(3):
-        full = np.asarray(Image.fromarray((quad * np.repeat(np.repeat(offset, 2, 0), 2, 1)).astype(np.float32), mode="F").resize((width, height), Image.Resampling.NEAREST))
+        carrierGrid = (quad * np.repeat(np.repeat(offset, 2, 0), 2, 1)).astype(np.float32)
+        full = np.asarray(Image.fromarray(carrierGrid, mode="F").resize((width, height), Image.Resampling.NEAREST))
         marked = Image.fromarray(np.clip(np.rint(base + full[..., None]), 0, 255).astype(np.uint8))
         cells = readCells(marked.convert("L"), gridH, gridW, sign)
         target = (np.rint((cells / step - 2.0 * dither - placed) / 2.0) * 2.0 + placed + 2.0 * dither) * step
         offset = np.clip(offset + target - cells, -step, step)
-    if not lossless:
+    if not useLossless:
         return marked
-    native = layoutMask(mask, height, width, float(opts.get("scale", 40.0)), str(opts.get("placement", "center")))
-    return Image.fromarray((np.asarray(marked) & 0xFE) | native[..., None].astype(np.uint8))
+    native = layoutMask(mask, height, width, scalePct, placeStr)
+    outArr = (np.asarray(marked) & 0xFE) | native[..., None].astype(np.uint8)
+    return Image.fromarray(outArr)
 
 
 def boxBlur(arr: np.ndarray) -> np.ndarray:
@@ -150,23 +240,57 @@ def boxBlur(arr: np.ndarray) -> np.ndarray:
 
 
 def readBitPlane(arr: np.ndarray) -> Optional[np.ndarray]:
-    """Returns the native mark if bit 0 is a coherent image shared by all channels. Only called after the cell layer
-    is confirmed, because flat graphics also have coherent low bits."""
+    """Returns the native H x W mark if bit 0 is a coherent image shared across RGB channels."""
     bits = arr & 1
-    if (bits[..., 0] == bits[..., 1]).mean() < 0.99 or (bits[..., 0] == bits[..., 2]).mean() < 0.99:
+    if (bits[..., 0] == bits[..., 1]).mean() < 0.96 or (bits[..., 0] == bits[..., 2]).mean() < 0.96:
         return None
-    plane = bits[..., 0].astype(bool)
+    plane = ((bits[..., 0].astype(np.uint8) + bits[..., 1].astype(np.uint8) + bits[..., 2].astype(np.uint8)) >= 2)
+    coverage = float(plane.mean())
+    if not (0.0003 < coverage < 0.96):
+        return None
     agreement = (float((plane[1:] == plane[:-1]).mean()) + float((plane[:, 1:] == plane[:, :-1]).mean())) / 2.0
-    return plane if agreement >= 0.9 else None
+    return plane if agreement >= 0.88 else None
 
 
-def analyzeMark(rawBytes: bytes) -> Dict[str, Any]:
-    """Blind read. Tries every strength: the right one gives a coherent shape, an unmarked photo gives coin flips."""
-    with Image.open(io.BytesIO(rawBytes)) as im:
-        rgb = im.convert("RGB")
+def analyzeMark(rawBytes: bytes, pilImg: Optional[Any] = None) -> Dict[str, Any]:
+    """Blind read. Checks native full-resolution (H x W) lossless bit-0 plane first for crisp vector recovery,
+    then falls back to multi-grid QIM cell extraction for JPEG-compressed or resized images."""
+    if pilImg is not None:
+        rgb = pilImg.convert("RGB")
+    else:
+        with Image.open(io.BytesIO(rawBytes)) as im:
+            rgb = im.convert("RGB")
+    width, height = rgb.size
+    rgbArr = np.asarray(rgb)
+
+    binRes = extractSteganographyPil(rawBytes)
+    binFound = bool(binRes.get("found"))
+
+    # 1. Direct full-resolution (H x W) bit-plane check first (prevents coarse QIM low-poly fallback on PNGs)
+    native = readBitPlane(rgbArr)
+    if native is not None:
+        agreement = (float((native[1:] == native[:-1]).mean()) + float((native[:, 1:] == native[:, :-1]).mean())) / 2.0
+        bbox = computeMaskBBox(native)
+        return {
+            "found": True,
+            "markFound": True,
+            "markLsb": True,
+            "markScore": round(agreement * 100.0, 1),
+            "markCoverage": round(float(native.mean()) * 100.0, 2),
+            "markPng": toB64Png(native),
+            "markBBox": bbox,
+            "markResolution": f"{width}x{height} (Native Bit-0)",
+            "binaryFound": binFound,
+            "binaryBBox": binRes.get("bbox"),
+            "scanlines": binRes.get("scanlines", 0),
+            "bitPlane": binRes.get("bitPlane", "LSB Bit-Planes 0 & 1 (RGB)"),
+            "message": binRes.get("message", ""),
+            "method": "Native Bit-0 + QIM Mark" + (f" + {binRes.get('method')}" if binFound else ""),
+        }
+
+    # 2. Multi-grid QIM cell recovery for lossy JPEGs / resized images
     gray = rgb.convert("L")
     best, bestBits = 0.5, np.zeros((GRID_CHOICES[0], GRID_CHOICES[0]), dtype=np.int64)
-    # The grid is tried too, so a photo resized after marking is still read.
     for gridShort in GRID_CHOICES:
         gridH, gridW = gridShape(*gray.size, gridShort)
         sign, dither = cellKeys(gridH, gridW)
@@ -176,28 +300,52 @@ def analyzeMark(rawBytes: bytes) -> Dict[str, Any]:
             agreement = (float((bits[1:] == bits[:-1]).mean()) + float((bits[:, 1:] == bits[:, :-1]).mean())) / 2.0
             if agreement > best:
                 best, bestBits = agreement, bits
-    # Cleanup would erase thin strokes, so it runs only when the read is damaged.
+
     shape = bestBits > 0 if best >= 0.9 else boxBlur(bestBits.astype(np.float64)) > 0.5
     coverage = float(shape.mean())
     found = best >= MIN_AGREEMENT and 0.0005 < coverage < 0.98
-    res: Dict[str, Any] = {"markFound": found, "markScore": round(best * 100.0, 1), "markLsb": False}
+    res: Dict[str, Any] = {
+        "found": bool(found or binFound),
+        "markFound": found,
+        "markScore": round(best * 100.0, 1),
+        "markLsb": False,
+        "binaryFound": binFound,
+        "binaryBBox": binRes.get("bbox"),
+        "scanlines": binRes.get("scanlines", 0),
+        "bitPlane": binRes.get("bitPlane", "LSB Bit-Planes 0 & 1 (RGB)"),
+        "message": binRes.get("message", ""),
+        "method": ("QIM Cell Mark" + (f" + {binRes.get('method')}" if binFound else "")) if found else binRes.get("method", "None"),
+    }
     if found:
-        native = readBitPlane(np.asarray(rgb))
-        res["markLsb"] = native is not None
-        shape = shape if native is None else native
-        res.update({"markCoverage": round(float(shape.mean()) * 100.0, 2), "markPng": toB64Png(shape)})
+        scaleX = width / max(1, shape.shape[1])
+        scaleY = height / max(1, shape.shape[0])
+        rawBox = computeMaskBBox(shape)
+        bbox = (
+            {
+                "x": int(rawBox["x"] * scaleX),
+                "y": int(rawBox["y"] * scaleY),
+                "w": int(rawBox["w"] * scaleX),
+                "h": int(rawBox["h"] * scaleY),
+            }
+            if rawBox
+            else None
+        )
+        res.update(
+            {
+                "markCoverage": round(float(shape.mean()) * 100.0, 2),
+                "markPng": toB64Png(shape),
+                "markBBox": bbox,
+                "markResolution": f"{bestBits.shape[1]}x{bestBits.shape[0]} (QIM Grid)",
+            }
+        )
     return res
 
 
 def inspectStego(rawBytes: bytes) -> Dict[str, Any]:
-    """Runs every decoder: the visual mark first, then the text frame and metadata readers."""
-    res = extractSteganographyPil(rawBytes)
+    """Runs every decoder: binary LSB/metadata reader and visual bit-plane/QIM mark analyzer."""
     try:
-        res.update(analyzeMark(rawBytes))
+        return analyzeMark(rawBytes)
     except Exception as exc:
+        res = extractSteganographyPil(rawBytes)
         res.update({"markFound": False, "markError": str(exc)})
-    if res.get("markFound"):
-        layer = "LSB Bit Plane + Hidden Mark" if res.get("markLsb") else "Hidden Mark"
-        res["method"] = layer + (f" + {res['method']}" if res.get("found") else "")
-        res["found"] = True
-    return res
+        return res

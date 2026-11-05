@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.5.034.4100 (Pilot) - Environment Installer
+title PORTtralica Lumiya v0.5.099.9310 (Pilot) - Environment Installer
 cd /d "%~dp0"
 
 chcp 65001 >nul 2>&1
@@ -18,7 +18,7 @@ set "PRE_LIST=%TEMP%\lumiya_pre.txt"
 set "POST_LIST=%TEMP%\lumiya_post.txt"
 
 echo ======================================================================== > "%MANIFEST%"
-echo   PORTtralica Lumiya v0.5.034.4100 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
+echo   PORTtralica Lumiya v0.5.099.9310 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
 echo   Timestamp : %DATE% %TIME% >> "%MANIFEST%"
 echo   Username  : %USERNAME% >> "%MANIFEST%"
 echo ======================================================================== >> "%MANIFEST%"
@@ -42,7 +42,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya v0.5.034.4100 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
+echo   %DIM%PORTtralica Lumiya v0.5.099.9310 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
 echo   ====================================================================================================
 echo.
 
@@ -127,10 +127,9 @@ if "!MISSING_CORE!"=="1" (
 
 call "!CONDA_ACTIVATE!"
 
-:: 4. Auto-accept Anaconda Terms of Service so non-interactive creation never fails
+:: 4. Auto-accept Anaconda Terms of Service without mutating user's global .condarc always_yes
 echo.
-echo   [01/05] Accepting Conda channel terms ^& configuring non-interactive mode...
-call conda config --set always_yes yes >nul 2>&1
+echo   [01/05] Accepting Conda channel terms ^& preparing isolated install...
 call conda tos accept >nul 2>&1
 call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main >nul 2>&1
 call conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r >nul 2>&1
@@ -182,8 +181,8 @@ if not defined TORCH_BUILD (
 )
 echo [HARDWARE] Torch build: !TORCH_BUILD! >> "%MANIFEST%"
 
-echo   [04/05] Installing diffusion, image ^& telemetry packages...
-python -m pip install --no-cache-dir "diffusers" "transformers" "accelerate" "huggingface-hub" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy"
+echo   [04/05] Installing pinned diffusion, image ^& telemetry packages...
+python -m pip install --no-cache-dir "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "pynvml>=11.5.0"
 
 python -m pip list --format=freeze > "%POST_LIST%"
 

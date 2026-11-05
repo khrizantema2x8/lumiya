@@ -111,7 +111,11 @@ Each time the installer runs, it writes `install_manifest.log` to document:
 
 ## Active Algorithms and Scientific References
 
-All algorithms implemented in the `algos/` directory are sourced from peer-reviewed scientific literature and established preprints:
+All algorithms implemented in the `algos/` directory are sourced from peer-reviewed scientific literature and established preprints.
+
+> Note: Algorithms marked with a triangle (`▲`) represent modules currently in development or awaiting upstream author specifications, public pretrained weight checkpoints, or multi-frame video pipelines.
+
+### Functional Algorithms
 
 1. PhotoGuard (Encoder Attack)
    - Paper: Raising the Cost of Malicious AI: Impeding Image-to-Image Translation with Adversarial Attacks
@@ -174,77 +178,82 @@ All algorithms implemented in the `algos/` directory are sourced from peer-revie
    - Citation: [arXiv:2302.06588](https://arxiv.org/abs/2302.06588)
    - Threat Model: Simulating stochastic brush masks during projected gradient descent to poison boundary contexts used by 9-channel inpainting models (SD-Inpaint / ControlNet).
 
-10. Anti-I2V
-    - Paper: Perceptual Opponent-Color & Spectral Image-to-Video Disruption
-    - Authors: Image-to-Video Perceptual Defense Research
-    - Citation: [arXiv Search: Image-to-Video Adversarial Defense](https://arxiv.org/search/?query=image+to+video+adversarial+defense+temporal+coherence&searchtype=all)
-    - Threat Model: Disrupting temporal frame coherence in image-to-video generators (SVD, Kling, Runway Gen-3) via opponent-color and spectral frequency optimization.
-
-11. ChronoLock
-    - Paper: Temporal Denoising & Cross-Chunk Boundary Disruption
-    - Authors: Long-Horizon Video Chunk Defense Architecture
-    - Citation: [arXiv Search: Temporal Chunk Boundary Video Defense](https://arxiv.org/search/?query=temporal+chunk+boundary+adversarial+video+diffusion&searchtype=all)
-    - Threat Model: Securing visual assets against text-to-video personalization by combining intra-chunk chaos and cross-chunk boundary disruption across sliding-window samplers.
-
-12. DeContext & CaD
-    - Paper: Context Detachment for Diffusion Transformers (DeContext & CaD)
-    - Authors: Diffusion Transformer Context Detachment Architecture
-    - Citation: [arXiv Search: DeContext Diffusion Transformer Defense](https://arxiv.org/search/?query=DeContext+Diffusion+Transformer+defense&searchtype=all)
-    - Threat Model: Restricting optimization to early timesteps and context-heavy attention blocks in DiT architectures to detach input conditioning from generated output.
-
-13. DiffVax
-    - Paper: DiffVax: Nested Multi-Scale Skip-Connection Cloak
-    - Authors: Multi-Scale Residual Skip-Connection Defense Architecture
-    - Citation: [arXiv Search: DiffVax Adversarial Image Protection](https://arxiv.org/search/?query=DiffVax+adversarial+image+protection&searchtype=all)
-    - Threat Model: Targeting U-Net and ResNet multi-scale skip-connection pooling to disrupt spatial edits and fine-grained video manipulation.
-
-14. FastProtect & TC-UAP
-    - Paper: Universal Adversarial Perturbation & Temporal-Consistent UAP Basis Defense
-    - Authors: Universal Spatial & Temporal Basis Defense Architecture
-    - Citation: [arXiv Search: Universal Adversarial Perturbation Diffusion Protection](https://arxiv.org/search/?query=Universal+Adversarial+Perturbation+Diffusion+Protection&searchtype=all)
-    - Threat Model: Rapid pre-computed Universal Adversarial Perturbation basis vectors accelerating spatial and temporal protection with minimal GPU step budgets.
-
-15. GenPTW & TAG-WM
-    - Paper: Latent-Space Provenance Watermarking & Tamper Localization
-    - Authors: Dual Latent Provenance & Tamper Localization Research
-    - Citation: [arXiv Search: Latent Space Watermarking Tamper Localization](https://arxiv.org/search/?query=latent+space+watermarking+tamper+localization+diffusion&searchtype=all)
-    - Threat Model: Embedding structured dual latent-space provenance watermarks that enable downstream tamper localization and ownership verification if images are modified.
-
-16. IDProtector
-    - Paper: Multi-Encoder Biometric Identity Inconsistency Defense
-    - Authors: Biometric & Facial Identity Defense Architecture
-    - Citation: [arXiv Search: IDProtector Facial Identity Defense](https://arxiv.org/search/?query=IDProtector+facial+identity+adversarial+diffusion&searchtype=all)
-    - Threat Model: Inducing feature inconsistency across facial recognition backbones and biometric identity adapters (InstantID, IP-Adapter-FaceID, PhotoMaker).
-
-17. MIRAGE
-    - Paper: Policy & Moderation Classifier Alignment Defense
-    - Authors: Anshul et al.
-    - Citation: [arXiv Search: MIRAGE Adversarial Protection](https://arxiv.org/search/?query=MIRAGE+adversarial+image+protection&searchtype=all)
-    - Threat Model: Aligning image representations with safety-classifier boundary anchors so commercial multimodal APIs (OpenAI GPT-4o, Google Gemini, xAI Grok) trigger refusal flags on automated edit requests.
-
-18. Obliviate
-    - Paper: KL-Supervised Visual Token Distribution Concept Erasure
-    - Authors: Visual Token Distribution Concept Erasure Architecture
-    - Citation: [arXiv Search: Obliviate Concept Erasure Visual Tokens](https://arxiv.org/search/?query=Obliviate+concept+erasure+visual+tokens&searchtype=all)
-    - Threat Model: Erasing semantic concepts in autoregressive visual-language models and tokenized multimodal architectures via Kullback-Leibler divergence supervision over visual token distributions.
-
-19. PromptFlare
+10. PromptFlare
     - Paper: Cross-Attention BOS Token Decoy Defense
     - Authors: Invariant Token Cross-Attention Decoy Architecture
     - Citation: [arXiv Search: PromptFlare Cross-Attention Defense](https://arxiv.org/search/?query=PromptFlare+cross+attention+adversarial+diffusion&searchtype=all)
     - Threat Model: Directing cross-attention weights away from text prompts and anchoring them onto invariant Beginning-of-Sequence (BOS) tokens to neutralize conditioning.
 
-20. SRIM
+11. SRIM
     - Paper: Scale-Robust Image Immunization via Minimax Geometric Anchors
     - Authors: Scale-Robust Minimax Defense Architecture
     - Citation: [arXiv Search: Scale-Robust Diffusion Defense](https://arxiv.org/search/?query=scale+robust+image+protection+diffusion&searchtype=all)
     - Threat Model: Minimax optimization over continuous geometric scaling anchors (1.7x to 7.1x) ensuring protection survives web scraper downscaling and responsive cropping.
 
-21. Vid-Freeze
+12. Vid-Freeze
     - Paper: Motion Dynamics Suppression via Target Attention Freezing Loss
     - Authors: Video Diffusion Motion Freezing Architecture
     - Citation: [arXiv Search: Video Diffusion Motion Freezing Defense](https://arxiv.org/search/?query=video+diffusion+adversarial+motion+freezing&searchtype=all)
     - Threat Model: Suppressing motion dynamic latent vectors so video generation pipelines collapse into static frame repetition.
+
+13. AntiPrompt
+    - Paper: AntiPrompt: Adversarial Invariance Decoupling for Prompt Conditioning
+    - Authors: Prompt Decoupling & Semantic Disruption Research
+    - Venue: arXiv 2026
+    - Citation: [arXiv:2607.01499](https://arxiv.org/abs/2607.01499)
+    - Threat Model: Decoupling conditioned text embeddings from image latents to nullify prompt-driven generative editing.
+
+14. IDGuardian
+    - Paper: Zero-Checkpoint Biometric Contour & Identity Protection
+    - Authors: Facial Identity & Feature Disruption Research
+    - Threat Model: Facial boundary and keypoint perturbation disrupting biometric recognition models without requiring external pretrained weights.
+
+### Pending & TBD Algorithms (▲)
+
+15. ▲ Anti-I2V
+    - Paper: Perceptual Opponent-Color & Spectral Image-to-Video Disruption
+    - Status: Upstream specification advisory / pending public repository release.
+    - Threat Model: Disrupting temporal frame coherence in image-to-video generators (SVD, Kling, Runway Gen-3) via opponent-color and spectral frequency optimization.
+
+16. ▲ ChronoLock
+    - Paper: Temporal Denoising & Cross-Chunk Boundary Disruption
+    - Status: Multi-frame video blocker / requires multi-GPU 5-frame sequence setup.
+    - Threat Model: Securing visual assets against text-to-video personalization by combining intra-chunk chaos and cross-chunk boundary disruption across sliding-window samplers.
+
+17. ▲ DeContext & CaD
+    - Paper: Context Detachment for Diffusion Transformers (DeContext & CaD)
+    - Status: Context detachment architecture pending public checkpoint release.
+    - Threat Model: Restricting optimization to early timesteps and context-heavy attention blocks in DiT architectures to detach input conditioning from generated output.
+
+18. ▲ DiffVax
+    - Paper: DiffVax: Nested Multi-Scale Skip-Connection Cloak
+    - Status: Weight-blocked / requires authors' pretrained feed-forward UNet++ checkpoints.
+    - Threat Model: Targeting U-Net and ResNet multi-scale skip-connection pooling to disrupt spatial edits and fine-grained video manipulation.
+
+19. ▲ FastProtect & TC-UAP
+    - Paper: Universal Adversarial Perturbation & Temporal-Consistent UAP Basis Defense
+    - Status: Weight-blocked / awaiting release of authors' pre-computed cluster banks and 3D video VAE tensors.
+    - Threat Model: Rapid pre-computed Universal Adversarial Perturbation basis vectors accelerating spatial and temporal protection with minimal GPU step budgets.
+
+20. ▲ GenPTW & TAG-WM
+    - Paper: Latent-Space Provenance Watermarking & Tamper Localization
+    - Status: Weight-blocked (GenPTW) and generation-time noise scope lock (TAG-WM).
+    - Threat Model: Embedding structured dual latent-space provenance watermarks for downstream tamper localization and ownership verification.
+
+21. ▲ IDProtector
+    - Paper: Multi-Encoder Biometric Identity Inconsistency Defense
+    - Status: Weight-blocked / requires pretrained ViT immunizer checkpoint from showlab/IDProtector.
+    - Threat Model: Inducing feature inconsistency across facial recognition backbones and biometric identity adapters (InstantID, IP-Adapter-FaceID, PhotoMaker).
+
+22. ▲ MIRAGE
+    - Paper: Policy & Moderation Classifier Alignment Defense
+    - Status: Ensemble & compute blocker / requires 8-model vision ensemble with 5,000 PGD steps.
+    - Threat Model: Aligning image representations with safety-classifier boundary anchors so commercial multimodal APIs trigger refusal flags on automated edit requests.
+
+23. ▲ Obliviate
+    - Paper: KL-Supervised Visual Token Distribution Concept Erasure
+    - Status: Generator-side scope lock / fine-tunes internal model LoRA adapters rather than input images.
+    - Threat Model: Erasing semantic concepts in autoregressive visual-language models via KL divergence supervision over visual token distributions.
 
 ---
 
@@ -282,23 +291,32 @@ Lumiya integrates 21 modular adversarial defense algorithms published across mac
 
 ```
 lumiya/
-|-- algos/                   # 21 Modular defense algorithm implementations
+|-- algos/                   # 29 Literature-derived defense algorithm implementations
 |   |-- photoguard/          # PhotoGuard ICML 2023 encoder attack
-|   |-- veto/                # VETO cross-attention transformer cloak
-|   |-- ...                  # Mirage, MetaCloak, DiffusionGuard, AntiPure, etc.
-|-- stego/                   # Steganography and resilient visual marker engine
-|   |-- lsb.py               # 2-bit cyclic LSB RGB channel embedding
-|   |-- mark.py              # Visual watermark placement and recovery
+|   |-- veto/                # VETO cross-attention transformer cloak (MMDiT / FLUX)
+|   |-- mist/                # Mist v2 Nyquist checkerboard adversarial target
+|   |-- antiprompt/          # AntiPrompt semantic invariance decoupling
+|   |-- idguardian/          # Zero-checkpoint biometric contour defense
+|   `-- ...                  # MetaCloak, DiffusionGuard, BlurGuard, SRIM, etc.
+|-- core/                    # Modular core subsystem package (PEP 420 namespace)
+|   |-- config.py            # Configuration validation, persistence, and SSE snapshots
+|   |-- loader.py            # Dynamic algorithm discovery, AST parsing, and hardware gating
+|   |-- security.py          # Origin verification and Windows device stem sanitization
+|   |-- telemetry.py         # NVML GPU wattage/temp/vram sensors and system telemetry
+|   `-- init.py              # Package coordinator (zero __init__.py)
+|-- stego/                   # 3-mode steganography and resilient visual marker engine
+|   |-- lsb.py               # 2-bit cyclic LSB text and binary stream (LMY1) embedding
+|   |-- mark.py              # TrueType visual watermark placement and QIM recovery
 |-- results/                 # Exported protected batches (git-ignored)
-|-- cleaner.py               # VRAM purging and memory garbage collection
-|-- config.json              # Shipped default suite configuration
-|-- install.bat              # Automated environment and dependency installer
-|-- run.bat                  # Production application launcher
-|-- uninstall.bat            # Clean uninstaller for Conda environment
-|-- protect.py               # Core HTTP server, engine coordinator, and worker
+|-- cleaner.py               # Memory management and worker process termination
+|-- config.json              # Default application and algorithm suite configuration
+|-- install.bat              # Automated environment and driver-matched CUDA installer
+|-- run.bat                  # Production application launcher with pre-flight checks
+|-- uninstall.bat            # Clean uninstaller for Conda environment and dependencies
+|-- protect.py               # Main HTTP server, PGD native-tiling engine, and compute worker
 |-- requirements.txt         # Core dependencies
-|-- ui.html                  # Single-file WebUI (Photoshop/Lightroom dark aesthetic)
-|-- logo.png                 # Application logo for README.md
+|-- ui.html                  # Single-file WebUI (10-lens forensic darkroom, A/B & split-curtain)
+|-- logo.png                 # High-resolution film-strip banner for README.md
 |-- CONTRIBUTING.md          # Scientific paper guidelines for algo contributions
 |-- LICENSE                  # PolyForm Shield License 1.0.0
 `-- README.md

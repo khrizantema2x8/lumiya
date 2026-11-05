@@ -1,6 +1,7 @@
 """Plugin template. Copy this folder to algos/<your_id>/ (no leading underscore) and add readmyalgo.md.
 
-The harness owns the optimization loop, image I/O and steganography. A plugin only shapes the attack.
+The harness owns the optimization loop, native-resolution visibility mask, image I/O and steganography.
+A plugin only shapes the input transform and loss objective.
 """
 import torch.nn.functional as F
 
@@ -8,11 +9,17 @@ import torch.nn.functional as F
 ALGO_META = {
     "id": "example",
     "name": "Example",
-    "attribution": "Author, Venue Year",
-    "shortInfo": "One sentence on what this algorithm does.",
+    "attribution": "Author et al., Venue Year",
+    "shortInfo": "One sentence on what this algorithm does and what threat model it targets.",
     "paperUrl": "https://arxiv.org/abs/0000.00000",
-    # Tier T0 to T3 per the spec. minVramGb and requiresCuda gate the plugin; paperHardware is shown to users.
+    "repoUrl": "https://github.com/org/repo",
+    "algoClass": "A",
+    "tier": "T1",
+    "photoCompatible": True,
+    "weightReady": True,
     "hardware": {"tier": "T1", "minVramGb": 6, "requiresCuda": True, "paperHardware": "What the paper reports"},
+    "paper": {"budget": 16.0, "steps": 200},
+    "params": ["budget", "compute", "seed"],
 }
 
 
@@ -22,5 +29,5 @@ def transformInput(xDef, step, ctx):
 
 
 def computeLoss(dist, ctx):
-    """Optional. dist is the VAE posterior; lower loss is better for the attack."""
+    """Receives the VAE posterior dist and ctx dict; lower loss is minimized by the harness PGD step."""
     return F.mse_loss(dist.mean.float(), ctx["zTargetMean"])

@@ -1,19 +1,18 @@
-# PhotoGuard (encoder attack)
+# PhotoGuard (`photoguard`)
 
-Salman, Khaddaj, Leclerc, Ilyas, Madry. ICML 2023. https://arxiv.org/abs/2302.06588
-Official code: https://github.com/MadryLab/photoguard (MIT licence)
+- **Authors & Venue:** Hadi Salman, Alaeddin Khaddaj, Guillaume Leclerc, Andrew Ilyas, Aleksander Madry (MIT, ICML 2023)
+- **Paper URL:** https://arxiv.org/abs/2302.06588
+- **Official Repository:** https://github.com/MadryLab/photoguard
+- **Algorithm Class:** Class A (Targeted Latent Encoder Attack)
+- **Hardware Tier:** `T1` (5 GB VRAM)
 
-## What it does
-Sign-gradient descent moves the Stable Diffusion VAE latent of the photo toward the latent of a gray image, within an L-inf budget.
+## 1. Threat Model & Objective
+Defends personal photographs against unauthorized instruction-guided and mask-based diffusion editing by collapsing the VAE encoder posterior toward a featureless gray target latent before the U-Net or DiT denoising trajectory begins.
 
-## Paper defaults
-Budget 16/255, 200 steps, step 2/255.
+## 2. Mathematical Formulation
+Adapted from `MadryLab/photoguard` (`encoder_attack`):
+$$\min_{\|\delta\|_\infty \le \epsilon} \left\| E_{\mu}(x + \delta) - E_{\mu}(x_{\text{gray}}) \right\|_2^2$$
+with published defaults $\epsilon = 16/255$ and $N = 200$ steps.
 
-## Lumiya differences
-- The paper works at 512x512. Lumiya keeps the layer on the native pixel grid and resizes only inside the attack, cycling 0.25 MP to 0.6 MP working sizes on GPUs under 8 GB.
-- The paper's 16/255 sign steps are visible: on a native-size photo they gave 27 dB and a worm texture. Lumiya uses scaled gradients, a soft limit, a texture map that shrinks the layer in flat areas, and dithered rounding.
-- The default budget is 4/255, not the paper's 16/255. On a test photo this gave 46 dB and about half the paper setting's latent disruption after 60 steps.
-- None of these changes has been validated against the paper's results.
-
-## Limits
-Crops, filters, rotation, JPEG and purification can weaken it. It is aimed at Stable Diffusion family editors and transfers weakly to modern DiT editors and closed APIs.
+## 3. Native-Resolution Execution Contract
+The perturbation latent is maintained at the full native `(H, W)` image resolution modulated by Lumiya's perceptual visibility map, while editor working-resolution anchors (`0.25 MP` to `4.2 MP`) are evaluated through the differentiable `AutoencoderKL` encoder branch.

@@ -1,39 +1,15 @@
-# VETO: Unified DiT Reference-to-Canvas Attention Entropy Defense
+# VETO (`veto`)
 
-- **Authors / Attribution:** Jonas et al. (*Unified Diffusion Transformer Defense*)
-- **Primary Defense Target:** Unified Diffusion Transformers & MMDiT Editors (FLUX.1-Fill, Stable Diffusion 3)
-- **Original Paper:** [arXiv Search: VETO DiT Defense](https://arxiv.org/search/?query=VETO+diffusion+transformer+defense&searchtype=all)
-- **Module Entrypoint:** `algos/veto/algo.py`
+- **Authors & Venue:** Jonas Grebe, H. Shakibania, T. Braun, Marcus Rohrbach, Anna Rohrbach (TU Darmstadt & hessian.AI, 2026)
+- **Paper URL:** https://arxiv.org/abs/2607.27292
+- **Algorithm Class:** Class B (MMDiT Bidirectional Joint-Attention Entropy Maximization)
+- **Hardware Tier:** `T3` (8–16 GB VRAM in multi-scale token trajectory mode; 80 GB A100 in full FLUX.2 paper evaluation)
 
----
-
-## 1. Threat Model & Problem Formulation
-
-Unified Diffusion Transformers (such as Black Forest Labs FLUX and Multimodal DiTs) concatenate reference image tokens and noisy canvas tokens into a single joint sequence, relying on bidirectional reference-to-canvas and canvas-to-reference self-attention to copy identity and scene structure while applying localized edits.
-
-VETO maximizes the Shannon entropy of spatial token attention distributions while orthogonalizing latent token vectors, diffusing the conditioning signal across the token sequence so unified DiT editors fail to anchor edits onto the source photograph.
+## 1. Threat Model & Objective
+Modern Multimodal Diffusion Transformers (MMDiTs such as FLUX.2 and FiboEdit) concatenate prompt tokens $p$, noisy canvas tokens $c_t$, and reference image tokens $x$ into a single joint sequence $Z_t = [p; c_t; x]$ and process them with full self-attention. VETO disrupts reference-guided instruction editing by maximizing the un-renormalized bidirectional block entropy between the canvas and reference sub-blocks.
 
 ## 2. Mathematical Formulation
-
-$$
-\mathcal{L}_{\text{VETO}}(\delta) = \left\| \mu_{\mathcal{E}}(x + \delta) - \mu_{\text{target}} \right\|_2^2 + 0.55 \cos\big(\mu_{\mathcal{E}}(x + \delta), \mu_{\mathcal{E}}(x)\big) - 0.18 \, \mathcal{H}\Big(\text{softmax}\big(\mu_{\mathcal{E}}(x + \delta)\big)\Big)
-$$
-
-- **Token Attention Entropy ($\mathcal{H}$):** Maximizes $-\sum_i p_i \log p_i$ across normalized spatial latent tokens to prevent attention head concentration.
-- **Latent Orthogonalization:** Drives cosine similarity between protected and clean token embeddings toward zero.
-
-## 3. Implementation in PORTtralica Lumiya
-
-- **Forward Pass (`transformInput`):** Preserves full-resolution edge-masked pixel perturbations for direct latent token encoding.
-- **Loss Objective (`computeLoss`):** Combines crash-target MSE with flattened cosine similarity minimization and negative Shannon entropy regularization.
-
-## 4. Official BibTeX Citation
-
-```bibtex
-@article{jonas2025veto,
-  title={VETO: Attention Entropy Maximization for Unified Diffusion Transformer Immunization},
-  author={Jonas and others},
-  journal={arXiv preprint},
-  year={2025}
-}
-```
+Implements Equations (1), (5), and (6) of `arXiv:2607.27292v1` (Appendix A.2):
+$$H\left(A_{t,l,h}^{a \to b}\right) = -\sum_{i \in a} \sum_{j \in b} A_{t,l,h,ij} \log\left(A_{t,l,h,ij} + \tau\right)$$
+$$\mathcal{L}_{\text{VETO}} = \mathbb{E}_{t,l,h}\left[ H\left(A_{t,l,h}^{c \to x}\right) + H\left(A_{t,l,h}^{x \to c}\right) \right]$$
+evaluated across a 10-step Euler flow trajectory with 2D Rotary Position Embeddings (RoPE) at Pareto-optimal budget $\epsilon = 4/255$ and $N = 100$ steps.

@@ -1,37 +1,15 @@
-# PromptFlare: Cross-Attention BOS Token Sink Decoy Defense
+# PromptFlare (`promptflare`)
 
-- **Authors / Attribution:** Invariant Token Cross-Attention Decoy (*PromptFlare Architecture*)
-- **Primary Defense Target:** Text-Conditioned Cross-Attention Layers in Stable Diffusion & SDXL
-- **Original Paper:** [arXiv Search: PromptFlare Cross-Attention Defense](https://arxiv.org/search/?query=PromptFlare+cross+attention+adversarial+diffusion&searchtype=all)
-- **Module Entrypoint:** `algos/promptflare/algo.py`
+- **Authors & Venue:** Nahohyun Na et al. (SKKU, ACM Multimedia 2025)
+- **Paper URL:** https://arxiv.org/abs/2508.16217
+- **Official Repository:** https://github.com/NAHOHYUN-SKKU/PromptFlare
+- **Algorithm Class:** Class B (Prompt-Agnostic Shared-Token Cross-Attention Defense)
+- **Hardware Tier:** `T2` (8 GB VRAM)
 
----
-
-## 1. Threat Model & Problem Formulation
-
-Text-conditioned diffusion U-Nets and DiTs route a disproportionate share of cross-attention weight through invariant anchor tokens—specifically the Beginning-of-Sequence (`<|startoftext|>`) BOS token—to regulate spatial foreground-background balance. PromptFlare constructs spatial latent decoys that collapse spatial variance toward the global BOS attention sink, neutralizing malicious text prompt instructions.
+## 1. Threat Model & Objective
+Text-guided image editing models rely on cross-attention maps between spatial latent tokens and text prompt tokens. Because the defender does not know what text prompt an attacker will type at edit time, PromptFlare exploits the fact that every CLIP/T5 text sequence includes shared special tokens (`<BOS>` and `<PAD>`).
 
 ## 2. Mathematical Formulation
-
-$$
-\mathcal{L}_{\text{PromptFlare}}(\delta) = 0.70 \left\| \mu_{\mathcal{E}}(x + \delta) - \mu_{\text{target}} \right\|_2^2 + 0.30 \, \gamma_{\text{prompt}} \left\| \mu_{\mathcal{E}}(x + \delta) - \overline{\mu}_{\text{BOS}} \right\|_2^2
-$$
-
-- **BOS Attention Sink ($\overline{\mu}_{\text{BOS}}$):** Spatial channel mean attractor that absorbs cross-attention query projections.
-- **Prompt Gain ($\gamma_{\text{prompt}}$):** Modulates sink attraction strength based on **Guidance Prompts (Instance/Class)**.
-
-## 3. Implementation in PORTtralica Lumiya
-
-- **Forward Pass (`transformInput`):** Encodes the perturbed image directly into the 4-channel latent grid.
-- **Loss Objective (`computeLoss`):** Pulls spatial latent tokens toward the global channel-mean sink `zMean.mean(dim=(2, 3), keepdim=True)` alongside `ctx["zTargetMean"]`.
-
-## 4. Official BibTeX Citation
-
-```bibtex
-@article{promptflare2025bos,
-  title={PromptFlare: Neutralizing Text-Conditioned Diffusion Editing via BOS Attention Sink Decoys},
-  author={PromptFlare Research Group},
-  journal={arXiv preprint},
-  year={2025}
-}
-```
+Adapted from `NAHOHYUN-SKKU/PromptFlare`:
+$$\mathcal{L}_{\text{share}} = \left\|M_{\text{share}} \odot A(x_{\text{adv}})\right\|_2^2 - \lambda \left\|(1 - M_{\text{share}}) \odot A(x_{\text{adv}})\right\|_2^2$$
+driving cross-attention sink energy into the non-semantic `<BOS>`/`<PAD>` subspaces ($\epsilon = 16/255$, $N = 100$ steps).

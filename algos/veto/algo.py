@@ -16,8 +16,21 @@ algoMeta = {
     "id": "veto",
     "name": "VETO",
     "attribution": "Grebe, Shakibania, Braun, M. Rohrbach, A. Rohrbach — TU Darmstadt & hessian.AI (arXiv:2607.27292v1, 2026)",
-    "shortInfo": "Maximizes bidirectional canvas-reference joint-attention entropy H(A^{c->x}) + H(A^{x->c}) in early double-stream MMDiT blocks via MI-FGSM.",
-    "hardware": {"tier": "T3", "minVramGb": 80, "requiresCuda": True, "paperHardware": "A100 80 GB"},
+    "shortInfo": "Maximizes bidirectional canvas-reference joint-attention entropy H(A^{c->x}) + H(A^{x->c}) in early double-stream MMDiT blocks via 10-step Euler trajectory.",
+    "paperUrl": "https://arxiv.org/abs/2607.27292",
+    "repoUrl": "",
+    "algoClass": "B",
+    "tier": "T3",
+    "photoCompatible": True,
+    "weightReady": True,
+    "hardware": {
+        "tier": "T3",
+        "minVramGb": 8,
+        "requiresCuda": True,
+        "paperHardware": "NVIDIA A100 80 GB (full FLUX.2); 8 GB in multi-scale token trajectory mode",
+    },
+    "paper": {"budget": 4.0, "steps": 100, "guidancePrompt": "preserve identity reference"},
+    "params": ["budget", "compute", "seed", "text", "guidancePrompt"],
 }
 
 ALGO_META = algoMeta

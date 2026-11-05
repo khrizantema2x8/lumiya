@@ -1,23 +1,27 @@
-import torch
 import torch.nn.functional as F
 
 ALGO_META = {
     "id": "diffvax",
-    "name": "DiffVax",
-    "attribution": "Nested Multi-Scale Spatial & Temporal Cloak Framework",
-    "shortInfo": "Uses nested multi-scale skip-connection pooling to disrupt spatial edits and video manipulation.",
-    "paperUrl": "https://arxiv.org/search/?query=DiffVax+adversarial+image+protection&searchtype=all",
-    "hardware": {"tier": "T1", "minVramGb": 6, "requiresCuda": True, "paperHardware": "5.6 GB inference; training on A100"},
+    "name": "\u25b2 DiffVax",
+    "attribution": "Ozden et al., ICLR 2026",
+    "shortInfo": "Optimization-free single-forward-pass image immunization via a trained UNet++ generator network (requires pretrained UNet++ checkpoint).",
+    "paperUrl": "https://arxiv.org/abs/2411.17957",
+    "repoUrl": "https://DiffVax.github.io",
+    "algoClass": "C",
+    "tier": "T0",
+    "photoCompatible": True,
+    "weightReady": False,
+    "blockerReason": "Requires the authors' pretrained UNet++ immunizer checkpoint (22 GPU-hours on A100 per target editor); weights not yet published on DiffVax.github.io.",
+    "hardware": {
+        "tier": "T0",
+        "minVramGb": 2,
+        "requiresCuda": False,
+        "paperHardware": "22h A100 training; <2 GB VRAM at inference once UNet++ weights are loaded",
+    },
+    "paper": {"budget": 16.0, "steps": 50},
+    "params": ["budget", "compute", "seed"],
 }
 
 
-def transformInput(xDef, step, ctx):
-    p2 = F.avg_pool2d(xDef, kernel_size=2, stride=2)
-    u2 = F.interpolate(p2, size=xDef.shape[-2:], mode="bilinear", align_corners=False)
-    return 0.80 * xDef + 0.20 * (xDef - u2)
-
-
 def computeLoss(dist, ctx):
-    zMean = dist.mean.float()
-    return F.mse_loss(zMean, ctx["zTargetMean"]) - 0.28 * F.mse_loss(zMean, ctx["zOrigMean"])
-
+    return F.mse_loss(dist.mean.float(), ctx["zTargetMean"])

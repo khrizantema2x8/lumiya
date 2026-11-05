@@ -1,37 +1,14 @@
-# AntiPure: Erroneous Timestep Guidance Against Diffusion Purifiers
+# AntiPure (`antipure`)
 
-- **Authors / Attribution:** Diffusion Purification Counter-Defense (*DiffPure / Score-SDE Countermeasure*)
-- **Primary Defense Target:** Diffusion-Based Adversarial Purifiers (DiffPure, GrIDPure, Score-SDE)
-- **Original Paper:** [arXiv Search: Diffusion Purification Adversarial Defense](https://arxiv.org/search/?query=diffusion+purification+adversarial+defense+DiffPure&searchtype=all)
-- **Module Entrypoint:** `algos/antipure/algo.py`
+- **Authors & Venue:** Yang et al. (ICCV 2025)
+- **Paper URL:** https://arxiv.org/abs/2509.13922
+- **Algorithm Class:** Class B (Purification-Resilient Diffusion Immunization)
+- **Hardware Tier:** `T2` (8 GB VRAM)
 
----
-
-## 1. Threat Model & Problem Formulation
-
-Diffusion-based purifiers (such as DiffPure) add small forward-process Gaussian noise to a protected image and run reverse denoising steps to wash out adversarial perturbations. AntiPure applies pre-sharpened erroneous timestep guidance so that when a purifier attempts reverse denoising, its score trajectory drives the image deeper into the corrupted latent manifold.
+## 1. Threat Model & Objective
+Adversaries frequently run DiffPure, GridPure, or Gaussian noise purification ($t \in [1, t_p]$) before customization to strip adversarial perturbations. AntiPure embeds perturbations that actively exploit the purifier's denoising trajectory so purification amplifies rather than removes the defense.
 
 ## 2. Mathematical Formulation
-
-$$
-\mathcal{L}_{\text{AntiPure}}(\delta) = \left\| \mu_{\mathcal{E}}\big(1.25(x+\delta) - 0.25 G_\sigma*(x+\delta)\big) - \mu_{\text{target}} \right\|_2^2 + 0.45 \left\| \sigma_{\mathcal{E}}(x+\delta) - \sigma_{\text{target}} \right\|_2^2
-$$
-
-- **Inverse-Diffusion Pre-Sharpening:** Pre-compensates for forward-diffusion Gaussian attenuation via unsharp residual coupling.
-- **Posterior Variance Destabilization:** Disrupts $\sigma_{\mathcal{E}}$ so stochastic reverse-SDE sampling diverges from the clean data manifold.
-
-## 3. Implementation in PORTtralica Lumiya
-
-- **Forward Pass (`transformInput`):** Applies unsharp high-pass pre-compensation against `ctx["blurKernel3"]`.
-- **Loss Objective (`computeLoss`):** Jointly optimizes posterior mean and standard deviation divergence.
-
-## 4. Official BibTeX Citation
-
-```bibtex
-@article{antipure2024diffusion,
-  title={AntiPure: Resisting Diffusion-Based Adversarial Purification via Erroneous Timestep Guidance},
-  author={AntiPure Research Group},
-  journal={arXiv preprint},
-  year={2024}
-}
-```
+From `arXiv:2509.13922`:
+1. **Patch-wise Frequency Guidance (PFG):** Divides the image into $s \times s$ patches ($s=8$), transforms into the frequency domain, and weights the bottom-right high-frequency quadrant by $\exp(\bar{\alpha}_t - 1)$.
+2. **Erroneous Timestep Guidance (ETG):** Aligns purification-window latents ($t \in [1, t_p]$) toward the high-noise erroneous trajectory state $t_{\text{err}} = 999$ ($\epsilon = 16/255$, $N = 100$ steps).

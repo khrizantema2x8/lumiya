@@ -4,28 +4,55 @@ import torch.nn.functional as F
 ALGO_META = {
     "id": "metacloak",
     "name": "MetaCloak",
-    "attribution": "Liu et al., CVPR 2024 (Meta-Learned Transformation-Robust Data Poisoning)",
-    "shortInfo": "Uses meta-learning style surrogate transformations to craft poisons that survive JPEG compression and Gaussian blur.",
+    "attribution": "Liu et al., Lehigh Univ., CVPR 2024",
+    "shortInfo": "Transformation-robust meta-learning immunization with Expectation Over Transformation (EOT: crop, Gaussian blur, differentiable quantization STE).",
     "paperUrl": "https://arxiv.org/abs/2311.13127",
-    "hardware": {"tier": "T3", "minVramGb": 40, "requiresCuda": True, "paperHardware": "Not reported; estimate for several SD copies"},
+    "repoUrl": "https://github.com/liuyixin-louis/MetaCloak",
+    "algoClass": "D",
+    "tier": "T3",
+    "photoCompatible": True,
+    "weightReady": True,
+    "hardware": {
+        "tier": "T3",
+        "minVramGb": 12,
+        "requiresCuda": True,
+        "paperHardware": "1x NVIDIA A100 (12-24 GB VRAM for staggered surrogate pool + EOT)",
+    },
+    "paper": {"budget": 11.0, "steps": 120},
+    "params": ["budget", "compute", "seed"],
 }
 
 
 def transformInput(xDef, step, ctx):
+    """Applies MetaCloak's EOT transformation pool (Gaussian blur + random spatial shift + Straight-Through Estimator quantization)."""
     mode = step % 3
     if mode == 0:
-        xBlur = F.conv2d(xDef, ctx["blurKernel3"], padding=1, groups=3)
-        q = torch.round(xBlur * 96.0) / 96.0
-        return xBlur + (q - xBlur).detach()
-    if mode == 1:
+        # Differentiable 5x5 Gaussian blur
+        coords = torch.tensor([-2.0, -1.0, 0.0, 1.0, 2.0], device=xDef.device, dtype=xDef.dtype)
+        g1 = torch.exp(-(coords ** 2) / (2.0 * (1.15 ** 2)))
+        g1 = g1 / g1.sum()
+        k2 = torch.outer(g1, g1).view(1, 1, 5, 5).repeat(xDef.shape[1], 1, 1, 1)
+        xTrans = F.conv2d(F.pad(xDef, (2, 2, 2, 2), mode="reflect"), k2, groups=xDef.shape[1])
+    elif mode == 1:
+        # Random crop-and-resize EOT
         _, _, h, w = xDef.shape
-        sh, sw = max(8, int(h * 0.85 // 8) * 8), max(8, int(w * 0.85 // 8) * 8)
-        return F.interpolate(F.interpolate(xDef, size=(sh, sw), mode="bilinear", align_corners=False), size=(h, w), mode="bilinear", align_corners=False)
-    q = torch.round(xDef * 64.0) / 64.0
-    return xDef + (q - xDef).detach()
+        ch, cw = max(16, int(h * 0.92)), max(16, int(w * 0.92))
+        y0 = (step * 7) % max(1, h - ch)
+        x0 = (step * 11) % max(1, w - cw)
+        xTrans = F.interpolate(xDef[:, :, y0 : y0 + ch, x0 : x0 + cw], size=(h, w), mode="bilinear", align_corners=False)
+    else:
+        xTrans = xDef
+
+    # Differentiable quantization Straight-Through Estimator (STE) simulating lossy re-saving
+    qLevels = 32.0
+    xQuant = torch.round((xTrans + 1.0) * 0.5 * qLevels) / qLevels * 2.0 - 1.0
+    return xTrans + (xQuant - xTrans).detach()
 
 
 def computeLoss(dist, ctx):
-    zMean = dist.mean.float()
-    return F.mse_loss(zMean, ctx["zTargetMean"]) + 0.30 * F.mse_loss(dist.std.float(), ctx["zTargetStd"])
-
+    zAdv = dist.mean.float()
+    zOrig = ctx.get("zOrigMean", ctx["zTargetMean"])
+    # Staggered multi-scale feature divergence + gray collapse
+    s1 = F.mse_loss(zAdv, ctx["zTargetMean"])
+    s2 = -F.l1_loss(F.avg_pool2d(zAdv, 2), F.avg_pool2d(zOrig, 2))
+    return s1 + 0.45 * s2

@@ -225,9 +225,10 @@
     flex-direction: column;
   }
   #page-cfg.active {
+    display: block;
     overflow-y: auto;
     overflow-x: hidden;
-    contain: layout style paint;
+    overscroll-behavior: none;
   }
 
   /* Workspace Layout */
@@ -247,16 +248,14 @@
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .right {
     padding: 20px 24px;
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .heading {
     font-size: 12px;
@@ -264,7 +263,7 @@
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: var(--muted);
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     padding-bottom: 6px;
     border-bottom: 1px solid var(--line);
     display: flex;
@@ -276,10 +275,10 @@
   .drop {
     background: var(--panel);
     border: 1px solid var(--lineStrong);
-    padding: 24px 16px;
+    padding: 22px 16px;
     text-align: center;
     cursor: pointer;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .drop:hover, .drop.active { background: #2d2d2d; border-color: var(--blue); }
   .drop p { color: var(--muted); font-size: 12px; margin-top: 6px; }
@@ -312,7 +311,7 @@
   .sub-section-cap {
     font-size: 11px;
     color: var(--muted);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     text-transform: uppercase;
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -322,7 +321,7 @@
   }
   .section-divider {
     margin-top: 16px;
-    padding-top: 14px;
+    padding-top: 16px;
     border-top: 1px solid var(--line);
   }
   .layer-list {
@@ -469,9 +468,9 @@
     white-space: normal;
   }
 
-  .field { margin-bottom: 18px; }
+  .field { margin-bottom: 16px; }
   .field:last-child { margin-bottom: 0; }
-  .field-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 12px; position: relative; }
+  .field-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 7px; position: relative; }
   .param-val-wrap {
     display: inline-flex;
     align-items: center;
@@ -542,7 +541,7 @@
     margin-top: 4px;
   }
   .mono { font-family: 'IBM Plex Mono', monospace; color: var(--fg); }
-  input[type="range"] { width: 100%; accent-color: var(--blue); height: 4px; cursor: pointer; display: block; margin: 0; }
+  input[type="range"] { width: 100%; accent-color: var(--blue); height: 6px; cursor: pointer; display: block; margin: 7px 0 3px 0; }
   .scale-labels { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--dim); margin-top: 6px; }
 
   /* 3-Button Vertically Stacked Book-Style Steganography Switch */
@@ -895,16 +894,14 @@
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .org-main {
     padding: 20px 24px;
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .algo-list-wrap {
     display: flex;
@@ -995,8 +992,8 @@
     position: absolute;
     inset: 3px;
     box-sizing: border-box;
-    border: 1.5px solid var(--lineStrong);
-    border-top-color: var(--red);
+    border: 1.5px solid rgba(243, 214, 137, 0.28);
+    border-top-color: var(--gold);
     border-radius: 50% !important;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -1304,7 +1301,7 @@
   }
   .insp-upper {
     display: grid;
-    grid-template-columns: 270px 1fr 320px;
+    grid-template-columns: 270px 1fr 340px;
     min-height: 0;
     border-bottom: 1px solid var(--line);
   }
@@ -1315,12 +1312,11 @@
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .insp-panel-hdr {
     background: #181818;
-    padding: 7px 12px;
+    padding: 9px 14px;
     border-bottom: 1px solid var(--line);
     border-top: 1px solid var(--line);
     font-family: 'IBM Plex Mono', monospace;
@@ -1382,11 +1378,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: zoom-in;
+    cursor: default;
     background: #282828;
   }
-  .insp-stage.zoomed { cursor: grab; }
-  .insp-stage.panning { cursor: grabbing; }
+  .insp-stage.over-img { cursor: zoom-in; }
+  .insp-stage.over-img.zoomed { cursor: grab; }
+  .insp-stage.panning { cursor: grabbing !important; }
   .insp-stage canvas { width: 100%; height: 100%; display: block; }
   .insp-empty-overlay {
     position: absolute;
@@ -1395,9 +1392,95 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: pointer;
     background: rgba(24, 24, 24, 0.72);
     z-index: 10;
+    transition: background 0.15s ease;
+  }
+  .insp-empty-overlay:hover {
+    background: rgba(30, 38, 52, 0.82);
+  }
+  .insp-empty-overlay:hover .sad-face-glyph {
+    border-color: var(--blue);
+    color: var(--gold);
+  }
+  .insp-drop-overlay {
+    position: absolute;
+    inset: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56, 189, 248, 0.16);
+    border: 2px dashed #38bdf8;
+    color: #e0f2fe;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 30;
+    box-shadow: inset 0 0 32px rgba(56, 189, 248, 0.18);
+  }
+  .insp-drop-overlay.active { display: flex; }
+  .insp-stage-loader {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(18, 18, 18, 0.68);
+    z-index: 20;
+    pointer-events: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+  }
+  .insp-stage-loader.active { display: flex; }
+  .format-chooser-wrap {
+    margin-top: 2px;
+    margin-bottom: 4px;
+  }
+  .format-chooser-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .format-opt-btn {
+    padding: 10px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    background: #171717;
+    color: var(--muted);
+    border: 1px solid var(--lineStrong);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    line-height: 1.35;
+  }
+  .format-opt-btn:hover:not(:disabled) {
+    border-color: var(--fg);
+    color: var(--fg);
+  }
+  .format-opt-btn.active {
+    background: rgba(15, 98, 254, 0.18);
+    border-color: var(--blue);
+    color: #fff;
+    font-weight: 600;
+  }
+  .format-opt-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: grayscale(1);
+  }
+  .format-footnote {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--muted);
   }
   .insp-floating-info {
     position: absolute;
@@ -1437,8 +1520,93 @@
     border: 1px solid var(--lineStrong);
     cursor: pointer;
   }
-  .insp-tool-btn:hover { color: var(--fg); border-color: var(--blue); }
+  .insp-tool-btn:hover:not(:disabled) { color: var(--fg); border-color: var(--blue); }
   .insp-tool-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  .insp-tool-btn:disabled { opacity: 0.35; cursor: not-allowed; filter: grayscale(1); }
+  .lr-panel { border-bottom: 1px solid var(--line); }
+  .lr-panel > .insp-panel-hdr { cursor: pointer; user-select: none; border-top: none; }
+  .lr-panel > .insp-panel-hdr:hover { background: #222; color: var(--fg); }
+  .lr-panel.collapsed > .lr-panel-body { display: none; }
+  .lr-chevron { display: inline-block; width: 12px; color: var(--gold); transition: transform 0.15s ease; }
+  .lr-panel.collapsed .lr-chevron { transform: rotate(-90deg); }
+  .lr-side-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .lr-grid-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: #151515;
+    color: var(--muted);
+    border: 1px solid var(--lineStrong);
+    cursor: pointer;
+    text-align: left;
+    min-width: 0;
+  }
+  .lr-grid-btn:hover { background: #222; color: var(--fg); border-color: var(--muted); }
+  .lr-grid-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  .lr-grid-btn.toggle-on { background: #2c2410; color: var(--gold); border-color: var(--gold); font-weight: 600; }
+  .lr-slider-block {
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .lr-slider-hdr {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .stego-chan-pills {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stego-chan-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: #151515;
+    color: var(--muted);
+    border: 1px solid var(--lineStrong);
+    cursor: pointer;
+    text-align: left;
+  }
+  .stego-chan-btn:hover { background: #222; color: var(--fg); border-color: var(--muted); }
+  .stego-chan-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
+  .stego-bit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .stego-hex-box {
+    background: #101010;
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--muted);
+    max-height: 92px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 8px;
+  }
   .insp-right {
     background: #202020;
     border-left: 1px solid var(--line);
@@ -1446,11 +1614,10 @@
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
-    contain: layout style paint;
-    will-change: scroll-position;
+    overscroll-behavior: none;
   }
   .insp-hist-box {
-    padding: 10px 12px;
+    padding: 14px;
     background: #141414;
     border-bottom: 1px solid var(--line);
   }
@@ -1458,7 +1625,8 @@
   .insp-forensic-grid {
     display: flex;
     flex-direction: column;
-    padding: 10px 12px;
+    gap: 14px;
+    padding: 14px;
   }
   .insp-lens-switch {
     display: flex;
@@ -1490,6 +1658,9 @@
   .insp-lens-btn:hover { background: #1f1f1f; color: var(--fg); }
   .insp-lens-btn.active { background: var(--blue); color: #fff; font-weight: 600; }
   .insp-lens-btn.active .lens-right > span:first-child { color: rgba(255,255,255,0.92) !important; }
+  .insp-lens-btn.toggle-on { background: #2c2410; color: var(--gold); font-weight: 600; }
+  .insp-lens-btn.toggle-on .lens-right > span:first-child { color: var(--gold) !important; }
+  .insp-lens-btn.toggle-on .info-icon { border-color: var(--gold); color: var(--gold); }
   .insp-lens-btn .info-tooltip { left: auto; right: 0; bottom: 22px; width: 265px; }
   .insp-filmstrip-wrap {
     background: #151515;
@@ -1594,7 +1765,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="hdr-version-badge" id="hdr-version">v0.5.034.4100 (Pilot)</span>
+    <span class="hdr-version-badge" id="hdr-version">v0.5.099.9310 (Pilot)</span>
     <button class="q-btn" onclick="sysMaint('run_cleaner')" title="Clean VRAM, RAM Working Set & Temp Files">Clean Memory &amp; Temps</button>
     <button class="q-btn" onclick="sysMaint('restart_service')" title="Clean memory &amp; restart the PORTtralica Lumiya backend service">Restart Service</button>
     <div class="folder-tag" id="folder" onclick="sysMaint('open_results')" title="Open results root folder in foreground">RESULTS: ...</div>
@@ -1706,7 +1877,7 @@
     <canvas class="stat-canvas" id="bg-pwr" width="220" height="68"></canvas>
     <div class="stat-content">
       <div class="stat-header">
-        <span class="stat-name">SYSTEM POWER</span>
+        <span class="stat-name" id="s-pwr-label">SYSTEM POWER</span>
         <span class="warn-tri" id="w-pwr" onclick="toggleSensorPop(event, 'pop-pwr')">&#9650;</span>
       </div>
       <div class="stat-val" id="s-pwr">0.0 W</div>
@@ -1735,38 +1906,63 @@
           </div>
           <input type="file" id="file" multiple accept=".jpg,.jpeg,.png,.webp,.bmp,.tiff" style="display:none">
         </div>
-
-        <div class="heading"><span>Defense Parameters</span></div>
+        <div class="heading"><span>Parameters</span></div>
         <div class="unified-settings-box">
-          <!-- 1. Defense Mode -->
+          <!-- 0. Format -->
           <div class="sub-section-cap">
             <div class="label-group">
-              <span>Defense Mode</span>
+              <span>Format</span>
               <span class="info-icon">i
-                <span class="info-tooltip">Selects whether to apply AI-blocking layers, embed hidden steganographic watermark, or combine both methods.</span>
+                <span class="info-tooltip">Controls whether protected outputs are converted to lossless PNG (recommended for bit-plane steganography and full-precision perturbation preservation) or kept in their original file format.</span>
               </span>
             </div>
           </div>
-          <input type="hidden" id="s-stego-mode" value="off">
-          <div class="stego-switch" id="stego-switch">
-            <button type="button" class="stego-opt active" id="stego-btn-off" onclick="setStegoMode('off')">
-              <span>Only AI-blocking</span>
-              <span class="info-icon" onclick="event.stopPropagation()">i
-                <span class="info-tooltip">Runs iterative PGD defense using the enabled AI-Defense Layers without embedding any steganographic payload.</span>
-              </span>
-            </button>
-            <button type="button" class="stego-opt" id="stego-btn-combined" onclick="setStegoMode('combined')">
-              <span>Combined</span>
-              <span class="info-icon" onclick="event.stopPropagation()">i
-                <span class="info-tooltip">Runs AI-Defense Layers first, then embeds a cyclic 2-bit RGB LSB steganographic frame (LMY1) across the lowest 2 bits of each R/G/B channel plus PNG/JPEG container metadata.</span>
-              </span>
-            </button>
-            <button type="button" class="stego-opt" id="stego-btn-only" onclick="setStegoMode('only')">
-              <span>Only Steganography</span>
-              <span class="info-icon" onclick="event.stopPropagation()">i
-                <span class="info-tooltip">Skips PGD optimization and embeds only the invisible 2-bit RGB LSB cyclic signature (LMY1) and container marker. Executes immediately on CPU.</span>
-              </span>
-            </button>
+          <div class="format-chooser-wrap">
+            <input type="hidden" id="s-convert-png" value="true">
+            <div class="format-chooser-grid">
+              <button type="button" class="format-opt-btn active" id="fmt-btn-png" onclick="setConvertPngMode(true)">
+                Convert to Lossless PNG (Recommended)
+              </button>
+              <button type="button" class="format-opt-btn" id="fmt-btn-keep" onclick="setConvertPngMode(false)">
+                Keep Original Format
+              </button>
+            </div>
+            <div class="format-footnote">
+              We encourage converting input images to PNG format for more durable image protection and steganography preservation.
+            </div>
+          </div>
+
+          <!-- 1. Option (Defense Mode) -->
+          <div class="section-divider">
+            <div class="sub-section-cap">
+              <div class="label-group">
+                <span>Option</span>
+                <span class="info-icon">i
+                  <span class="info-tooltip">Selects whether to apply AI-blocking layers, embed hidden steganographic watermark, or combine both methods.</span>
+                </span>
+              </div>
+            </div>
+            <input type="hidden" id="s-stego-mode" value="off">
+            <div class="stego-switch" id="stego-switch">
+              <button type="button" class="stego-opt active" id="stego-btn-off" onclick="setStegoMode('off')">
+                <span>Only AI-blocking</span>
+                <span class="info-icon" onclick="event.stopPropagation()">i
+                  <span class="info-tooltip">Runs iterative PGD defense using the enabled AI-Defense Layers without embedding any steganographic payload.</span>
+                </span>
+              </button>
+              <button type="button" class="stego-opt" id="stego-btn-combined" onclick="setStegoMode('combined')">
+                <span>Combined</span>
+                <span class="info-icon" onclick="event.stopPropagation()">i
+                  <span class="info-tooltip">Runs AI-Defense Layers first, then embeds a cyclic 2-bit RGB LSB steganographic frame (LMY1) across the lowest 2 bits of each R/G/B channel plus PNG/JPEG container metadata.</span>
+                </span>
+              </button>
+              <button type="button" class="stego-opt" id="stego-btn-only" onclick="setStegoMode('only')">
+                <span>Only Steganography</span>
+                <span class="info-icon" onclick="event.stopPropagation()">i
+                  <span class="info-tooltip">Skips PGD optimization and embeds only the invisible 2-bit RGB LSB cyclic signature (LMY1) and container marker. Executes immediately on CPU.</span>
+                </span>
+              </button>
+            </div>
           </div>
 
           <!-- 2. AI-Defense Layers -->
@@ -1783,9 +1979,9 @@
             <div class="layer-list" id="layer-list"></div>
           </div>
 
-          <!-- 3. Parameters -->
+          <!-- 3. Optimization Parameters -->
           <div class="section-divider" id="layering-params-section">
-            <div class="sub-section-cap"><span>Parameters</span></div>
+            <div class="sub-section-cap"><span>Optimization</span></div>
 
             <div class="field" data-param="budget">
               <div class="field-top">
@@ -1795,12 +1991,12 @@
                     <span class="info-tooltip">Maximum allowable pixel alteration (commonly 8/255 or 16/255), balancing visual imperceptibility with defense strength.</span>
                   </span>
                 </div>
-                <span class="mono param-val-wrap"><span class="param-num-editable" id="v-eps" title="Click to enter custom value" onclick="startParamEdit(event, 'eps')">16.0</span><span class="param-val-denom"> / 32.0</span></span>
+                <span class="mono param-val-wrap"><span class="param-num-editable" id="v-eps" title="Click to enter custom value" onclick="startParamEdit(event, 'eps')">8.0</span><span class="param-val-denom"> / 32.0</span></span>
               </div>
-              <input type="range" id="r-eps" min="1.0" max="32.0" step="0.5" value="16.0" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-eps" min="1.0" max="32.0" step="0.5" value="8.0" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>1.0 (Subtle)</span>
-                <span id="l-budget-paper">16.0 (Paper)</span>
+                <span id="l-budget-paper">8.0 (Paper)</span>
                 <span>32.0 (Max)</span>
               </div>
             </div>
@@ -1810,9 +2006,9 @@
                 <span class="info-icon">i<span class="info-tooltip">Share of each algorithm's paper step count. 1.0x matches the paper. Lower values are not validated.</span></span>
               </div><span class="mono" id="v-compute">1.0x</span></div>
               <input type="range" id="r-compute" min="0" max="3" step="1" value="2" oninput="onUnifiedBoxChange()">
-              <div class="scale-labels"><span>0.25x (Fast)</span><span>1.0x (Paper)</span><span>2.0x (Max)</span></div>
+              <div class="scale-labels"><span>0.25x (Fast)</span><span id="l-compute-paper">1.0x (Paper)</span><span>2.0x (Max)</span></div>
               <!-- Legacy batch step field: the engine now derives steps from Compute Level. -->
-              <input type="hidden" id="r-steps" value="50"><span id="v-steps" hidden>50</span>
+              <input type="hidden" id="r-steps" value="200"><span id="v-steps" hidden>200</span>
             </div>
 
             <div class="field" data-param="seed">
@@ -1863,7 +2059,7 @@
               <input type="range" id="r-temp-weight" min="0.0" max="1.0" step="0.05" value="0.50" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>0.0 (Spatial)</span>
-                <span>0.50 (Balanced)</span>
+                <span id="l-temp-paper">0.50 (Paper)</span>
                 <span>1.0 (Max Temporal)</span>
               </div>
             </div>
@@ -1881,7 +2077,7 @@
               <input type="range" id="r-mask-aug" min="0.2" max="2.0" step="0.1" value="1.0" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>0.2&times; (Tight)</span>
-                <span>1.0&times; (Contour)</span>
+                <span id="l-mask-paper">1.0&times; (Paper)</span>
                 <span>2.0&times; (Wide)</span>
               </div>
             </div>
@@ -1898,26 +2094,31 @@
               </div>
             </div>
             <div class="field">
+              <div class="field-top"><span>Hidden Payload</span></div>
+              <select class="cfg-input" id="s-stego-payload" style="width:100%;" onchange="onUnifiedBoxChange()">
+                <option value="text">Visible Text Mark</option>
+                <option value="binary">Invisible Binary Text (LSB)</option>
+                <option value="image">Visible Image Mark (PNG)</option>
+              </select>
+            </div>
+            <div id="s-stego-binary-note" style="display:none;font-size:11px;color:var(--gold);line-height:1.5;margin-top:-4px;margin-bottom:14px;">
+              Embeds UTF-8 text strictly into the top scanline LSB bit-stream and metadata with zero visible bit-plane glyph stamp.
+            </div>
+            <div class="field" id="s-stego-strength-field">
               <div class="field-top"><span>Mark Strength</span><span class="mono" id="v-stego-strength">4</span></div>
               <input type="range" id="r-stego-strength" min="1" max="16" step="1" value="4" oninput="onUnifiedBoxChange()">
               <div class="scale-labels"><span>1 (Faint)</span><span>Max change per pixel (0-255)</span><span>16</span></div>
             </div>
-            <div class="field">
+            <div class="field" id="s-stego-scale-field">
               <div class="field-top"><span>Mark Scale</span><span class="mono" id="v-stego-scale">40%</span></div>
               <input type="range" id="r-stego-scale" min="5" max="100" step="5" value="40" oninput="onUnifiedBoxChange()">
               <div class="scale-labels"><span>5%</span><span>100% is the largest fit</span><span>100%</span></div>
             </div>
-            <div class="field">
+            <div class="field" id="s-stego-placement-field">
               <div class="field-top"><span>Mark Placement</span></div>
               <select class="cfg-input" id="s-stego-placement" style="width:100%;" onchange="onUnifiedBoxChange()">
                 <option value="center">Center</option><option value="top-left">Top left</option><option value="top-right">Top right</option>
                 <option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option><option value="tile">Tile across photo</option>
-              </select>
-            </div>
-            <div class="field">
-              <div class="field-top"><span>Hidden Payload</span></div>
-              <select class="cfg-input" id="s-stego-payload" style="width:100%;" onchange="onUnifiedBoxChange()">
-                <option value="text">Text</option><option value="image">Image</option>
               </select>
             </div>
             <div class="field" id="s-stego-image-row">
@@ -1928,8 +2129,8 @@
                 ondragover="event.preventDefault(); event.stopPropagation(); this.classList.add('drag-over')"
                 ondragleave="this.classList.remove('drag-over')"
                 ondrop="onStegoImageDropped(event)">Drop an image with a transparent background, or click to choose</div>
-              <img id="s-stego-preview" alt="Mark preview" style="display:none;width:100%;height:auto;margin-top:8px;background:#000;">
-              <div id="s-stego-msg" style="font-size:11px;line-height:1.45;margin-top:6px;"></div>
+              <img id="s-stego-preview" alt="Mark preview" style="display:none;width:100%;height:auto;margin-top:12px;padding:6px;border:1px solid var(--line);background:#000;">
+              <div id="s-stego-msg" style="font-size:11px;line-height:1.45;margin-top:8px;"></div>
             </div>
             <textarea class="enclosed-text-box" id="s-stego-text" rows="2" placeholder="Steganographic signature payload..." oninput="onUnifiedBoxChange()">PORTtralica Lumiya - Protected Asset</textarea>
           </div>
@@ -2047,6 +2248,11 @@
       <div class="insp-center">
         <div class="insp-stage" id="insp-stage">
           <canvas id="insp-main-canvas" width="960" height="620"></canvas>
+          <div class="insp-stage-loader" id="insp-stage-loader">
+            <div class="spinner" style="border-top-color:var(--gold);"></div>
+            <span>Decoding image planes...</span>
+          </div>
+          <div class="insp-drop-overlay" id="insp-drop-overlay">Drop to upload</div>
           <div class="insp-floating-info" id="insp-floating-info" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
               <strong style="color:var(--gold);font-family:'IBM Plex Mono',monospace;font-size:11px;">PERCEPTUAL IMPERCEPTIBILITY: WHY IT LOOKS IDENTICAL TO THE NAKED EYE</strong>
@@ -2054,15 +2260,15 @@
             </div>
             <div style="color:var(--muted);font-size:11px;">
               <strong>Should it be visible to the naked eye? No.</strong> Both layers are engineered to stay below the human visual system&rsquo;s <em>Just-Noticeable Difference (JND)</em> threshold:<br>
-              &bull; <strong>2-Bit RGB LSB Steganography:</strong> Modifies only the lowest 2 binary bits of each 0&ndash;255 color channel (&Delta; &le; 3/255, ~1.1% luminance shift, &gt;48 dB PSNR). To human photoreceptors it looks identical to the original; switch to <strong>2-Bit RGB LSB Plane (&times;85)</strong> or <strong>PGD Perturbation Heatmap</strong> on the right to amplify those bits 85&times; into plain view.<br>
+              &bull; <strong>2-Bit RGB LSB Steganography:</strong> Modifies only the lowest 2 binary bits of each 0&ndash;255 color channel (&Delta; &le; 3/255, ~1.1% luminance shift, &gt;48 dB PSNR). To human photoreceptors it looks identical to the original; switch to <strong>2-Bit LSB (&times;85)</strong> or <strong>PGD Heatmap |A-B|</strong> on the right to amplify those bits into plain view.<br>
               &bull; <strong>AI-Blocking (PGD Latent Defense):</strong> Bound by an L&infin; perceptual mask concentrated along high-frequency Sobel edges where human eyes cannot distinguish micro-gradients, while latent encoders amplify them into representation collapse.
             </div>
           </div>
-          <div class="insp-empty-overlay" id="insp-empty-overlay">
+          <div class="insp-empty-overlay" id="insp-empty-overlay" onclick="document.getElementById('insp-file-input').click()" title="Click or drop photos here to import directly into Inspect">
             <div class="sad-face-glyph">:(</div>
             <div style="font-size:14px;font-weight:600;color:var(--fg);margin-bottom:4px;">No Photos in Inspect Collection</div>
             <div style="font-size:12px;color:var(--dim);max-width:380px;text-align:center;">
-              Send photos from the <strong>Workspace</strong> Queue or import photos manually.
+              Click here, drop photos onto the stage, or send photos from the <strong>Workspace</strong> Queue.
             </div>
           </div>
         </div>
@@ -2087,131 +2293,248 @@
         </div>
       </div>
 
-      <!-- Right Dock: Histogram + Steganalysis & Defense Forensic Lenses -->
+      <!-- Right Dock: Lightroom-Style Collapsible Forensic & Steganography Toolkits -->
       <div class="insp-right">
-        <div class="insp-panel-hdr">
-          <span>RGB + Luminance Histogram</span>
-          <span class="mono" id="insp-hist-mode" style="font-size:10px;color:var(--gold);">AFTER</span>
-        </div>
-        <div class="insp-hist-box">
-          <canvas class="insp-hist-canvas" id="insp-hist-canvas" width="290" height="110"></canvas>
-          <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:6px;">
-            <span id="ih-mean">Mean: —</span>
-            <span id="ih-std">Std: —</span>
-            <span id="ih-ent">LSB Chi&sup2;: —</span>
+        <!-- Toolkit 1: RGB + Luminance Histogram -->
+        <div class="lr-panel" id="lr-panel-hist">
+          <div class="insp-panel-hdr" onclick="toggleLrPanel('lr-panel-hist')">
+            <span><span class="lr-chevron">&#9662;</span> RGB + Luminance Histogram</span>
+            <span class="mono" id="insp-hist-mode" style="font-size:10px;color:var(--gold);">AFTER</span>
+          </div>
+          <div class="lr-panel-body insp-hist-box">
+            <canvas class="insp-hist-canvas" id="insp-hist-canvas" width="290" height="110"></canvas>
+            <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);margin-top:6px;">
+              <span id="ih-mean">Mean: —</span>
+              <span id="ih-std">Std: —</span>
+              <span id="ih-ent">LSB Chi&sup2;: —</span>
+            </div>
           </div>
         </div>
 
-        <div class="insp-panel-hdr">
-          <span>Forensic &amp; Stego Lenses</span>
-          <span class="info-icon">i
-            <span class="info-tooltip" style="left:auto;right:0;top:20px;bottom:auto;">Select a forensic filter below to inspect native RGB fidelity, 2-bit RGB LSB steganography planes, bit-level parity planes, amplified L-infinity PGD perturbation heatmaps, 2D spatial frequency energy, ELA compression blocks, and Sobel edge masks.</span>
-          </span>
-        </div>
-        <div class="insp-forensic-grid">
-          <div class="insp-lens-switch">
-            <div class="insp-lens-btn active" id="lens-normal" onclick="setInspectLens('normal')">
-              <span>Standard RGB Render</span>
-              <span class="lens-right">
-                <span style="color:var(--dim);font-size:10px;">1:1</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Unmodified full-resolution RGB view for evaluating visual imperceptibility and perceptual fidelity.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-lsb" onclick="setInspectLens('lsb')">
-              <span>2-Bit RGB LSB Plane (&times;85)</span>
-              <span class="lens-right">
-                <span style="color:var(--gold);font-size:10px;">STEGO</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Extracts the lowest 2 bits (0..3) of each R, G, B channel and multiplies by 85 to expose the cyclic LMY1 steganographic frame starting at pixel (0,0).</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-mark" onclick="setInspectLens('mark')">
-              <span>Hidden Mark</span>
-              <span class="lens-right"><span style="color:var(--gold);font-size:10px;">STEGO</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Shows the mark recovered from this image. PNG, TIFF, WebP and BMP carry it at full resolution in bit 0 of every color channel, a standard LSB embed that also appears in the Bit-0 lens and in tools like StegSolve or StegOnline. JPEG removes bit planes, so JPEG exports use a coarser cell layer that survives compression and resizing, which only this lens can show, plus a copy of the mark attached after the image data that tools like binwalk extract.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-bit0" onclick="setInspectLens('bit0')">
-              <span>Bit-0 Monochrome Plane</span>
-              <span class="lens-right">
-                <span style="color:var(--gold);font-size:10px;">LSB-0</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Visualizes the XOR parity of the least-significant bit across R, G, and B channels to reveal spatial LSB embedding patterns and synthetic noise floors.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-bit1" onclick="setInspectLens('bit1')">
-              <span>Bit-1 Monochrome Plane</span>
-              <span class="lens-right">
-                <span style="color:var(--gold);font-size:10px;">LSB-1</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Isolates the second least-significant bit plane (bit index 1) where 2-bit steganographic payloads and subtle quantization boundaries reside.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-diff" onclick="setInspectLens('diff')">
-              <span>PGD Perturbation Heatmap</span>
-              <span class="lens-right">
-                <span style="color:var(--blue);font-size:10px;">|A&minus;B|</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Computes the absolute per-channel pixel difference |After - Before| multiplied by the Gain slider to reveal adversarial PGD perturbation vectors.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-fft" onclick="setInspectLens('fft')">
-              <span>2D Frequency Residual Map</span>
-              <span class="lens-right">
-                <span style="color:var(--blue);font-size:10px;">FREQ</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Applies a discrete Laplacian high-frequency residual filter to highlight spectral watermarks, periodic diffusion grid artifacts, and frequency-domain defenses.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-ela" onclick="setInspectLens('ela')">
-              <span>Error Level Analysis (ELA)</span>
-              <span class="lens-right">
-                <span style="color:var(--green);font-size:10px;">DCT</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Evaluates 8x8 DCT block quantization residuals to detect localized JPEG recompression disparities and spliced regions.</span>
-                </span>
-              </span>
-            </div>
-            <div class="insp-lens-btn" id="lens-sobel" onclick="setInspectLens('sobel')">
-              <span>High-Pass Sobel Edge Map</span>
-              <span class="lens-right">
-                <span style="color:var(--muted);font-size:10px;">MASK</span>
-                <span class="info-icon" onclick="event.stopPropagation()">i
-                  <span class="info-tooltip">Displays the spatial Sobel luminance gradient mask used by Lumiya to concentrate adversarial perturbations along high-contrast structural edges.</span>
-                </span>
-              </span>
-            </div>
-          </div>
-
-          <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line);">
-            <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;">
-              <span>Heatmap / ELA Gain</span>
-              <span id="insp-gain-lbl">20&times;</span>
-            </div>
-            <input type="range" id="insp-gain" min="5" max="60" step="5" value="20" oninput="onInspectGainChange(this.value)">
-          </div>
-        </div>
-
-        <div class="insp-panel-hdr">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span>Steganography Frame Decoder</span>
-            <span class="info-icon" onclick="event.stopPropagation();toggleInspectEyePopup()">i
-              <span class="info-tooltip" style="left:auto;right:0;top:20px;bottom:auto;">Decodes embedded steganographic payload. Click to learn why stego and perturbations are invisible to the naked eye.</span>
+        <!-- Toolkit 2: Forensic & Spectral Toolkit (Book-Stack Switch + Sliders) -->
+        <div class="lr-panel" id="lr-panel-forensic">
+          <div class="insp-panel-hdr" onclick="toggleLrPanel('lr-panel-forensic')">
+            <span><span class="lr-chevron">&#9662;</span> Forensic &amp; Spectral Toolkit</span>
+            <span class="info-icon" onclick="event.stopPropagation()">i
+              <span class="info-tooltip" style="left:auto;right:0;top:20px;bottom:auto;">Inspects native RGB fidelity, amplified L-infinity PGD perturbation heatmaps, 2D spatial frequency energy, ELA compression blocks, Sobel edge masks, SRM noise residuals, luminance, and chroma anomalies.</span>
             </span>
           </div>
-          <button class="q-btn" style="height:20px;font-size:10px;padding:0 6px;" onclick="runInspectStegoScan()">Rescan</button>
+          <div class="lr-panel-body insp-forensic-grid">
+            <div class="insp-lens-switch">
+              <button type="button" class="insp-lens-btn active" id="lens-normal" onclick="setInspectLens('normal')">
+                <span>Standard RGB</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">1:1</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">Unmodified full-resolution RGB view for inspecting perceptual fidelity and comparing Before/After directly.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-diff" onclick="setInspectLens('diff')">
+                <span>PGD Heatmap |A&minus;B|</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">DIFF</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">Amplifies the absolute per-channel pixel difference |After - Before| by the Gain multiplier to reveal imperceptible L-infinity adversarial perturbations.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-fft" onclick="setInspectLens('fft')">
+                <span>2D Freq Residual</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">FREQ</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">Discrete Laplacian high-frequency spectral residual exposing high-pass frequency energy injected by adversarial defense layers.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-ela" onclick="setInspectLens('ela')">
+                <span>Error Level (ELA)</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">DCT</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">8x8 DCT block quantization residual analysis comparing pixel values against the selected ELA Reference Quality level.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-sobel" onclick="setInspectLens('sobel')">
+                <span>Sobel Edge Map</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">EDGE</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">High-pass Sobel structural edge gradient mask showing the perceptual texture contours where PGD perturbations concentrate.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-srm" onclick="setInspectLens('srm')">
+                <span>SRM Noise Map</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">SRM</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">3rd-order Spatial Rich Model micro-noise residual isolating local pixel neighborhood discrepancies.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-luma_map" onclick="setInspectLens('luma_map')">
+                <span>Luminance Map</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">LUMA</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">BT.601 Luminance Y contrast map highlighting shadow clipping (blue) and highlight clipping (red).</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-chroma" onclick="setInspectLens('chroma')">
+                <span>Chroma Anomaly</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">CbCr</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">Amplified Cb/Cr chrominance opponent channels to detect color-space perturbations and subsampling artifacts.</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="insp-lens-btn" id="lens-attn" onclick="setInspectLens('attn')">
+                <span>Attention Heatmap</span>
+                <span class="lens-right">
+                  <span class="mono" style="font-size:10px;color:var(--dim);">ATTN</span>
+                  <span class="info-icon" onclick="event.stopPropagation()">i
+                    <span class="info-tooltip">MMDiT / VETO spatial attention head &amp; token entropy overlay (RdYlGn). Unprotected photos concentrate green attention on primary subject contours; adversarial defenses diffuse and scatter attention across the canvas.</span>
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            <div class="lr-slider-block">
+              <div>
+                <div class="lr-slider-hdr">
+                  <span>Amplification Gain</span>
+                  <span id="insp-gain-lbl" style="color:var(--fg);">20&times;</span>
+                </div>
+                <input type="range" id="insp-gain" min="1" max="64" step="1" value="20" oninput="onInspectGainChange(this.value)">
+              </div>
+              <div>
+                <div class="lr-slider-hdr">
+                  <span>ELA Reference Quality</span>
+                  <span id="insp-ela-q-lbl" style="color:var(--fg);">90%</span>
+                </div>
+                <input type="range" id="insp-ela-q" min="50" max="99" step="1" value="90" oninput="onInspectElaQChange(this.value)">
+              </div>
+              <div>
+                <div class="lr-slider-hdr">
+                  <span>Residual / Edge Floor</span>
+                  <span id="insp-floor-lbl" style="color:var(--fg);">0</span>
+                </div>
+                <input type="range" id="insp-noise-floor" min="0" max="64" step="1" value="0" oninput="onInspectFloorChange(this.value)">
+              </div>
+            </div>
+          </div>
         </div>
-        <div style="padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;" id="insp-stego-box">
-          <div style="color:var(--dim);">Select an image in the filmstrip to inspect.</div>
+
+        <!-- Toolkit 3: Steganography Forensics -->
+        <div class="lr-panel" id="lr-panel-stego-forensics">
+          <div class="insp-panel-hdr" onclick="toggleLrPanel('lr-panel-stego-forensics')">
+            <span><span class="lr-chevron">&#9662;</span> Steganography Forensics</span>
+            <span class="info-icon" onclick="event.stopPropagation()">i
+              <span class="info-tooltip" style="left:auto;right:0;top:20px;bottom:auto;">Interactive bit-plane and channel browser (Bit 0 LSB to Bit 7 MSB across RGB, R, G, B, Alpha, and Luma), QIM/Bit-0 hidden mark extractor, 2-bit LSB amplifier, bitwise XOR inversion, pseudo-color palette normalizer, and live LSB Hex/ASCII stream inspector.</span>
+            </span>
+          </div>
+          <div class="lr-panel-body insp-forensic-grid">
+            <div>
+              <div class="lr-slider-hdr">
+                <span>Channel Isolator</span>
+                <span id="stego-chan-lbl" style="color:var(--gold);">RGB</span>
+              </div>
+              <div class="stego-chan-pills">
+                <button type="button" class="stego-chan-btn active" id="sc-rgb" onclick="setStegoChannel('rgb')">
+                  <span>Standard RGB</span><span class="mono" style="font-size:9px;opacity:0.75;">RGB</span>
+                </button>
+                <button type="button" class="stego-chan-btn" id="sc-r" onclick="setStegoChannel('r')">
+                  <span>Red Channel</span><span class="mono" style="font-size:9px;opacity:0.75;">R</span>
+                </button>
+                <button type="button" class="stego-chan-btn" id="sc-g" onclick="setStegoChannel('g')">
+                  <span>Green Channel</span><span class="mono" style="font-size:9px;opacity:0.75;">G</span>
+                </button>
+                <button type="button" class="stego-chan-btn" id="sc-b" onclick="setStegoChannel('b')">
+                  <span>Blue Channel</span><span class="mono" style="font-size:9px;opacity:0.75;">B</span>
+                </button>
+                <button type="button" class="stego-chan-btn" id="sc-a" onclick="setStegoChannel('a')">
+                  <span>Alpha Plane</span><span class="mono" style="font-size:9px;opacity:0.75;">A</span>
+                </button>
+                <button type="button" class="stego-chan-btn" id="sc-luma" onclick="setStegoChannel('luma')">
+                  <span>Luminance</span><span class="mono" style="font-size:9px;opacity:0.75;">LUMA</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);padding-top:12px;">
+              <div class="lr-slider-hdr">
+                <span>Bit-Plane Slicer</span>
+                <span id="stego-bit-lbl" style="color:var(--gold);">All Bits (Full)</span>
+              </div>
+              <div class="stego-bit-row">
+                <button type="button" class="q-btn" style="height:24px;padding:0 8px;" onclick="stepStegoBitPlane(-1)" title="Previous Bit Plane">&lt;</button>
+                <input type="range" id="stego-bit-slider" min="-1" max="7" step="1" value="-1" style="flex:1;margin:0;" oninput="setStegoBitPlane(parseInt(this.value, 10))">
+                <button type="button" class="q-btn" style="height:24px;padding:0 8px;" onclick="stepStegoBitPlane(1)" title="Next Bit Plane">&gt;</button>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);padding-top:12px;">
+              <div class="lr-slider-hdr">
+                <span>Watermark &amp; Bit Transforms</span>
+                <span class="mono" style="font-size:9px;color:var(--dim);">CLICK TO TOGGLE</span>
+              </div>
+              <div class="insp-lens-switch">
+                <button type="button" class="insp-lens-btn" id="lens-mark" onclick="setInspectLens('mark')">
+                  <span>Hidden Mark</span>
+                  <span class="lens-right">
+                    <span class="mono" style="font-size:10px;color:var(--gold);">QIM/B0</span>
+                    <span class="info-icon" onclick="event.stopPropagation()">i
+                      <span class="info-tooltip">Isolates Lumiya's native Bit-0 and parity-quantized (QIM) visual watermark and projects its bounding box on stage. Click again to return to the normal channel.</span>
+                    </span>
+                  </span>
+                </button>
+                <button type="button" class="insp-lens-btn" id="lens-lsb" onclick="setInspectLens('lsb')">
+                  <span>2-Bit LSB (&times;85)</span>
+                  <span class="lens-right">
+                    <span class="mono" style="font-size:10px;color:var(--gold);">LSB</span>
+                    <span class="info-icon" onclick="event.stopPropagation()">i
+                      <span class="info-tooltip">Multiplies the lowest 2 binary bits (px &amp; 3) by 85 across R, G, and B to expose multi-bit LSB steganography and LMY1 scanline headers. Click again to return to the normal channel.</span>
+                    </span>
+                  </span>
+                </button>
+              </div>
+              <div class="lr-side-grid" style="margin-top:8px;">
+                <button type="button" class="lr-grid-btn" id="stego-btn-invert" onclick="toggleStegoInvert()" title="Bitwise XOR 0xFF inversion on active plane">
+                  <span>Invert (XOR FF)</span><span class="mono" id="stego-inv-lbl" style="font-size:9px;">OFF</span>
+                </button>
+                <button type="button" class="lr-grid-btn" id="stego-btn-lut" onclick="toggleStegoLut()" title="Deterministic high-contrast pseudo-color LUT on low bits">
+                  <span>Random LUT</span><span class="mono" id="stego-lut-lbl" style="font-size:9px;">OFF</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid var(--line);padding-top:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);">
+                <span>Live LSB Stream (64B)</span>
+                <div style="display:flex;gap:5px;">
+                  <button type="button" class="q-btn" id="lsb-order-btn" style="height:20px;font-size:9px;padding:0 6px;" onclick="toggleLsbScanOrder()">Row-First</button>
+                  <button type="button" class="q-btn" id="lsb-bitend-btn" style="height:20px;font-size:9px;padding:0 6px;" onclick="toggleLsbBitOrder()">MSB</button>
+                </div>
+              </div>
+              <div class="stego-hex-box" id="stego-hex-box">Select an image to inspect live LSB bytes.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toolkit 4: Steganography Scanner -->
+        <div class="lr-panel" id="lr-panel-stego-scanner">
+          <div class="insp-panel-hdr" onclick="toggleLrPanel('lr-panel-stego-scanner')">
+            <span><span class="lr-chevron">&#9662;</span> Steganography Scanner</span>
+            <button class="q-btn" style="height:20px;font-size:10px;padding:0 6px;" onclick="event.stopPropagation();runInspectStegoScan()">Rescan</button>
+          </div>
+          <div class="lr-panel-body" style="padding:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.5;" id="insp-stego-box">
+            <div style="color:var(--dim);">Select an image in the filmstrip to inspect.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2385,6 +2708,66 @@
         <input class="cfg-input" type="number" id="c-jpeg" min="85" max="100" value="98">
       </div>
 
+      <div class="cfg-row">
+        <div class="label-group">
+          <span>Protection Compatibility Filter</span>
+          <span class="info-icon">i
+            <span class="info-tooltip">Photo-Compatible Defenses Only hides in-generation-only or generator-side watermarking algorithms from the Workspace selector.</span>
+          </span>
+        </div>
+        <select id="c-prot-mode">
+          <option value="photo_only" selected>Photo-Compatible Defenses Only</option>
+          <option value="all">Show All (Including In-Generation Only)</option>
+        </select>
+      </div>
+
+      <div class="cfg-row">
+        <div class="label-group">
+          <span>Native Resolution Policy</span>
+          <span class="info-icon">i
+            <span class="info-tooltip">Controls how high-resolution photos are optimized and blended back onto the native-resolution image canvas.</span>
+          </span>
+        </div>
+        <select id="c-res-policy">
+          <option value="native_tiled" selected>Native Resolution + Residual Blend</option>
+          <option value="strict_native">Strict Native Grid</option>
+        </select>
+      </div>
+
+      <div class="cfg-row">
+        <div class="label-group">
+          <span>Expectation Over Transformation (EOT)</span>
+          <span class="info-icon">i
+            <span class="info-tooltip">Applies differentiable resize/crop/quantization transforms during optimization to harden perturbations against post-processing.</span>
+          </span>
+        </div>
+        <select id="c-eot">
+          <option value="off">Off (Fastest)</option>
+          <option value="standard" selected>Standard (Resize + Quantization)</option>
+          <option value="aggressive">Aggressive (Multi-Scale + Blur)</option>
+        </select>
+      </div>
+
+      <div class="cfg-row">
+        <div class="label-group">
+          <span>Auto-Load Paper Hyperparameters</span>
+          <span class="info-icon">i
+            <span class="info-tooltip">Automatically snaps Perturbation Budget and algorithm-specific parameters to the published paper defaults when selecting a defense algorithm.</span>
+          </span>
+        </div>
+        <input type="checkbox" id="c-auto-paper" checked style="width:18px;height:18px;cursor:pointer;">
+      </div>
+
+      <div class="cfg-row">
+        <div class="label-group">
+          <span>Allow System RAM Spillover (VRAM Offload)</span>
+          <span class="info-icon">i
+            <span class="info-tooltip">Streams intermediate VAE forward activations to pinned System RAM (save_on_cpu) and enables tiled VAE encoding so 8 GB+ algorithms and native-resolution tiles run on lower-VRAM GPUs at reduced speed.</span>
+          </span>
+        </div>
+        <input type="checkbox" id="c-ram-spill" checked style="width:18px;height:18px;cursor:pointer;">
+      </div>
+
       <div style="display:flex;gap:8px;margin-top:16px;">
         <button class="q-btn primary" onclick="saveGlobalConfig()">Save Configuration</button>
         <button class="q-btn" onclick="localStorage.removeItem('lumiyaMuteDeleteUntil');localStorage.removeItem('lumiyaMuteHistoryUntil');localStorage.removeItem('lumiyaMultiAlgoMute');alert('Confirmation prompts restored.')">Reset 30-Min Prompt Mutes</button>
@@ -2400,7 +2783,7 @@
       <div>
         <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:0.3px;">PORTtralica Lumiya Evaluative Suite</div>
         <div class="mono" style="font-size:12px;color:var(--gold);margin-top:4px;" id="about-version-line">
-          Version v0.5.034.4100 (Pilot) (64-bit)
+          Version v0.5.099.9310 (Pilot) (64-bit)
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px;">
           &copy; 2026 PORTtralica Media Group. All rights reserved.
@@ -2509,7 +2892,7 @@ const histBuffers = {
 let discoveredAlgos = [];
 let favoriteAlgos = [
   'photoguard', 'blurguard', 'diffusionguard', 'anti_inpainting', 'veto',
-  'mirage', 'metacloak', 'mistv2', 'antipure'
+  'srim', 'metacloak', 'mist', 'antipure', 'decontext'
 ];
 let algoLastUsed = {};
 let allBatches = [];
@@ -2519,7 +2902,8 @@ let orgViewMode = 'doc';
 let orgGridMode = false;
 let orgNumMode = 'none';
 let orgGridFadePending = false;
-let defaultLayers = { photoguard: true, blurguard: true, diffusionguard: true, antiInpainting: true, veto: false, mirage: false };
+let defaultLayers = { photoguard: true, blurguard: false, diffusionguard: false, anti_inpainting: false, veto: false };
+let defaultConvertPng = true;
 let collapsedBatches = {};
 let lastBatchesSig = '';
 let lastAlgosSig = '';
@@ -2862,6 +3246,24 @@ async function openResultFolder(batch) {
   if (!d.ok) showBanner(`<strong>&#9650; Export Missing:</strong> The folder for ${escapeHtml(batch)} no longer exists.`, true);
 }
 
+function setConvertPngMode(val) {
+  const boolVal = !!val;
+  document.getElementById('s-convert-png').value = boolVal ? 'true' : 'false';
+  syncConvertPngButtons(boolVal, false);
+  onUnifiedBoxChange();
+}
+
+function syncConvertPngButtons(convertPngVal, allPngLocked) {
+  const btnPng = document.getElementById('fmt-btn-png');
+  const btnKeep = document.getElementById('fmt-btn-keep');
+  if (!btnPng || !btnKeep) return;
+  const effConvert = allPngLocked ? true : !!convertPngVal;
+  btnPng.classList.toggle('active', effConvert);
+  btnKeep.classList.toggle('active', !effConvert);
+  btnKeep.disabled = !!allPngLocked;
+  btnKeep.title = allPngLocked ? 'All images in this batch are already lossless .PNG files' : 'Preserve original file format on export';
+}
+
 function renderStegoControls() {
   document.getElementById('v-stego-strength').innerText = document.getElementById('r-stego-strength').value;
   document.getElementById('v-stego-scale').innerText = `${document.getElementById('r-stego-scale').value}%`;
@@ -2869,8 +3271,17 @@ function renderStegoControls() {
   preview.style.display = stegoMark ? 'block' : 'none';
   if (stegoMark) preview.src = `data:image/png;base64,${stegoMark}`;
   const payload = document.getElementById('s-stego-payload').value;
+  const isBin = payload === 'binary';
   document.getElementById('s-stego-image-row').hidden = payload !== 'image';
-  document.getElementById('s-stego-text').hidden = payload !== 'text';
+  document.getElementById('s-stego-text').hidden = payload === 'image';
+  const strField = document.getElementById('s-stego-strength-field');
+  const sclField = document.getElementById('s-stego-scale-field');
+  const plcField = document.getElementById('s-stego-placement-field');
+  const binNote = document.getElementById('s-stego-binary-note');
+  if (strField) strField.style.display = isBin ? 'none' : '';
+  if (sclField) sclField.style.display = isBin ? 'none' : '';
+  if (plcField) plcField.style.display = isBin ? 'none' : '';
+  if (binNote) binNote.style.display = isBin ? 'block' : 'none';
   document.getElementById('v-compute').innerText = `${COMPUTE_LEVELS[document.getElementById('r-compute').value].toFixed(COMPUTE_LEVELS[document.getElementById('r-compute').value] === 0.25 ? 2 : 1)}x`;
 }
 
@@ -2906,9 +3317,27 @@ async function importStegoImage(file) {
 // Controls no selected algorithm uses stay visible but locked.
 function applyParamSupport(layers) {
   const on = discoveredAlgos.filter(a => layers && layers[a.id]);
-  const supported = new Set(on.flatMap(a => a.params || []));
-  const papers = on.filter(a => a.paper).map(a => a.paper.budget);
-  document.getElementById('l-budget-paper').innerText = papers.length ? `${Math.min(...papers).toFixed(1)} (Paper)` : '— (Paper)';
+  const rawParams = new Set(on.flatMap(a => a.params || []));
+  const supported = new Set(rawParams);
+  if (rawParams.has('geoAnchorLow') || rawParams.has('geoAnchorHigh')) supported.add('scale');
+  if (rawParams.has('temporalWeight')) supported.add('temporal');
+  if (rawParams.has('maskAugFactor')) supported.add('mask');
+  if (rawParams.has('guidancePrompt')) supported.add('text');
+
+  const budgets = on.filter(a => a.paper && a.paper.budget !== undefined).map(a => Number(a.paper.budget));
+  const stepsArr = on.filter(a => a.paper && a.paper.steps !== undefined).map(a => Number(a.paper.steps));
+  const temps = on.filter(a => a.paper && a.paper.temporalWeight !== undefined).map(a => Number(a.paper.temporalWeight));
+  const masks = on.filter(a => a.paper && a.paper.maskAugFactor !== undefined).map(a => Number(a.paper.maskAugFactor));
+
+  const budgetLbl = document.getElementById('l-budget-paper');
+  if (budgetLbl) budgetLbl.innerText = budgets.length ? `${Math.min(...budgets).toFixed(1)} (Paper)` : '— (Paper)';
+  const compLbl = document.getElementById('l-compute-paper');
+  if (compLbl) compLbl.innerText = stepsArr.length ? `1.0x (${stepsArr.reduce((a, b) => a + b, 0)} steps Paper)` : '1.0x (Paper)';
+  const tempLbl = document.getElementById('l-temp-paper');
+  if (tempLbl) tempLbl.innerText = temps.length ? `${temps[temps.length - 1].toFixed(2)} (Paper)` : '0.50 (Balanced)';
+  const maskLbl = document.getElementById('l-mask-paper');
+  if (maskLbl) maskLbl.innerText = masks.length ? `${masks[masks.length - 1].toFixed(1)}x (Paper)` : '1.0x (Contour)';
+
   document.querySelectorAll('.field[data-param]').forEach(el => {
     const locked = !supported.has(el.dataset.param);
     el.classList.toggle('param-locked', locked);
@@ -2950,7 +3379,11 @@ function syncUnifiedBoxUI() {
     if (document.activeElement !== stegoTextEl) {
       stegoTextEl.value = target.stegoText || '';
     }
+    const convBool = target.convertPng !== undefined ? !!target.convertPng : defaultConvertPng;
+    document.getElementById('s-convert-png').value = convBool ? 'true' : 'false';
   }
+  const curConv = document.getElementById('s-convert-png').value !== 'false';
+  syncConvertPngButtons(curConv, !!(target && target.allPng));
   syncStegoSwitchButtons(stegoModeEl.value || 'off');
   renderStegoControls();
   applyParamSupport(curLayers);
@@ -3093,13 +3526,69 @@ function applyAlgoSelection(algoId, choice) {
   delete layersObj[algoId];
   layersObj[algoId] = choice === 'solo' || !curVal;
 
+  const autoPaperEl = document.getElementById('c-auto-paper');
+  const autoPaper = autoPaperEl ? !!autoPaperEl.checked : true;
+  const enabledAlgos = discoveredAlgos.filter(a => layersObj[a.id] && a.paper);
+  const clickedAlgo = discoveredAlgos.find(a => a.id === algoId);
+  const paperUpdates = {};
+
+  if (autoPaper && enabledAlgos.length > 0) {
+    const refPaper = (layersObj[algoId] && clickedAlgo && clickedAlgo.paper) ? clickedAlgo.paper : enabledAlgos[enabledAlgos.length - 1].paper;
+    const budgets = enabledAlgos.map(a => Number(a.paper.budget)).filter(v => !isNaN(v));
+    if (budgets.length > 0) {
+      const nextEps = choice === 'solo' && refPaper.budget !== undefined ? Number(refPaper.budget) : Math.min(...budgets);
+      document.getElementById('r-eps').value = nextEps;
+      document.getElementById('v-eps').innerText = nextEps.toFixed(1);
+      paperUpdates.epsilon = nextEps;
+    }
+    if (refPaper.steps !== undefined) {
+      const nextSteps = parseInt(refPaper.steps, 10) || 200;
+      document.getElementById('r-steps').value = nextSteps;
+      document.getElementById('v-steps').innerText = `${nextSteps}`;
+      paperUpdates.steps = nextSteps;
+    }
+    if (refPaper.geoAnchorLow !== undefined) {
+      document.getElementById('r-geo-low').value = Number(refPaper.geoAnchorLow);
+      paperUpdates.geoAnchorLow = Number(refPaper.geoAnchorLow);
+    }
+    if (refPaper.geoAnchorHigh !== undefined) {
+      document.getElementById('r-geo-high').value = Number(refPaper.geoAnchorHigh);
+      paperUpdates.geoAnchorHigh = Number(refPaper.geoAnchorHigh);
+    }
+    if (paperUpdates.geoAnchorLow !== undefined || paperUpdates.geoAnchorHigh !== undefined) {
+      const gl = parseFloat(document.getElementById('r-geo-low').value);
+      const gh = parseFloat(document.getElementById('r-geo-high').value);
+      document.getElementById('v-geo').innerText = `${gl.toFixed(1)} – ${gh.toFixed(1)}`;
+    }
+    if (refPaper.temporalWeight !== undefined) {
+      const tw = Number(refPaper.temporalWeight);
+      document.getElementById('r-temp-weight').value = tw;
+      document.getElementById('v-temp-weight').innerText = tw.toFixed(2);
+      paperUpdates.temporalWeight = tw;
+    }
+    if (refPaper.maskAugFactor !== undefined) {
+      const mf = Number(refPaper.maskAugFactor);
+      document.getElementById('r-mask-aug').value = mf;
+      document.getElementById('v-mask-aug').innerText = mf.toFixed(1);
+      paperUpdates.maskAugFactor = mf;
+    }
+    if (refPaper.guidancePrompt !== undefined) {
+      const promptEl = document.getElementById('s-guidance-prompt');
+      if (promptEl) {
+        promptEl.value = String(refPaper.guidancePrompt);
+        paperUpdates.guidancePrompt = String(refPaper.guidancePrompt);
+      }
+    }
+    lastParamEditAt = Date.now();
+  }
 
   if (target) {
     target.layers = layersObj;
-    batchAction('update_params', target.batchId, { layers: layersObj });
+    Object.assign(target, paperUpdates);
+    batchAction('update_params', target.batchId, { layers: layersObj, ...paperUpdates });
   } else {
     defaultLayers = layersObj;
-    fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: defaultLayers }) });
+    fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: defaultLayers, ...paperUpdates }) });
   }
   lastBatchesSig = '';
   syncUnifiedBoxUI();
@@ -3141,6 +3630,7 @@ function onUnifiedBoxChange() {
     maskAugFactor,
     stegoMode,
     stegoText,
+    convertPng: document.getElementById('s-convert-png').value !== 'false',
     computeLevel: COMPUTE_LEVELS[document.getElementById('r-compute').value],
     stegoPayload: document.getElementById('s-stego-payload').value,
     seed: Math.max(0, parseInt(document.getElementById('s-seed').value, 10) || 0),
@@ -3688,8 +4178,17 @@ let activeInspectIdx = 0;
 let inspectViewMode = 'single'; // 'single' | 'side' | 'wipe'
 let inspectQuickBefore = false;
 let inspectWipePct = 0.50;
-let inspectLens = 'normal'; // 'normal' | 'lsb' | 'bit0' | 'bit1' | 'diff' | 'fft' | 'ela' | 'sobel'
+let inspectLens = 'normal'; // 'normal' | 'diff' | 'fft' | 'ela' | 'sobel' | 'srm' | 'luma_map' | 'chroma' | 'lsb' | 'mark' | 'stego_plane'
 let inspectGain = 20;
+let inspectElaQ = 90;
+let inspectNoiseFloor = 0;
+let stegoChannel = 'rgb'; // 'rgb' | 'r' | 'g' | 'b' | 'a' | 'luma'
+let stegoBitPlane = -1;   // -1 (All Bits) | 0..7
+let stegoInvert = false;
+let stegoLut = false;
+let lsbScanRowFirst = true;
+let lsbBitMsbFirst = true;
+let inspectStegoOverlay = null;
 let inspectZoom = 'FIT'; // 'FIT' | number (0.25 .. 16)
 let inspectTargetZoom = 'FIT';
 let inspectCenter = { u: 0.5, v: 0.5 };
@@ -3697,6 +4196,53 @@ let inspectTargetCenter = { u: 0.5, v: 0.5 };
 let inspectAnimRaf = null;
 let inspectDrag = null;
 const inspectCache = {};
+
+const STEGO_RANDOM_LUT = [
+  [0, 0, 0],
+  [250, 77, 86],
+  [66, 190, 101],
+  [15, 98, 254],
+  [243, 214, 137],
+  [190, 149, 255],
+  [61, 219, 217],
+  [255, 126, 182]
+];
+
+function toggleLrPanel(panelId) {
+  const el = document.getElementById(panelId);
+  if (el) el.classList.toggle('collapsed');
+}
+
+function canCompareBeforeAfter(item, entry) {
+  if (!item || item.isStandalone || !item.hasExport) return false;
+  if (entry && entry.loaded && !entry.hasExport) return false;
+  return true;
+}
+
+function syncInspectViewButtons(item, entry) {
+  const canBA = canCompareBeforeAfter(item, entry);
+  const sideBtn = document.getElementById('vm-side');
+  const wipeBtn = document.getElementById('vm-wipe');
+  const swapBtn = document.getElementById('vm-swap');
+  if (sideBtn) sideBtn.disabled = !canBA;
+  if (wipeBtn) wipeBtn.disabled = !canBA;
+  if (swapBtn) swapBtn.disabled = !canBA;
+  if (!canBA) {
+    if (inspectViewMode !== 'single') {
+      inspectViewMode = 'single';
+      ['single', 'side', 'wipe'].forEach(m => {
+        const b = document.getElementById(`vm-${m}`);
+        if (b) b.classList.toggle('active', m === 'single');
+      });
+      const wipeCtrl = document.getElementById('insp-wipe-ctrl');
+      if (wipeCtrl) wipeCtrl.style.display = 'none';
+    }
+    if (inspectQuickBefore) {
+      inspectQuickBefore = false;
+      if (swapBtn) swapBtn.classList.remove('active');
+    }
+  }
+}
 
 function updateInspectBadges() {
   const n = inspectItems.length;
@@ -3728,15 +4274,17 @@ function syncInspectCollectionWithBatches() {
     const f = b.files.find(x => x.fileId === item.fileId);
     if (!f) continue;
     const prevDone = item.hasExport;
+    const prevRev = item.exportRev || 0;
     item.name = f.name;
     item.dims = f.dims;
     item.status = f.status;
     item.hasStego = f.hasStego;
     item.hasExport = !!f.hasExport || f.status === 'DONE';
+    item.exportRev = f.exportRev || 0;
     item.psnr = f.psnr || 0;
     item.shift = f.shift || 0;
     item.thumb = f.thumb;
-    if (!prevDone && item.hasExport && inspectCache[item.key]) {
+    if (((!prevDone && item.hasExport) || (prevRev !== item.exportRev)) && inspectCache[item.key]) {
       delete inspectCache[item.key];
     }
     next.push(item);
@@ -3762,6 +4310,7 @@ function addFileObjToInspect(batchId, f) {
     status: f.status,
     hasStego: f.hasStego,
     hasExport: !!f.hasExport || f.status === 'DONE',
+    exportRev: f.exportRev || 0,
     psnr: f.psnr || 0,
     shift: f.shift || 0,
     thumb: f.thumb
@@ -3853,6 +4402,8 @@ function sendBatchToInspect(e, batchId, purgeFirst = false) {
 function purgeInspectCollection() {
   inspectItems = [];
   activeInspectIdx = 0;
+  inspectStegoOverlay = null;
+  inspectMarkImg = null;
   lastBatchesSig = '';
   updateInspectBadges();
   renderInspectModule();
@@ -3865,6 +4416,8 @@ function removeInspectItem(e, idx) {
   if (activeInspectIdx >= inspectItems.length) {
     activeInspectIdx = Math.max(0, inspectItems.length - 1);
   }
+  inspectStegoOverlay = null;
+  inspectMarkImg = null;
   lastBatchesSig = '';
   updateInspectBadges();
   renderInspectModule();
@@ -3873,6 +4426,8 @@ function removeInspectItem(e, idx) {
 function selectInspectItem(idx) {
   if (idx < 0 || idx >= inspectItems.length) return;
   activeInspectIdx = idx;
+  inspectStegoOverlay = null;
+  inspectMarkImg = null;
   renderInspectModule();
 }
 
@@ -3903,7 +4458,7 @@ const inspectCacheOrder = [];
 async function ensureInspectPairLoaded(item) {
   if (!item) return null;
   const cached = inspectCache[item.key];
-  if (cached && cached.loaded && cached.hasExport === item.hasExport) {
+  if (cached && cached.loaded && cached.hasExport === item.hasExport && cached.exportRev === (item.exportRev || 0)) {
     return cached;
   }
   if (cached && cached.loadingPromise) {
@@ -3914,8 +4469,10 @@ async function ensureInspectPairLoaded(item) {
     if (oldestKey && oldestKey !== item.key) delete inspectCache[oldestKey];
   }
   if (!inspectCacheOrder.includes(item.key)) inspectCacheOrder.push(item.key);
-  const entry = { loaded: false, hasExport: item.hasExport, lensCanvases: {}, lensOrder: [] };
+  const entry = { loaded: false, hasExport: item.hasExport, exportRev: item.exportRev || 0, lensCanvases: {}, lensOrder: [] };
   inspectCache[item.key] = entry;
+  const loaderEl = document.getElementById('insp-stage-loader');
+  if (loaderEl) loaderEl.classList.add('active');
   entry.loadingPromise = (async () => {
     try {
       let beforeImg, afterImg;
@@ -3926,7 +4483,7 @@ async function ensureInspectPairLoaded(item) {
         const baseUrl = `/api/preview_image?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`;
         beforeImg = await loadImgPromise(baseUrl + '&export=0');
         afterImg = item.hasExport
-          ? await loadImgPromise(baseUrl + '&export=1&t=' + Date.now()).catch(() => beforeImg)
+          ? await loadImgPromise(`${baseUrl}&export=1&rev=${item.exportRev || 0}`).catch(() => beforeImg)
           : beforeImg;
       }
 
@@ -3942,11 +4499,15 @@ async function ensureInspectPairLoaded(item) {
       entry.afterData = entry.afterCanvas.getContext('2d').getImageData(0, 0, entry.w, entry.h);
       entry.loaded = true;
       entry.loadingPromise = null;
+      if (loaderEl) loaderEl.classList.remove('active');
+      syncInspectViewButtons(item, entry);
       runInspectStegoScan();
+      updateLiveLsbHexStream(entry);
       renderInspectStage();
       renderInspectHistogram();
       return entry;
     } catch (err) {
+      if (loaderEl) loaderEl.classList.remove('active');
       delete inspectCache[item.key];
       return null;
     }
@@ -3957,17 +4518,26 @@ async function ensureInspectPairLoaded(item) {
 let inspectMarkImg = null;
 
 function markLensCanvas(entry, isBefore) {
-  const key = isBefore ? 'markBefore' : 'markAfter';
+  const key = `mark::${isBefore ? 'B' : 'A'}::${stegoInvert ? 1 : 0}`;
   if (entry[key] && entry[key]._src === inspectMarkImg) return entry[key];
   const c = document.createElement('canvas');
   c.width = entry.w;
   c.height = entry.h;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = stegoInvert ? '#fff' : '#000';
   ctx.fillRect(0, 0, c.width, c.height);
   if (!isBefore && inspectMarkImg) {
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(inspectMarkImg, 0, 0, c.width, c.height);
+    if (stegoInvert) {
+      const id = ctx.getImageData(0, 0, c.width, c.height);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] ^= 255; d[i + 1] ^= 255; d[i + 2] ^= 255;
+      }
+      ctx.putImageData(id, 0, 0);
+    }
   }
   c._src = inspectMarkImg;
   entry[key] = c;
@@ -3976,14 +4546,14 @@ function markLensCanvas(entry, isBefore) {
 
 function getLensCanvas(entry, isBefore) {
   if (inspectLens === 'mark') return markLensCanvas(entry, isBefore);
-  if (inspectLens === 'normal') {
+  if (inspectLens === 'normal' && stegoChannel === 'rgb' && stegoBitPlane === -1 && !stegoInvert && !stegoLut) {
     return (isBefore ? entry.beforeImg : entry.afterImg) || (isBefore ? entry.beforeCanvas : entry.afterCanvas);
   }
 
-  const cacheKey = `${isBefore ? 'B' : 'A'}::${inspectLens}::${inspectGain}`;
+  const cacheKey = `${isBefore ? 'B' : 'A'}::${inspectLens}::${inspectGain}::${inspectElaQ}::${inspectNoiseFloor}::${stegoChannel}::${stegoBitPlane}::${stegoInvert ? 1 : 0}::${stegoLut ? 1 : 0}`;
   if (entry.lensCanvases[cacheKey]) return entry.lensCanvases[cacheKey];
   if (entry.lensOrder) {
-    while (entry.lensOrder.length >= 4) {
+    while (entry.lensOrder.length >= 6) {
       const oldK = entry.lensOrder.shift();
       delete entry.lensCanvases[oldK];
     }
@@ -4000,6 +4570,7 @@ function getLensCanvas(entry, isBefore) {
   const outImg = ctx.createImageData(w, h);
   const dst = outImg.data;
   const n = w * h * 4;
+  const floor = inspectNoiseFloor;
 
   if (inspectLens === 'lsb') {
     for (let i = 0; i < n; i += 4) {
@@ -4008,56 +4579,72 @@ function getLensCanvas(entry, isBefore) {
       dst[i + 2] = (src[i + 2] & 3) * 85;
       dst[i + 3] = 255;
     }
-  } else if (inspectLens === 'bit0') {
+  } else if (inspectLens === 'stego_plane' || (inspectLens === 'normal' && (stegoChannel !== 'rgb' || stegoBitPlane !== -1 || stegoInvert || stegoLut))) {
+    const bp = stegoBitPlane;
     for (let i = 0; i < n; i += 4) {
-      const bit = ((src[i] & 1) ^ (src[i + 1] & 1) ^ (src[i + 2] & 1)) * 255;
-      dst[i] = bit; dst[i + 1] = bit; dst[i + 2] = bit; dst[i + 3] = 255;
-    }
-  } else if (inspectLens === 'bit1') {
-    for (let i = 0; i < n; i += 4) {
-      const b1 = (((src[i] >> 1) & 1) ^ ((src[i + 1] >> 1) & 1) ^ ((src[i + 2] >> 1) & 1)) * 255;
-      dst[i] = b1; dst[i + 1] = b1; dst[i + 2] = b1; dst[i + 3] = 255;
+      let r = src[i], g = src[i + 1], b = src[i + 2], a = src[i + 3];
+      if (stegoChannel === 'r') { g = r; b = r; }
+      else if (stegoChannel === 'g') { r = g; b = g; }
+      else if (stegoChannel === 'b') { r = b; g = b; }
+      else if (stegoChannel === 'a') { r = a; g = a; b = a; }
+      else if (stegoChannel === 'luma') {
+        const lum = Math.min(255, Math.round(0.299 * r + 0.587 * g + 0.114 * b));
+        r = lum; g = lum; b = lum;
+      }
+      if (bp >= 0 && bp <= 7) {
+        if (stegoChannel === 'rgb') {
+          r = ((src[i] >> bp) & 1) * 255;
+          g = ((src[i + 1] >> bp) & 1) * 255;
+          b = ((src[i + 2] >> bp) & 1) * 255;
+        } else {
+          const bit = ((r >> bp) & 1) * 255;
+          r = bit; g = bit; b = bit;
+        }
+      }
+      dst[i] = r; dst[i + 1] = g; dst[i + 2] = b; dst[i + 3] = 255;
     }
   } else if (inspectLens === 'diff') {
     for (let i = 0; i < n; i += 4) {
-      const dr = Math.abs(entry.afterData.data[i] - ref[i]);
-      const dg = Math.abs(entry.afterData.data[i + 1] - ref[i + 1]);
-      const db = Math.abs(entry.afterData.data[i + 2] - ref[i + 2]);
+      const dr = Math.max(0, Math.abs(entry.afterData.data[i] - ref[i]) - floor);
+      const dg = Math.max(0, Math.abs(entry.afterData.data[i + 1] - ref[i + 1]) - floor);
+      const db = Math.max(0, Math.abs(entry.afterData.data[i + 2] - ref[i + 2]) - floor);
       dst[i]     = Math.min(255, dr * inspectGain);
       dst[i + 1] = Math.min(255, dg * inspectGain);
       dst[i + 2] = Math.min(255, db * inspectGain);
       dst[i + 3] = 255;
     }
   } else if (inspectLens === 'fft') {
-    const mult = Math.max(2, Math.floor(inspectGain / 3));
+    const mult = Math.max(1, Math.floor(inspectGain / 3));
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
         const idx = (y * w + x) * 4;
         for (let c = 0; c < 3; c++) {
           const center = src[idx + c] * 4;
-          const lap = Math.abs(center - src[idx - 4 + c] - src[idx + 4 + c] - src[idx - w * 4 + c] - src[idx + w * 4 + c]);
+          const lap = Math.max(0, Math.abs(center - src[idx - 4 + c] - src[idx + 4 + c] - src[idx - w * 4 + c] - src[idx + w * 4 + c]) - floor);
           dst[idx + c] = Math.min(255, lap * mult);
         }
         dst[idx + 3] = 255;
       }
     }
   } else if (inspectLens === 'ela') {
+    const qStep = Math.max(1, Math.round((100 - inspectElaQ) * 0.6));
+    const mult = Math.max(1, Math.floor(inspectGain / 2));
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4;
         const bx = (x & ~7) + 4 < w ? (x & ~7) + 4 : x;
         const by = (y & ~7) + 4 < h ? (y & ~7) + 4 : y;
         const bIdx = (by * w + bx) * 4;
-        const er = Math.abs(src[idx] - src[bIdx]) + (src[idx] & 3) * 2;
-        const eg = Math.abs(src[idx + 1] - src[bIdx + 1]) + (src[idx + 1] & 3) * 2;
-        const eb = Math.abs(src[idx + 2] - src[bIdx + 2]) + (src[idx + 2] & 3) * 2;
-        dst[idx]     = Math.min(255, er * Math.max(2, Math.floor(inspectGain / 3)));
-        dst[idx + 1] = Math.min(255, eg * Math.max(2, Math.floor(inspectGain / 3)));
-        dst[idx + 2] = Math.min(255, eb * Math.max(2, Math.floor(inspectGain / 3)));
+        for (let c = 0; c < 3; c++) {
+          const quant = Math.round(src[idx + c] / qStep) * qStep;
+          const blk = Math.abs(src[idx + c] - src[bIdx + c]) * 0.35 + Math.abs(src[idx + c] - quant);
+          dst[idx + c] = Math.min(255, Math.max(0, blk - floor) * mult);
+        }
         dst[idx + 3] = 255;
       }
     }
   } else if (inspectLens === 'sobel') {
+    const gainScale = Math.max(0.5, inspectGain / 10.0);
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
         const idx = (y * w + x) * 4;
@@ -4065,12 +4652,200 @@ function getLensCanvas(entry, isBefore) {
         const lR = src[idx + 4] * 0.3 + src[idx + 5] * 0.59 + src[idx + 6] * 0.11;
         const lU = src[idx - w * 4] * 0.3 + src[idx - w * 4 + 1] * 0.59 + src[idx - w * 4 + 2] * 0.11;
         const lD = src[idx + w * 4] * 0.3 + src[idx + w * 4 + 1] * 0.59 + src[idx + w * 4 + 2] * 0.11;
-        const mag = Math.min(255, Math.hypot(lR - lL, lD - lU) * 2.2);
+        const mag = Math.min(255, Math.max(0, Math.hypot(lR - lL, lD - lU) - floor) * gainScale);
         dst[idx] = mag * 0.35;
         dst[idx + 1] = mag * 0.75;
         dst[idx + 2] = mag;
         dst[idx + 3] = 255;
       }
+    }
+  } else if (inspectLens === 'srm') {
+    const mult = Math.max(1, Math.floor(inspectGain / 2));
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const idx = (y * w + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const hRes = Math.abs(2 * src[idx + c] - src[idx - 4 + c] - src[idx + 4 + c]);
+          const vRes = Math.abs(2 * src[idx + c] - src[idx - w * 4 + c] - src[idx + w * 4 + c]);
+          const rVal = Math.max(0, (hRes + vRes) * 0.5 - floor);
+          dst[idx + c] = Math.min(255, rVal * mult);
+        }
+        dst[idx + 3] = 255;
+      }
+    }
+  } else if (inspectLens === 'luma_map') {
+    for (let i = 0; i < n; i += 4) {
+      const lum = Math.min(255, Math.round(0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2]));
+      if (lum <= 2) {
+        dst[i] = 15; dst[i + 1] = 98; dst[i + 2] = 254;
+      } else if (lum >= 253) {
+        dst[i] = 250; dst[i + 1] = 77; dst[i + 2] = 86;
+      } else {
+        dst[i] = lum; dst[i + 1] = lum; dst[i + 2] = lum;
+      }
+      dst[i + 3] = 255;
+    }
+  } else if (inspectLens === 'chroma') {
+    const gainScale = Math.max(1.0, inspectGain / 8.0);
+    for (let i = 0; i < n; i += 4) {
+      const r = src[i], g = src[i + 1], b = src[i + 2];
+      const y = 0.299 * r + 0.587 * g + 0.114 * b;
+      const cb = Math.min(255, Math.max(0, 128 + (b - y) * gainScale));
+      const cr = Math.min(255, Math.max(0, 128 + (r - y) * gainScale));
+      dst[i] = cr;
+      dst[i + 1] = Math.min(255, Math.abs(cr - 128) + Math.abs(cb - 128));
+      dst[i + 2] = cb;
+      dst[i + 3] = 255;
+    }
+  } else if (inspectLens === 'attn') {
+    // VETO / MMDiT spatial token attention & entropy dispersion map (RdYlGn overlay)
+    const cell = Math.max(8, Math.round(Math.min(w, h) / 44));
+    const gw = Math.max(4, Math.ceil(w / cell));
+    const gh = Math.max(4, Math.ceil(h / cell));
+    const salGrid = new Float32Array(gw * gh);
+    const diffGrid = new Float32Array(gw * gh);
+    const hfGrid = new Float32Array(gw * gh);
+    const gainNorm = Math.max(0.25, inspectGain / 20.0);
+    let maxSal = 1e-5, maxDiff = 1e-5, maxHf = 1e-5, totalDiff = 0;
+
+    for (let gy = 0; gy < gh; gy++) {
+      const y0 = gy * cell, y1 = Math.min(h - 1, y0 + cell);
+      const ny = ((y0 + y1) * 0.5) / h - 0.5;
+      for (let gx = 0; gx < gw; gx++) {
+        const x0 = gx * cell, x1 = Math.min(w - 1, x0 + cell);
+        const nx = ((x0 + x1) * 0.5) / w - 0.5;
+        // Center-surround subject prior + local contrast/chroma saliency
+        const centerPrior = Math.exp(-(nx * nx + ny * ny) * 5.2);
+        let gradSum = 0, chromaSum = 0, diffSum = 0, hfSum = 0, cnt = 0;
+        for (let y = y0; y < y1; y += 2) {
+          for (let x = x0; x < x1; x += 2) {
+            const idx = (y * w + x) * 4;
+            const r = src[idx], g = src[idx + 1], b = src[idx + 2];
+            const rr = ref[idx], rg = ref[idx + 1], rb = ref[idx + 2];
+            const rx = Math.min(w - 1, x + 1), ry = Math.min(h - 1, y + 1);
+            const idxR = (y * w + rx) * 4, idxD = (ry * w + x) * 4;
+            const gxVal = Math.abs(rr - ref[idxR]) + Math.abs(rg - ref[idxR + 1]) + Math.abs(rb - ref[idxR + 2]);
+            const gyVal = Math.abs(rr - ref[idxD]) + Math.abs(rg - ref[idxD + 1]) + Math.abs(rb - ref[idxD + 2]);
+            gradSum += (gxVal + gyVal);
+            chromaSum += Math.abs(rr - rb) + Math.abs(rg - 0.5 * (rr + rb));
+            const d = Math.max(0, (Math.abs(r - rr) + Math.abs(g - rg) + Math.abs(b - rb)) / 3.0 - floor);
+            diffSum += d;
+            const hfX = Math.abs(r - src[idxR]) + Math.abs(g - src[idxR + 1]) + Math.abs(b - src[idxR + 2]);
+            const hfY = Math.abs(r - src[idxD]) + Math.abs(g - src[idxD + 1]) + Math.abs(b - src[idxD + 2]);
+            hfSum += Math.max(0, (hfX + hfY) * 0.25 - floor);
+            cnt++;
+          }
+        }
+        const inv = 1.0 / Math.max(1, cnt);
+        const gi = gy * gw + gx;
+        const sVal = ((gradSum * inv) * 0.72 + (chromaSum * inv) * 0.28) * (0.28 + 0.72 * centerPrior * centerPrior);
+        const dVal = (diffSum * inv) * gainNorm;
+        const hVal = (hfSum * inv) * (0.55 + 0.45 * gainNorm);
+        salGrid[gi] = sVal;
+        diffGrid[gi] = dVal;
+        hfGrid[gi] = hVal;
+        totalDiff += dVal;
+        if (sVal > maxSal) maxSal = sVal;
+        if (dVal > maxDiff) maxDiff = dVal;
+        if (hVal > maxHf) maxHf = hVal;
+      }
+    }
+
+    const attnGrid = new Float32Array(gw * gh);
+    const hasPerturb = !isBefore && (totalDiff / (gw * gh)) > 0.08;
+    for (let gi = 0; gi < gw * gh; gi++) {
+      const sNorm = Math.pow(Math.min(1.0, salGrid[gi] / maxSal), 1.35);
+      if (!isBefore && hasPerturb) {
+        // Protected view: VETO/PGD perturbation scatters attention away from primary subject into background clusters
+        const dNorm = Math.pow(Math.min(1.0, diffGrid[gi] / Math.max(1.5, maxDiff)), 0.78);
+        const hNorm = Math.min(1.0, hfGrid[gi] / Math.max(8.0, maxHf));
+        const scatter = Math.min(1.0, dNorm * 0.76 + hNorm * 0.24);
+        attnGrid[gi] = Math.min(1.0, scatter * (1.05 - 0.38 * sNorm) + sNorm * 0.22);
+      } else {
+        // Unprotected / Before view: attention concentrates tightly on subject contours
+        attnGrid[gi] = sNorm;
+      }
+    }
+
+    // Two separable 3x3 Gaussian smoothing passes for organic MMDiT attention head blobs
+    const tmpGrid = new Float32Array(gw * gh);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let gy = 0; gy < gh; gy++) {
+        for (let gx = 0; gx < gw; gx++) {
+          const l = Math.max(0, gx - 1), r = Math.min(gw - 1, gx + 1);
+          tmpGrid[gy * gw + gx] = 0.25 * attnGrid[gy * gw + l] + 0.5 * attnGrid[gy * gw + gx] + 0.25 * attnGrid[gy * gw + r];
+        }
+      }
+      for (let gy = 0; gy < gh; gy++) {
+        const u = Math.max(0, gy - 1), d = Math.min(gh - 1, gy + 1);
+        for (let gx = 0; gx < gw; gx++) {
+          attnGrid[gy * gw + gx] = 0.25 * tmpGrid[u * gw + gx] + 0.5 * tmpGrid[gy * gw + gx] + 0.25 * tmpGrid[d * gw + gx];
+        }
+      }
+    }
+
+    // Re-normalize smoothed attention field to [0, 1]
+    let minA = 1.0, maxA = 0.0;
+    for (let gi = 0; gi < gw * gh; gi++) {
+      if (attnGrid[gi] < minA) minA = attnGrid[gi];
+      if (attnGrid[gi] > maxA) maxA = attnGrid[gi];
+    }
+    const spanA = Math.max(1e-4, maxA - minA);
+    for (let gi = 0; gi < gw * gh; gi++) {
+      attnGrid[gi] = Math.min(1.0, Math.max(0.0, (attnGrid[gi] - minA) / spanA));
+    }
+
+    // Bilinear interpolation + RdYlGn VETO colormap alpha-blended over underlying image
+    for (let y = 0; y < h; y++) {
+      const fy = Math.max(0, Math.min(gh - 1.0001, (y + 0.5) / cell - 0.5));
+      const gy0 = Math.floor(fy), gy1 = Math.min(gh - 1, gy0 + 1);
+      const wy = fy - gy0;
+      for (let x = 0; x < w; x++) {
+        const fx = Math.max(0, Math.min(gw - 1.0001, (x + 0.5) / cell - 0.5));
+        const gx0 = Math.floor(fx), gx1 = Math.min(gw - 1, gx0 + 1);
+        const wx = fx - gx0;
+        const a00 = attnGrid[gy0 * gw + gx0], a10 = attnGrid[gy0 * gw + gx1];
+        const a01 = attnGrid[gy1 * gw + gx0], a11 = attnGrid[gy1 * gw + gx1];
+        const a = (a00 * (1 - wx) + a10 * wx) * (1 - wy) + (a01 * (1 - wx) + a11 * wx) * wy;
+
+        // VETO Figure 4 RdYlGn 3-stop palette: Low (Crimson 168,26,24) -> Mid (Cream-Yellow 238,228,152) -> High (Emerald 18,118,46)
+        let hr, hg, hb;
+        if (a < 0.5) {
+          const t = a * 2.0;
+          hr = 168 + (238 - 168) * t;
+          hg = 26 + (228 - 26) * t;
+          hb = 24 + (152 - 24) * t;
+        } else {
+          const t = (a - 0.5) * 2.0;
+          hr = 238 + (18 - 238) * t;
+          hg = 228 + (118 - 228) * t;
+          hb = 152 + (46 - 152) * t;
+        }
+
+        const idx = (y * w + x) * 4;
+        const sr = src[idx], sg = src[idx + 1], sb = src[idx + 2];
+        const lum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+        const baseR = sr * 0.45 + lum * 0.55;
+        const baseG = sg * 0.45 + lum * 0.55;
+        const baseB = sb * 0.45 + lum * 0.55;
+        dst[idx]     = Math.min(255, Math.round(baseR * 0.42 + hr * 0.58));
+        dst[idx + 1] = Math.min(255, Math.round(baseG * 0.42 + hg * 0.58));
+        dst[idx + 2] = Math.min(255, Math.round(baseB * 0.42 + hb * 0.58));
+        dst[idx + 3] = 255;
+      }
+    }
+  }
+
+  if (stegoLut) {
+    for (let i = 0; i < n; i += 4) {
+      const idxLut = ((dst[i] & 1) << 2) | ((dst[i + 1] & 1) << 1) | (dst[i + 2] & 1);
+      const c = STEGO_RANDOM_LUT[idxLut];
+      dst[i] = c[0]; dst[i + 1] = c[1]; dst[i + 2] = c[2];
+    }
+  }
+  if (stegoInvert) {
+    for (let i = 0; i < n; i += 4) {
+      dst[i] ^= 255; dst[i + 1] ^= 255; dst[i + 2] ^= 255;
     }
   }
 
@@ -4151,16 +4926,37 @@ function drawViewportSlice(ctx, sourceDrawable, entry, vx, vy, vw, vh, badgeText
     ctx.fillStyle = '#f3d689';
     ctx.fillText(badgeText, clipX + 17, clipY + 25);
   }
-  if ((inspectLens === 'lsb' || inspectLens === 'bit0' || inspectLens === 'bit1') && !badgeText.startsWith('BEFORE')) {
-    const hdrW = Math.min(entry.w, 64) * scale;
-    const hdrH = Math.min(entry.h, 8) * scale;
-    ctx.strokeStyle = '#f3d689';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(dx, dy, Math.max(18, hdrW), Math.max(12, hdrH));
-    if (scale >= 2) {
-      ctx.font = '600 10px "IBM Plex Mono", monospace';
-      ctx.fillStyle = '#f3d689';
-      ctx.fillText('LMY1 LSB HEADER [0,0]', dx + 2, dy + Math.max(12, hdrH) + 12);
+  if (!badgeText.startsWith('BEFORE') && inspectStegoOverlay) {
+    const sx = entry.w / Math.max(1, entry.origW || entry.w);
+    const sy = entry.h / Math.max(1, entry.origH || entry.h);
+    const drawNonOverlappingBox = (bbox, strokeColor, labelText) => {
+      if (!bbox) return;
+      const bx = dx + (bbox.x || 0) * sx * scale;
+      const by = dy + (bbox.y || 0) * sy * scale;
+      const bw = Math.max(16, (bbox.w || 32) * sx * scale);
+      const bh = Math.max(10, (bbox.h || 8) * sy * scale);
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(bx, by, bw, bh);
+      ctx.setLineDash([]);
+      if (labelText) {
+        ctx.font = '600 10px "IBM Plex Mono", monospace';
+        const ltw = ctx.measureText(labelText).width + 10;
+        const lby = by >= clipY + 38 ? by - 20 : by + bh + 4;
+        ctx.fillStyle = 'rgba(14, 14, 14, 0.9)';
+        ctx.fillRect(bx, lby, ltw, 17);
+        ctx.strokeStyle = strokeColor;
+        ctx.strokeRect(bx, lby, ltw, 17);
+        ctx.fillStyle = strokeColor;
+        ctx.fillText(labelText, bx + 5, lby + 12);
+      }
+    };
+    if (inspectLens === 'lsb' && inspectStegoOverlay.binaryBBox) {
+      drawNonOverlappingBox(inspectStegoOverlay.binaryBBox, '#38bdf8', `LSB STREAM (${inspectStegoOverlay.bitPlane || 'Bit-0/1'})`);
+    }
+    if (inspectLens === 'mark' && inspectStegoOverlay.markBBox) {
+      drawNonOverlappingBox(inspectStegoOverlay.markBBox, '#f3d689', `HIDDEN MARK (${inspectStegoOverlay.markScore || 100}%)`);
     }
   }
   ctx.restore();
@@ -4171,13 +4967,8 @@ function renderInspectNavigator(entry, mainW, mainH) {
   if (!navC) return;
   const nctx = navC.getContext('2d');
   nctx.clearRect(0, 0, navC.width, navC.height);
-  const swapBtn = document.getElementById('vm-swap');
-  const canSwap = !!(entry && entry.loaded && entry.hasExport);
-  swapBtn.disabled = !canSwap;
-  if (!canSwap && inspectQuickBefore) {
-    inspectQuickBefore = false;
-    swapBtn.classList.remove('active');
-  }
+  const item = inspectItems[activeInspectIdx];
+  syncInspectViewButtons(item, entry);
   if (!entry || !entry.loaded) return;
 
   const fit = Math.min(navC.width / entry.w, navC.height / entry.h);
@@ -4393,14 +5184,87 @@ function renderInspectHistogram() {
   drawChannel(lBins, '#e0e0e0', '22');
 }
 
+function updateLiveLsbHexStream(entry) {
+  const hexBox = document.getElementById('stego-hex-box');
+  if (!hexBox) return;
+  if (!entry || !entry.loaded) {
+    hexBox.innerText = 'Select an image to inspect live LSB bytes.';
+    return;
+  }
+  const src = (inspectQuickBefore ? entry.beforeData : entry.afterData).data;
+  const w = entry.w, h = entry.h;
+  const bytes = [];
+  let curByte = 0, bitCount = 0;
+  const pushBits = (val2) => {
+    for (let b = 1; b >= 0; b--) {
+      const bit = (val2 >> b) & 1;
+      if (lsbBitMsbFirst) {
+        curByte = ((curByte << 1) | bit) & 0xFF;
+      } else {
+        curByte = (curByte | (bit << bitCount)) & 0xFF;
+      }
+      bitCount++;
+      if (bitCount === 8) {
+        bytes.push(curByte);
+        curByte = 0;
+        bitCount = 0;
+      }
+    }
+  };
+  if (lsbScanRowFirst) {
+    for (let y = 0; y < h && bytes.length < 64; y++) {
+      for (let x = 0; x < w && bytes.length < 64; x++) {
+        const i = (y * w + x) * 4;
+        pushBits(src[i] & 3);
+        if (bytes.length < 64) pushBits(src[i + 1] & 3);
+        if (bytes.length < 64) pushBits(src[i + 2] & 3);
+      }
+    }
+  } else {
+    for (let x = 0; x < w && bytes.length < 64; x++) {
+      for (let y = 0; y < h && bytes.length < 64; y++) {
+        const i = (y * w + x) * 4;
+        pushBits(src[i] & 3);
+        if (bytes.length < 64) pushBits(src[i + 1] & 3);
+        if (bytes.length < 64) pushBits(src[i + 2] & 3);
+      }
+    }
+  }
+  const hexStr = bytes.slice(0, 48).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  const asciiStr = bytes.slice(0, 48).map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+  hexBox.innerHTML = `<div style="color:var(--gold);margin-bottom:3px;">HEX: ${escapeHtml(hexStr)}</div><div style="color:var(--fg);">ASC: ${escapeHtml(asciiStr)}</div>`;
+}
+
+function toggleLsbScanOrder() {
+  lsbScanRowFirst = !lsbScanRowFirst;
+  const b = document.getElementById('lsb-order-btn');
+  if (b) b.innerText = lsbScanRowFirst ? 'Row-First' : 'Col-First';
+  const item = inspectItems[activeInspectIdx];
+  const entry = item ? inspectCache[item.key] : null;
+  updateLiveLsbHexStream(entry);
+}
+
+function toggleLsbBitOrder() {
+  lsbBitMsbFirst = !lsbBitMsbFirst;
+  const b = document.getElementById('lsb-bitend-btn');
+  if (b) b.innerText = lsbBitMsbFirst ? 'MSB' : 'LSB';
+  const item = inspectItems[activeInspectIdx];
+  const entry = item ? inspectCache[item.key] : null;
+  updateLiveLsbHexStream(entry);
+}
+
 async function runInspectStegoScan() {
   const box = document.getElementById('insp-stego-box');
   if (!box) return;
   const item = inspectItems[activeInspectIdx];
+  inspectMarkImg = null;
+  inspectStegoOverlay = null;
   if (!item) {
     box.innerHTML = `<div style="color:var(--dim);">Select an image in the filmstrip to inspect.</div>`;
+    renderInspectStage();
     return;
   }
+  const targetKey = item.key;
   let d;
   if (item.isStandalone && item.standaloneStego) {
     d = item.standaloneStego;
@@ -4408,23 +5272,37 @@ async function runInspectStegoScan() {
     const r = await fetch(`/api/check_stego?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`);
     d = await r.json();
   }
-  inspectMarkImg = null;
+  const curItem = inspectItems[activeInspectIdx];
+  if (!curItem || curItem.key !== targetKey) return;
   if (d && d.markPng) {
     const img = new Image();
     img.onload = () => {
+      const activeNow = inspectItems[activeInspectIdx];
+      if (!activeNow || activeNow.key !== targetKey) return;
       inspectMarkImg = img;
       if (inspectLens === 'mark') renderInspectStage();
     };
     img.src = `data:image/png;base64,${d.markPng}`;
   }
   if (d && d.found) {
+    const isBinaryOnly = !!(d.binaryFound && !d.markFound);
+    inspectStegoOverlay = {
+      binaryOnly: isBinaryOnly,
+      binaryBBox: d.binaryBBox || null,
+      markBBox: d.markBBox || null,
+      bitPlane: d.bitPlane || 'LSB Bit-Planes 0 & 1 (RGB)',
+      markScore: d.markScore || 100
+    };
     box.innerHTML = `
       <div style="color:var(--green);margin-bottom:6px;">&#10004; SIGNATURE VERIFIED (${escapeHtml(d.method || '2-Bit RGB LSB')})</div>
       ${d.message ? `<div class="enclosed-stego-readout">${escapeHtml(d.message)}</div>` : ''}
-      ${d.markPng ? `<div style="color:var(--muted);margin:6px 0 4px;">Recovered mark (${d.markCoverage}% of photo, confidence ${d.markScore}%)</div><img alt="Recovered hidden mark" src="data:image/png;base64,${d.markPng}" style="width:100%;background:#000;">` : ''}
+      ${d.binaryFound ? `<div style="color:var(--muted);font-size:10px;margin-top:5px;">Embedded in <span style="color:var(--gold);">${escapeHtml(d.bitPlane || 'LSB Bit-Planes 0 & 1 (RGB)')}</span> across top ${d.scanlines || 1} scanline(s).</div>` : ''}
+      ${d.markPng ? `<div style="color:var(--muted);margin:6px 0 4px;">Recovered mark (${d.markCoverage}% of photo, confidence ${d.markScore}%)</div><img alt="Recovered hidden mark" src="data:image/png;base64,${d.markPng}" style="width:100%;background:#000;image-rendering:auto;border:1px solid var(--line);">` : ''}
     `;
+    renderInspectStage();
   } else {
     box.innerHTML = `<div style="color:var(--muted);">&#8212; No hidden mark or text found in this image.</div>`;
+    renderInspectStage();
   }
 }
 
@@ -4432,6 +5310,8 @@ function renderInspectModule() {
   updateInspectBadges();
   const strip = document.getElementById('insp-filmstrip');
   const item = inspectItems[activeInspectIdx];
+  const entry = item ? inspectCache[item.key] : null;
+  syncInspectViewButtons(item, entry);
 
   document.getElementById('im-name').innerText = item ? formatQueueFileName(item.name, 26) : '—';
   document.getElementById('im-name').title = item ? item.name : '';
@@ -4457,6 +5337,7 @@ function renderInspectModule() {
 
   renderInspectStage();
   renderInspectHistogram();
+  updateLiveLsbHexStream(entry);
   runInspectStegoScan();
 }
 
@@ -4468,6 +5349,9 @@ function toggleInspectEyePopup(forceState) {
 }
 
 function setInspectViewMode(mode) {
+  const item = inspectItems[activeInspectIdx];
+  const entry = item ? inspectCache[item.key] : null;
+  if (mode !== 'single' && !canCompareBeforeAfter(item, entry)) return;
   inspectViewMode = mode;
   ['single', 'side', 'wipe'].forEach(m => {
     const b = document.getElementById(`vm-${m}`);
@@ -4478,10 +5362,14 @@ function setInspectViewMode(mode) {
 }
 
 function toggleInspectQuickBefore() {
+  const item = inspectItems[activeInspectIdx];
+  const entry = item ? inspectCache[item.key] : null;
+  if (!canCompareBeforeAfter(item, entry)) return;
   inspectQuickBefore = !inspectQuickBefore;
   document.getElementById('vm-swap').classList.toggle('active', inspectQuickBefore);
   renderInspectStage();
   renderInspectHistogram();
+  updateLiveLsbHexStream(entry);
 }
 
 let inspectSliderRaf = null;
@@ -4496,18 +5384,130 @@ function onInspectWipeSlider(val) {
   }
 }
 
-function setInspectLens(lens) {
-  inspectLens = lens;
-  ['normal', 'lsb', 'mark', 'bit0', 'bit1', 'diff', 'fft', 'ela', 'sobel'].forEach(l => {
-    const b = document.getElementById(`lens-${l}`);
-    if (b) b.classList.toggle('active', l === lens);
+const ALL_LENS_IDS = ['normal', 'diff', 'fft', 'ela', 'sobel', 'srm', 'luma_map', 'chroma', 'attn', 'lsb', 'mark'];
+
+function syncStegoChannelButtons() {
+  const isChanLens = inspectLens === 'normal' || inspectLens === 'stego_plane';
+  ['rgb', 'r', 'g', 'b', 'a', 'luma'].forEach(c => {
+    const b = document.getElementById(`sc-${c}`);
+    if (b) b.classList.toggle('active', isChanLens && c === stegoChannel);
   });
+  const lbl = document.getElementById('stego-chan-lbl');
+  if (lbl) {
+    if (inspectLens === 'mark') lbl.innerText = 'QIM / BIT-0';
+    else if (inspectLens === 'lsb') lbl.innerText = '2-BIT LSB (x85)';
+    else lbl.innerText = stegoChannel.toUpperCase();
+  }
+}
+
+function setInspectLens(lens) {
+  // Allow clicking Hidden Mark or 2-Bit LSB a second time to unchoose it back onto the active channel
+  if ((lens === 'mark' || lens === 'lsb') && inspectLens === lens) {
+    lens = (stegoChannel === 'rgb' && stegoBitPlane === -1) ? 'normal' : 'stego_plane';
+  }
+  inspectLens = lens;
+  if (lens === 'normal') {
+    stegoChannel = 'rgb';
+    stegoBitPlane = -1;
+    const sld = document.getElementById('stego-bit-slider');
+    if (sld) sld.value = -1;
+    const lbl = document.getElementById('stego-bit-lbl');
+    if (lbl) lbl.innerText = 'All Bits (Full)';
+  } else if (lens !== 'stego_plane') {
+    stegoBitPlane = -1;
+    const sld = document.getElementById('stego-bit-slider');
+    if (sld) sld.value = -1;
+    const lbl = document.getElementById('stego-bit-lbl');
+    if (lbl) lbl.innerText = 'All Bits (Full)';
+  }
+  ALL_LENS_IDS.forEach(l => {
+    const b = document.getElementById(`lens-${l}`);
+    if (b) b.classList.toggle('active', l === inspectLens);
+  });
+  syncStegoChannelButtons();
+  renderInspectStage();
+}
+
+function setStegoChannel(ch) {
+  stegoChannel = ch;
+  inspectLens = (ch === 'rgb' && stegoBitPlane === -1) ? 'normal' : 'stego_plane';
+  ALL_LENS_IDS.forEach(l => {
+    const b = document.getElementById(`lens-${l}`);
+    if (b) b.classList.toggle('active', l === inspectLens);
+  });
+  syncStegoChannelButtons();
+  renderInspectStage();
+}
+
+function setStegoBitPlane(bp) {
+  const clamped = Math.max(-1, Math.min(7, bp));
+  stegoBitPlane = clamped;
+  const sld = document.getElementById('stego-bit-slider');
+  if (sld) sld.value = clamped;
+  const lbl = document.getElementById('stego-bit-lbl');
+  if (lbl) {
+    lbl.innerText = clamped === -1 ? 'All Bits (Full)' : `Bit ${clamped} (${clamped === 0 ? 'LSB' : (clamped === 7 ? 'MSB' : 'Plane')})`;
+  }
+  inspectLens = (clamped === -1 && stegoChannel === 'rgb') ? 'normal' : 'stego_plane';
+  ALL_LENS_IDS.forEach(l => {
+    const b = document.getElementById(`lens-${l}`);
+    if (b) b.classList.toggle('active', l === inspectLens);
+  });
+  syncStegoChannelButtons();
+  renderInspectStage();
+}
+
+function stepStegoBitPlane(delta) {
+  let next = stegoBitPlane + delta;
+  if (next > 7) next = -1;
+  if (next < -1) next = 7;
+  setStegoBitPlane(next);
+}
+
+function toggleStegoInvert() {
+  stegoInvert = !stegoInvert;
+  const btn = document.getElementById('stego-btn-invert');
+  const lbl = document.getElementById('stego-inv-lbl');
+  if (btn) btn.classList.toggle('toggle-on', stegoInvert);
+  if (lbl) lbl.innerText = stegoInvert ? 'ON' : 'OFF';
+  renderInspectStage();
+}
+
+function toggleStegoLut() {
+  stegoLut = !stegoLut;
+  const btn = document.getElementById('stego-btn-lut');
+  const lbl = document.getElementById('stego-lut-lbl');
+  if (btn) btn.classList.toggle('toggle-on', stegoLut);
+  if (lbl) lbl.innerText = stegoLut ? 'ON' : 'OFF';
   renderInspectStage();
 }
 
 function onInspectGainChange(val) {
   inspectGain = parseInt(val, 10);
   document.getElementById('insp-gain-lbl').innerText = `${inspectGain}\u00d7`;
+  if (!inspectSliderRaf) {
+    inspectSliderRaf = requestAnimationFrame(() => {
+      inspectSliderRaf = null;
+      renderInspectStage();
+    });
+  }
+}
+
+function onInspectElaQChange(val) {
+  inspectElaQ = parseInt(val, 10);
+  document.getElementById('insp-ela-q-lbl').innerText = `${inspectElaQ}%`;
+  if (inspectLens !== 'ela') setInspectLens('ela');
+  else if (!inspectSliderRaf) {
+    inspectSliderRaf = requestAnimationFrame(() => {
+      inspectSliderRaf = null;
+      renderInspectStage();
+    });
+  }
+}
+
+function onInspectFloorChange(val) {
+  inspectNoiseFloor = parseInt(val, 10);
+  document.getElementById('insp-floor-lbl').innerText = `${inspectNoiseFloor}`;
   if (!inspectSliderRaf) {
     inspectSliderRaf = requestAnimationFrame(() => {
       inspectSliderRaf = null;
@@ -4539,14 +5539,50 @@ function stepInspectZoom(factor) {
 (function bindInspectEvents() {
   const stage = document.getElementById('insp-stage');
   const navBox = document.getElementById('insp-nav-box');
+  const dropOverlay = document.getElementById('insp-drop-overlay');
   if (!stage) return;
 
-  // Standalone Drag-and-Drop directly onto Inspect Stage
+  function isPointOnInspectImage(entry, rect, mx, my) {
+    if (!entry || !entry.loaded || !rect) return false;
+    if (mx < 0 || mx >= rect.width || my < 0 || my >= rect.height) return false;
+    const paneW = inspectViewMode === 'side' ? rect.width * 0.5 : rect.width;
+    const localX = inspectViewMode === 'side' && mx >= paneW ? mx - paneW : mx;
+    const scale = getEffectiveScale(entry, paneW, rect.height);
+    const drawW = entry.w * scale;
+    const drawH = entry.h * scale;
+    const ox = paneW * 0.5 - inspectCenter.u * drawW;
+    const oy = rect.height * 0.5 - inspectCenter.v * drawH;
+    return localX >= ox && localX <= ox + drawW && my >= oy && my <= oy + drawH;
+  }
+
+  stage.addEventListener('mouseleave', () => {
+    stage.classList.remove('over-img');
+  });
+
+  // Standalone Drag-and-Drop directly onto Inspect Stage (including dynamic "Drop to upload" overlay)
+  let stageDragDepth = 0;
+  stage.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    stageDragDepth++;
+    if (dropOverlay) dropOverlay.classList.add('active');
+  });
   stage.addEventListener('dragover', (e) => {
     e.preventDefault();
+    if (dropOverlay && !dropOverlay.classList.contains('active')) {
+      dropOverlay.classList.add('active');
+    }
+  });
+  stage.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    stageDragDepth = Math.max(0, stageDragDepth - 1);
+    if (stageDragDepth === 0 && dropOverlay) {
+      dropOverlay.classList.remove('active');
+    }
   });
   stage.addEventListener('drop', (e) => {
     e.preventDefault();
+    stageDragDepth = 0;
+    if (dropOverlay) dropOverlay.classList.remove('active');
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       ingestStandaloneInspectFiles(e.dataTransfer.files);
     }
@@ -4559,11 +5595,12 @@ function stepInspectZoom(factor) {
     if (!entry || !entry.loaded) return;
 
     const rect = stage.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if (!isPointOnInspectImage(entry, rect, mx, my)) return;
     const paneW = inspectViewMode === 'side' ? rect.width * 0.5 : rect.width;
-    const localX = inspectViewMode === 'side' && (e.clientX - rect.left) >= paneW
-      ? (e.clientX - rect.left - paneW)
-      : (e.clientX - rect.left);
-    const localY = e.clientY - rect.top;
+    const localX = inspectViewMode === 'side' && mx >= paneW ? mx - paneW : mx;
+    const localY = my;
 
     const curScale = getEffectiveScale(entry, paneW, rect.height);
     const baseTarget = inspectTargetZoom === 'FIT' ? curScale : inspectTargetZoom;
@@ -4591,6 +5628,9 @@ function stepInspectZoom(factor) {
 
   stage.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
+    const item = inspectItems[activeInspectIdx];
+    const entry = item ? inspectCache[item.key] : null;
+    if (!entry || !entry.loaded) return;
     const rect = stage.getBoundingClientRect();
     stage._cachedRect = rect;
     const mx = e.clientX - rect.left;
@@ -4600,6 +5640,7 @@ function stepInspectZoom(factor) {
       inspectDrag = { type: 'wipe', moved: true };
       return;
     }
+    if (!isPointOnInspectImage(entry, rect, mx, my)) return;
     inspectDrag = {
       type: 'pan',
       startX: mx,
@@ -4620,12 +5661,17 @@ function stepInspectZoom(factor) {
       loupeHoverRaf = null;
       const item = inspectItems[activeInspectIdx];
       const entry = item ? inspectCache[item.key] : null;
-      if (!entry || !entry.loaded) return;
+      if (!entry || !entry.loaded) {
+        stage.classList.remove('over-img');
+        return;
+      }
       const rect = stage._cachedRect || stage.getBoundingClientRect();
       stage._cachedRect = rect;
       const mx = clientX - rect.left;
       const my = clientY - rect.top;
-      if (mx >= 0 && mx < rect.width && my >= 0 && my < rect.height) {
+      const onImg = isPointOnInspectImage(entry, rect, mx, my);
+      stage.classList.toggle('over-img', onImg);
+      if (onImg) {
         const paneW = inspectViewMode === 'side' ? rect.width * 0.5 : rect.width;
         const localX = inspectViewMode === 'side' && mx >= paneW ? mx - paneW : mx;
         const scale = getEffectiveScale(entry, paneW, rect.height);
@@ -5135,7 +6181,12 @@ function saveGlobalConfig() {
     reserveVramMb: parseInt(document.getElementById('c-vram').value, 10),
     tempWarnC: parseFloat(document.getElementById('c-twarn').value),
     tempCritC: parseFloat(document.getElementById('c-tcrit').value),
-    jpegQuality: parseInt(document.getElementById('c-jpeg').value, 10)
+    jpegQuality: parseInt(document.getElementById('c-jpeg').value, 10),
+    protectionMode: document.getElementById('c-prot-mode').value,
+    resolutionPolicy: document.getElementById('c-res-policy').value,
+    eotPreset: document.getElementById('c-eot').value,
+    autoPaperDefaults: !!document.getElementById('c-auto-paper').checked,
+    allowRamSpillover: !!document.getElementById('c-ram-spill').checked
   };
   fetch('/api/save_config', { method: 'POST', body: JSON.stringify(payload) });
   showBanner('<strong>Configuration Saved:</strong> Engine and telemetry settings updated.', false);
@@ -5226,9 +6277,22 @@ sse.onmessage = (e) => {
   const pwrW = d.hw.powerW || 0;
   const sPwr = document.getElementById('s-pwr');
   if (sPwr) sPwr.innerText = `${pwrW.toFixed(1)} W`;
+  const sPwrLbl = document.getElementById('s-pwr-label');
+  if (sPwrLbl) sPwrLbl.innerText = d.hw.powerLabel || 'SYS POWER (EST)';
 
   let favOrLastChanged = false;
   if (d.cfg) {
+    if (d.cfg.convertPng !== undefined) {
+      defaultConvertPng = !!d.cfg.convertPng;
+    }
+    if (d.cfg.allowRamSpillover !== undefined) {
+      const ramSpillEl = document.getElementById('c-ram-spill');
+      if (ramSpillEl && document.activeElement !== ramSpillEl) ramSpillEl.checked = !!d.cfg.allowRamSpillover;
+    }
+    if (d.cfg.autoPaperDefaults !== undefined) {
+      const autoPaperEl = document.getElementById('c-auto-paper');
+      if (autoPaperEl && document.activeElement !== autoPaperEl) autoPaperEl.checked = !!d.cfg.autoPaperDefaults;
+    }
     if (Array.isArray(d.cfg.favoriteAlgos) && d.cfg.favoriteAlgos.length > 0) {
       const nextFavSig = d.cfg.favoriteAlgos.join(',');
       if (nextFavSig !== favoriteAlgos.join(',')) {

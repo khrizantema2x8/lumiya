@@ -1,39 +1,15 @@
-# BlurGuard: Frequency-Naturalness Hardening Against Adversarial Purification
+# BlurGuard (`blurguard`)
 
-- **Authors / Attribution:** Jongheon Jeong et al. (*Korea University / TAIL Lab, 2025*)
-- **Primary Defense Target:** Spatial Low-Pass Filtering, Gaussian Blur & Lossy Quantization Pre-Processing
-- **Original Paper:** [arXiv:2511.00143](https://arxiv.org/abs/2511.00143)
-- **Module Entrypoint:** `algos/blurguard/algo.py`
+- **Authors & Venue:** Kim et al. (KAIST, NeurIPS 2025)
+- **Paper URL:** https://arxiv.org/abs/2511.00143
+- **Official Repository:** https://github.com/jsu-kim/BlurGuard
+- **Algorithm Class:** Class A (Optical Defocus Target + Spectral PSD Regularized Attack)
+- **Hardware Tier:** `T1` (6 GB VRAM)
 
----
-
-## 1. Threat Model & Problem Formulation
-
-Standard $L_\infty$-constrained adversarial perturbations concentrate energy in ultra-high spatial frequencies, deviating sharply from the natural $1/f^2$ power spectral density of real photographs. Simple pre-processing filters—such as a $3 \times 3$ Gaussian blur, bilateral filtering, or JPEG quantization—strip away up to 61.5% of baseline protection.
-
-BlurGuard enforces frequency-spectrum naturalness by embedding differentiable Gaussian low-pass filtering $G_\sigma$ and Straight-Through Estimator (STE) quantization $Q$ directly inside the PGD optimization loop, forcing protective perturbations into mid-frequency structural edges that cannot be blurred away without destroying the underlying photograph.
+## 1. Threat Model & Objective
+Standard encoder attacks shift latents toward unnatural out-of-distribution targets (such as solid gray or checkerboard patterns), which introduce high-frequency spectral spikes vulnerable to low-pass purification. BlurGuard pushes the encoder latent toward a natural optical defocus (Gaussian blur) manifold while constraining the 2D radial Power Spectral Density (PSD) log-ratio.
 
 ## 2. Mathematical Formulation
-
-$$
-\mathcal{L}_{\text{BlurGuard}}(\delta) = \mathbb{E}_{\sigma, Q} \left[ \left\| \mu_{\mathcal{E}}\Big( Q\big( G_{\sigma} * (x + \delta) \big) \Big) - \mu_{\text{target}} \right\|_2^2 \right] + \lambda_{\text{TV}} \, \text{TV}(\delta)
-$$
-
-- **Differentiable Low-Pass Convolution ($G_\sigma$):** Attenuates fragile high-frequency gradients during backpropagation ($k = 3, \sigma = 0.85$).
-- **STE Quantization ($Q$):** Simulates 8-bit integer rounding and lossy re-encoding with identity gradient pass-through.
-
-## 3. Implementation in PORTtralica Lumiya
-
-- **Forward Pass (`transformInput`):** Convolves `xDef` with the grouped depthwise $3 \times 3$ Gaussian kernel `ctx["blurKernel3"]` and applies STE quantization `xBlur + (quant - xBlur).detach()`.
-- **Loss Objective (`computeLoss`):** Minimizes latent posterior mean MSE against `ctx["zTargetMean"]`.
-
-## 4. Official BibTeX Citation
-
-```bibtex
-@article{jeong2025blurguard,
-  title={BlurGuard: A Simple Approach for Robustifying Image Protection Against AI-Powered Editing},
-  author={Jeong, Jongheon and others},
-  journal={arXiv preprint arXiv:2511.00143},
-  year={2025}
-}
-```
+Adapted from `jsu-kim/BlurGuard`:
+$$\mathcal{L}_{\text{BlurGuard}}(x_{\text{adv}}) = \left\|E_{\mu}(x_{\text{adv}}) - E_{\mu}(G_{\sigma}(x_{\text{orig}}))\right\|_2^2 + \lambda_{\text{PSD}} \left\|\log_{10} \text{PSD}(x_{\text{adv}}) - \log_{10} \text{PSD}(x_{\text{orig}})\right\|_1$$
+with published defaults $\epsilon = 16/255$ and $N = 200$ steps.

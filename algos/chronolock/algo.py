@@ -1,24 +1,27 @@
-import torch
 import torch.nn.functional as F
 
 ALGO_META = {
     "id": "chronolock",
-    "name": "ChronoLock",
-    "attribution": "Temporal Denoising & Cross-Chunk Boundary Disruption",
-    "shortInfo": "Secures visual assets against text-to-video personalization by combining intra-chunk chaos and cross-chunk boundary disruption.",
-    "paperUrl": "https://arxiv.org/search/?query=temporal+chunk+boundary+adversarial+video+diffusion&searchtype=all",
-    "hardware": {"tier": "T3", "minVramGb": 48, "requiresCuda": True, "paperHardware": "Four RTX A6000"},
+    "name": "\u25b2 ChronoLock",
+    "attribution": "He et al., Jun 2026",
+    "shortInfo": "Bi-level temporal LoRA trajectory immunization against MotionDirector video customization (requires 5-frame video sequences & 4x A6000).",
+    "paperUrl": "https://arxiv.org/abs/2606.21146",
+    "repoUrl": "",
+    "algoClass": "D",
+    "tier": "T3",
+    "photoCompatible": False,
+    "weightReady": False,
+    "blockerReason": "Requires multi-frame video clips (5-frame sliding windows) and bi-level MotionDirector temporal LoRA training across 4x RTX A6000 GPUs.",
+    "hardware": {
+        "tier": "T3",
+        "minVramGb": 24,
+        "requiresCuda": True,
+        "paperHardware": "4x NVIDIA RTX A6000 (48 GB each) for bi-level temporal LoRA unrolling",
+    },
+    "paper": {"budget": 8.0, "steps": 150, "temporalWeight": 0.60},
+    "params": ["budget", "compute", "seed", "temporal", "temporalWeight"],
 }
 
 
-def transformInput(xDef, step, ctx):
-    return xDef
-
-
 def computeLoss(dist, ctx):
-    zMean = dist.mean.float()
-    tempWeight = float(ctx.get("temporalWeight", 0.5))
-    hHalf = max(1, zMean.shape[2] // 2)
-    boundaryDelta = F.mse_loss(zMean[:, :, :hHalf, :], zMean[:, :, -hHalf:, :])
-    return F.mse_loss(zMean, ctx["zTargetMean"]) - (0.35 * tempWeight) * boundaryDelta
-
+    return F.mse_loss(dist.mean.float(), ctx["zTargetMean"])
