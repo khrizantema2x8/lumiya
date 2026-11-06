@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.017.4110 (Pilot)
+title PORTtralica Lumiya v0.6.021.4330 (Pilot)
 cd /d "%~dp0"
 
 chcp 65001 >nul 2>&1
@@ -32,7 +32,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya - v0.6.017.4110 (Pilot) - (c) 2026 PORTtralica Media Group%RESET%
+echo   %DIM%PORTtralica Lumiya - v0.6.021.4330 (Pilot) - (c) 2026 PORTtralica Media Group%RESET%
 echo   ====================================================================================================
 echo.
 

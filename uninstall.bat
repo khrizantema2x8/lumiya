@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.017.4110 (Pilot) - Environment Uninstaller
+title PORTtralica Lumiya v0.6.021.4330 (Pilot) - Environment Uninstaller
 cd /d "%~dp0"
 
 echo ========================================================================
-echo   PORTtralica Lumiya v0.6.017.4110 (Pilot) - DELTA-AWARE UNINSTALLER
+echo   PORTtralica Lumiya v0.6.021.4330 (Pilot) - DELTA-AWARE UNINSTALLER
 echo ========================================================================
 echo.
 echo This removes Lumiya's isolated Python dependencies (the .env folder and

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# PORTtralica Lumiya v0.6.017.4110 (Pilot) - All-in-One Linux Launcher & Setup
+# PORTtralica Lumiya v0.6.021.4330 (Pilot) - All-in-One Linux Launcher & Setup
 # ==============================================================================
 set -e
 cd "$(dirname "$0")"
@@ -36,14 +36,18 @@ print_banner() {
     echo "                                                             ::: ::::                               "
     echo "                                                             ::::::                                 "
     echo -e "${RESET}"
-    echo -e "  ${DIM}PORTtralica Lumiya - v0.6.017.4110 (Pilot) - (c) 2026 PORTtralica Media Group${RESET}"
+    echo -e "  ${DIM}PORTtralica Lumiya - v0.6.021.4330 (Pilot) - (c) 2026 PORTtralica Media Group${RESET}"
     echo "  ===================================================================================================="
     echo ""
 }
 
 find_conda() {
-    if command -v conda >/dev/null 2>&1; then
-        which conda
+    if [ -n "${CONDA_EXE:-}" ] && [ -x "$CONDA_EXE" ]; then
+        echo "$CONDA_EXE"
+        return
+    fi
+    if type -P conda >/dev/null 2>&1; then
+        type -P conda
         return
     fi
     for c in "$HOME/miniconda3/bin/conda" "$HOME/anaconda3/bin/conda" "$HOME/miniforge3/bin/conda" "/opt/conda/bin/conda" "/opt/miniconda3/bin/conda"; do
@@ -63,7 +67,7 @@ check_distro() {
                 ;;
             *)
                 if echo "${ID_LIKE:-}" | grep -qE "debian|ubuntu"; then
-                    echo -e "  [${GREEN}VERIFIED${RESET}] OS Distribution        : ${PRETTY_NAME:-$ID} (Debian derivative)"
+                    echo -e "  [${GREEN}VERIFIED${RESET}]  OS Distribution        : ${PRETTY_NAME:-$ID} (Debian derivative)"
                 else
                     echo -e "  [${YELLOW}CAUTION${RESET}]  OS Distribution        : ${PRETTY_NAME:-$ID}"
                     echo -e "  ${YELLOW}Notice: Lumiya is strictly validated for Debian/Ubuntu (64-bit).${RESET}"
@@ -78,29 +82,66 @@ select_env_python() {
     SELECTED_PY=""
     SELECTED_ENV=""
 
-    # 1. Check local .env
-    if [ -x "./.env/bin/python" ]; then
-        if ./.env/bin/python -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >/dev/null 2>&1; then
-            SELECTED_PY="./.env/bin/python"
-            SELECTED_ENV=".env (Local Virtual Environment)"
-            return
-        fi
-    fi
-
-    # 2. Check Conda 'lumiya' env
     CONDA_BIN="$(find_conda || true)"
+    CONDA_ROOT=""
     if [ -n "$CONDA_BIN" ]; then
         CONDA_ROOT="$("$CONDA_BIN" info --base 2>/dev/null || true)"
-        if [ -n "$CONDA_ROOT" ] && [ -x "$CONDA_ROOT/envs/lumiya/bin/python" ]; then
-            if "$CONDA_ROOT/envs/lumiya/bin/python" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >/dev/null 2>&1; then
-                SELECTED_PY="$CONDA_ROOT/envs/lumiya/bin/python"
-                SELECTED_ENV="lumiya ($CONDA_ROOT/envs/lumiya)"
-                return
-            fi
-        fi
+    fi
+    CONDA_ENV_DIR=""
+    if [ -n "$CONDA_BIN" ]; then
+        CONDA_ENV_DIR="$("$CONDA_BIN" info --envs 2>/dev/null | awk '$1 == "lumiya" {print $NF; exit}' || true)"
     fi
 
-    # 3. Fallback to system python3
+    # Build prioritized candidates: Conda 'lumiya' envs first, then local .env
+    CANDIDATES=()
+    [ -n "$CONDA_ENV_DIR" ] && CANDIDATES+=("$CONDA_ENV_DIR/bin/python:lumiya ($CONDA_ENV_DIR)")
+    [ -n "$CONDA_ROOT" ] && CANDIDATES+=("$CONDA_ROOT/envs/lumiya/bin/python:lumiya ($CONDA_ROOT/envs/lumiya)")
+    CANDIDATES+=("$HOME/.conda/envs/lumiya/bin/python:lumiya ($HOME/.conda/envs/lumiya)")
+    CANDIDATES+=("$HOME/miniconda3/envs/lumiya/bin/python:lumiya ($HOME/miniconda3/envs/lumiya)")
+    CANDIDATES+=("$HOME/anaconda3/envs/lumiya/bin/python:lumiya ($HOME/anaconda3/envs/lumiya)")
+    [ -x "./.env/bin/python" ] && CANDIDATES+=("./.env/bin/python:.env (Local Virtual Environment)")
+
+    HAS_NV=0
+    for smi in nvidia-smi /usr/bin/nvidia-smi /usr/local/cuda/bin/nvidia-smi /opt/cuda/bin/nvidia-smi; do
+        if command -v "$smi" >/dev/null 2>&1 || [ -x "$smi" ]; then
+            HAS_NV=1
+            break
+        fi
+    done
+
+    FALLBACK_PY=""
+    FALLBACK_ENV=""
+
+    for cand_entry in "${CANDIDATES[@]}"; do
+        cand="${cand_entry%%:*}"
+        cand_desc="${cand_entry#*:}"
+        if [ -n "$cand" ] && [ -x "$cand" ]; then
+            if "$cand" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >/dev/null 2>&1; then
+                if [ "$HAS_NV" -eq 1 ]; then
+                    if "$cand" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >/dev/null 2>&1; then
+                        SELECTED_PY="$cand"
+                        SELECTED_ENV="$cand_desc"
+                        return
+                    elif [ -z "$FALLBACK_PY" ]; then
+                        FALLBACK_PY="$cand"
+                        FALLBACK_ENV="$cand_desc"
+                    fi
+                else
+                    SELECTED_PY="$cand"
+                    SELECTED_ENV="$cand_desc"
+                    return
+                fi
+            fi
+        fi
+    done
+
+    if [ -n "$FALLBACK_PY" ]; then
+        SELECTED_PY="$FALLBACK_PY"
+        SELECTED_ENV="$FALLBACK_ENV"
+        return
+    fi
+
+    # Fallback to system python3
     if command -v python3 >/dev/null 2>&1; then
         SELECTED_PY="$(which python3)"
         SELECTED_ENV="system (python3)"
@@ -115,7 +156,7 @@ do_install() {
     trap 'rm -f "$PRE_LIST" "$POST_LIST"' EXIT
 
     echo "========================================================================" > "$MANIFEST"
-    echo "  PORTtralica Lumiya v0.6.017.4110 (Pilot) - INSTALLATION MANIFEST" >> "$MANIFEST"
+    echo "  PORTtralica Lumiya v0.6.021.4330 (Pilot) - INSTALLATION MANIFEST" >> "$MANIFEST"
     echo "  Timestamp : $(date '+%Y-%m-%d %H:%M:%S')" >> "$MANIFEST"
     echo "  Username  : $(whoami 2>/dev/null || echo "$USER")" >> "$MANIFEST"
     echo "========================================================================" >> "$MANIFEST"
@@ -142,8 +183,17 @@ do_install() {
     # Hardware Detection
     HAS_NVIDIA=0
     GPU_MODEL="CPU Only (No NVIDIA GPU Detected)"
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        DETECTED_GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 || true)"
+    NVIDIA_SMI="nvidia-smi"
+    if ! command -v nvidia-smi >/dev/null 2>&1; then
+        for smi in /usr/bin/nvidia-smi /usr/local/cuda/bin/nvidia-smi /opt/cuda/bin/nvidia-smi; do
+            if [ -x "$smi" ]; then
+                NVIDIA_SMI="$smi"
+                break
+            fi
+        done
+    fi
+    if command -v "$NVIDIA_SMI" >/dev/null 2>&1 || [ -x "$NVIDIA_SMI" ]; then
+        DETECTED_GPU="$("$NVIDIA_SMI" --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 || true)"
         if [ -n "$DETECTED_GPU" ]; then
             HAS_NVIDIA=1
             GPU_MODEL="$DETECTED_GPU"
@@ -188,7 +238,7 @@ do_install() {
     echo "  [03/05] Installing hardware-matched PyTorch for [$GPU_MODEL]..."
     CUDA_LEVEL=0
     if [ "$HAS_NVIDIA" -eq 1 ]; then
-        CUDA_VER_STR="$(nvidia-smi 2>/dev/null | grep -o 'CUDA Version: [0-9]\+\.[0-9]\+' | cut -d' ' -f3 || true)"
+        CUDA_VER_STR="$("$NVIDIA_SMI" 2>/dev/null | grep -o 'CUDA Version: [0-9]\+\.[0-9]\+' | cut -d' ' -f3 || true)"
         if [ -n "$CUDA_VER_STR" ]; then
             MAJOR=$(echo "$CUDA_VER_STR" | cut -d'.' -f1)
             MINOR=$(echo "$CUDA_VER_STR" | cut -d'.' -f2)
@@ -201,7 +251,7 @@ do_install() {
     if [ "$CUDA_LEVEL" -ge 126 ]; then
         for ver in 132 130 128 126; do
             if [ "$CUDA_LEVEL" -ge "$ver" ] && [ -z "$TORCH_BUILD" ]; then
-                if "$PY_BIN" -m pip install --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver"; then
+                if "$PY_BIN" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver"; then
                     TORCH_BUILD="cu$ver"
                 fi
             fi

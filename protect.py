@@ -50,7 +50,7 @@ from stego.mark import PLACEMENTS, MarkError, embedMark, inspectStego, prepareMa
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 APP_NAME = "PORTtralica Lumiya"
-APP_VERSION = "v0.6.017.4110 (Pilot)"
+APP_VERSION = "v0.6.021.4330 (Pilot)"
 
 if sys.platform == "win32":
     kernel32 = ctypes.windll.kernel32
@@ -159,13 +159,21 @@ def resolveNvidiaSmi() -> str:
     found = shutil.which("nvidia-smi")
     if found:
         return found
-    if sys.platform == "win32":
-        for p in (
+    candidates = (
+        (
             r"C:\Windows\System32\nvidia-smi.exe",
             r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
-        ):
-            if Path(p).exists():
-                return p
+        )
+        if sys.platform == "win32"
+        else (
+            "/usr/bin/nvidia-smi",
+            "/usr/local/cuda/bin/nvidia-smi",
+            "/opt/cuda/bin/nvidia-smi",
+        )
+    )
+    for p in candidates:
+        if Path(p).exists():
+            return p
     return "nvidia-smi"
 
 
@@ -212,7 +220,17 @@ def probeStartupDeps() -> None:
             DEPS_STATUS[key] = True
             DEPS_STATUS["versions"][key] = ver
 
-    if DEPS_STATUS["torch"] and "--compute-worker" not in sys.argv:
+    if DEPS_STATUS["torch"] and "--compute-worker" in sys.argv:
+        try:
+            import torch as _t
+            if _t.cuda.is_available():
+                DEPS_STATUS["cuda"] = True
+                DEPS_STATUS["versions"]["cuda"] = str(_t.version.cuda or "Unknown")
+                DEPS_STATUS["gpuName"] = _t.cuda.get_device_name(0)
+                DEPS_STATUS["vramGb"] = round(_t.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2)
+        except Exception:
+            pass
+    elif DEPS_STATUS["torch"]:
         gpuDetected = False
         try:
             startupInfo = None
@@ -223,7 +241,7 @@ def probeStartupDeps() -> None:
                 [NVIDIA_SMI_BIN, "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
                 startupinfo=startupInfo,
                 stderr=subprocess.DEVNULL,
-                timeout=2.0,
+                timeout=5.0,
             ).decode("utf-8", errors="replace").strip()
             firstLine = out.splitlines()[0]
             gpuName, memMb = [x.strip() for x in firstLine.split(",", 1)]
@@ -234,7 +252,10 @@ def probeStartupDeps() -> None:
                 DEPS_STATUS["cuda"] = True
                 DEPS_STATUS["versions"]["cuda"] = f'{tVer.split("+cu")[-1][:-1]}.{tVer[-1]}' if "+cu" in tVer else "Unknown"
                 DEPS_STATUS["gpuName"] = gpuName
-                DEPS_STATUS["vramGb"] = round(float(memMb) / 1024.0, 2)
+                try:
+                    DEPS_STATUS["vramGb"] = round(float(memMb.split()[0]) / 1024.0, 2)
+                except Exception:
+                    DEPS_STATUS["vramGb"] = 8.0
         except Exception:
             pass
 
@@ -261,7 +282,7 @@ def probeStartupDeps() -> None:
                     ],
                     startupinfo=startupInfo,
                     stderr=subprocess.DEVNULL,
-                    timeout=6.0,
+                    timeout=15.0,
                 ).decode("utf-8", errors="replace").strip()
                 info = json.loads(probeJson.splitlines()[-1])
                 if info.get("cuda"):
@@ -1915,7 +1936,15 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
     TermLog.emit(f"WebUI listening on {TermLog.GREEN}\"{url}\"{TermLog.RESET}", "server.py", "OK")
     print("=" * 96)
     if not noBrowser:
-        webbrowser.open(url)
+        canOpen = True
+        if sys.platform != "win32":
+            if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+                canOpen = False
+        if canOpen:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
 
     try:
         server.serve_forever()
