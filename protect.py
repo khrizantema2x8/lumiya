@@ -69,7 +69,7 @@ class TermLog:
     RED = "\x1b[91m"
     MAGENTA = "\x1b[95m"
     WHITE = "\x1b[97m"
-    WIDTH = 96
+    WIDTH = 102
 
     @classmethod
     def emit(cls, msg: str, module: str = "lumiyaCore.py", level: str = "INFO") -> None:
@@ -86,8 +86,8 @@ class TermLog:
 
         rightTag = f"{cls.DIM}{module} :: {lvlColor}{level}{cls.RESET}"
         rightLen = len(f"{module} :: {level}")
-        padCount = max(2, cls.WIDTH - len(cleanText) - rightLen)
-        sys.stdout.write(f"\r\x1b[2K{msg}{' ' * padCount}{rightTag}\n")
+        padCount = max(2, cls.WIDTH - 2 - len(cleanText) - rightLen)
+        sys.stdout.write(f"\r\x1b[2K  {msg}{' ' * padCount}{rightTag}\n")
         sys.stdout.flush()
 
     @classmethod
@@ -102,7 +102,7 @@ class TermLog:
         minRem, secRem = divmod(int(rem), 60)
         rateStr = f"{rate:5.2f}it/s" if rate >= 1.0 else f"{1.0 / max(rate, 1e-4):5.2f}s/it"
         line = (
-            f"{pct:3d}%|{cls.WHITE}{barStr}{cls.RESET}| "
+            f"  {pct:3d}%|{cls.WHITE}{barStr}{cls.RESET}| "
             f"{step}/{total} [{minEl:02d}:{secEl:02d}<{minRem:02d}:{secRem:02d}, {rateStr}]"
         )
         sys.stdout.write(f"\r\x1b[2K{line}")
@@ -177,6 +177,16 @@ def resolveNvidiaSmi() -> str:
     return "nvidia-smi"
 
 
+def ensureLinuxCudaLibPath() -> None:
+    if sys.platform != "win32":
+        for p in ("/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/local/cuda/lib64", "/usr/lib/wsl/lib"):
+            if os.path.isdir(p):
+                cur = os.environ.get("LD_LIBRARY_PATH", "")
+                if p not in cur.split(":"):
+                    os.environ["LD_LIBRARY_PATH"] = f"{cur}:{p}" if cur else p
+
+ensureLinuxCudaLibPath()
+
 NVIDIA_SMI_BIN = resolveNvidiaSmi()
 
 
@@ -228,10 +238,68 @@ def probeStartupDeps() -> None:
                 DEPS_STATUS["versions"]["cuda"] = str(_t.version.cuda or "Unknown")
                 DEPS_STATUS["gpuName"] = _t.cuda.get_device_name(0)
                 DEPS_STATUS["vramGb"] = round(_t.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2)
+            else:
+                DEPS_STATUS["cuda"] = False
+                DEPS_STATUS["versions"]["cuda"] = "Not Available"
         except Exception:
-            pass
+            DEPS_STATUS["cuda"] = False
+            DEPS_STATUS["versions"]["cuda"] = "Not Available"
     elif DEPS_STATUS["torch"]:
         gpuDetected = False
+        cudaProbeOk = False
+        probeErr = ""
+        probeInfo = {}
+        tVer = str(DEPS_STATUS["versions"]["torch"])
+
+        # 1. Quick probe to test real PyTorch CUDA availability in an isolated subprocess
+        probeScript = (
+            "import json, sys\n"
+            "try:\n"
+            "    import torch\n"
+            "    ok = bool(torch.cuda.is_available())\n"
+            "    ver = str(getattr(torch.version, 'cuda', None) or 'Unknown')\n"
+            "    name = torch.cuda.get_device_name(0) if ok else 'CPU'\n"
+            "    vram = round(torch.cuda.get_device_properties(0).total_memory / (1024**3), 2) if ok else 0.0\n"
+            "    print(json.dumps({'cuda': ok, 'ver': ver, 'name': name, 'vram': vram, 'err': ''}))\n"
+            "except Exception as e:\n"
+            "    print(json.dumps({'cuda': False, 'ver': '', 'name': '', 'vram': 0.0, 'err': str(e)}))\n"
+        )
+        try:
+            startupInfo = None
+            if sys.platform == "win32":
+                startupInfo = subprocess.STARTUPINFO()
+                startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            probeJson = subprocess.check_output(
+                [sys.executable, "-c", probeScript],
+                startupinfo=startupInfo,
+                stderr=subprocess.DEVNULL,
+                timeout=12.0,
+            ).decode("utf-8", errors="replace").strip()
+            probeInfo = json.loads(probeJson.splitlines()[-1])
+            cudaProbeOk = bool(probeInfo.get("cuda"))
+            probeErr = str(probeInfo.get("err") or "")
+        except Exception as exc:
+            probeErr = str(exc)
+
+        # Fallback: if subprocess probe failed for any reason, test torch.cuda directly
+        if not cudaProbeOk and not probeInfo.get("cuda"):
+            try:
+                import torch as _directTorch
+                if _directTorch.cuda.is_available():
+                    cudaProbeOk = True
+                    probeInfo = {
+                        "cuda": True,
+                        "ver": str(getattr(_directTorch.version, "cuda", None) or "Unknown"),
+                        "name": _directTorch.cuda.get_device_name(0),
+                        "vram": round(_directTorch.cuda.get_device_properties(0).total_memory / (1024**3), 2),
+                        "err": "",
+                    }
+            except Exception:
+                pass
+
+        # 2. Inspect physical GPU hardware via nvidia-smi
+        smiGpuName = ""
+        smiMemMb = 0.0
         try:
             startupInfo = None
             if sys.platform == "win32":
@@ -244,66 +312,37 @@ def probeStartupDeps() -> None:
                 timeout=5.0,
             ).decode("utf-8", errors="replace").strip()
             firstLine = out.splitlines()[0]
-            gpuName, memMb = [x.strip() for x in firstLine.split(",", 1)]
-            tVer = str(DEPS_STATUS["versions"]["torch"])
-            hasCuBuild = ("+cpu" not in tVer.lower())
-            if gpuName and hasCuBuild:
-                gpuDetected = True
-                DEPS_STATUS["cuda"] = True
-                DEPS_STATUS["versions"]["cuda"] = f'{tVer.split("+cu")[-1][:-1]}.{tVer[-1]}' if "+cu" in tVer else "Unknown"
-                DEPS_STATUS["gpuName"] = gpuName
-                try:
-                    DEPS_STATUS["vramGb"] = round(float(memMb.split()[0]) / 1024.0, 2)
-                except Exception:
-                    DEPS_STATUS["vramGb"] = 8.0
+            smiGpuName, memStr = [x.strip() for x in firstLine.split(",", 1)]
+            smiMemMb = float(memStr.split()[0])
         except Exception:
             pass
 
-        if not gpuDetected:
-            try:
-                startupInfo = None
-                if sys.platform == "win32":
-                    startupInfo = subprocess.STARTUPINFO()
-                    startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                probeJson = subprocess.check_output(
-                    [
-                        sys.executable,
-                        "-c",
-                        (
-                            "import json, torch; "
-                            "ok = bool(torch.cuda.is_available()); "
-                            "print(json.dumps({"
-                            "'cuda': ok, "
-                            "'ver': str(torch.version.cuda or 'Unknown'), "
-                            "'name': torch.cuda.get_device_name(0) if ok else 'CPU', "
-                            "'vram': round(torch.cuda.get_device_properties(0).total_memory / (1024**3), 2) if ok else 0.0"
-                            "}))"
-                        ),
-                    ],
-                    startupinfo=startupInfo,
-                    stderr=subprocess.DEVNULL,
-                    timeout=15.0,
-                ).decode("utf-8", errors="replace").strip()
-                info = json.loads(probeJson.splitlines()[-1])
-                if info.get("cuda"):
-                    gpuDetected = True
-                    DEPS_STATUS["cuda"] = True
-                    DEPS_STATUS["versions"]["cuda"] = info.get("ver", "Unknown")
-                    DEPS_STATUS["gpuName"] = info.get("name", "NVIDIA GPU")
-                    DEPS_STATUS["vramGb"] = float(info.get("vram", 0.0))
-            except Exception:
-                pass
-
-        if gpuDetected:
-            if DEPS_STATUS["vramGb"] < 2.0:
-                DEPS_STATUS["hardwareAdvisory"] = True
-                DEPS_STATUS["advisoryReason"] = f"Detected GPU ({DEPS_STATUS['gpuName']}) has under 2.0 GB VRAM."
-        else:
+        if cudaProbeOk:
+            gpuDetected = True
+            DEPS_STATUS["cuda"] = True
+            DEPS_STATUS["versions"]["cuda"] = probeInfo.get("ver", "Working")
+            DEPS_STATUS["gpuName"] = probeInfo.get("name") or smiGpuName or "NVIDIA GPU"
+            DEPS_STATUS["vramGb"] = float(probeInfo.get("vram") or (smiMemMb / 1024.0 if smiMemMb else 8.0))
+        elif smiGpuName:
+            DEPS_STATUS["cuda"] = False
+            DEPS_STATUS["gpuName"] = smiGpuName
+            DEPS_STATUS["vramGb"] = round(smiMemMb / 1024.0, 2) if smiMemMb else 0.0
             DEPS_STATUS["hardwareAdvisory"] = True
-            DEPS_STATUS["advisoryReason"] = (
-                "No CUDA-accelerable hardware detected. Running this program on non-CUDA accelerated platform "
-                "will be considerably slower. Consider changing the platform or continue and accept less optimal performance."
-            )
+            if "+cpu" in tVer.lower():
+                DEPS_STATUS["versions"]["cuda"] = "Not Available (CPU Build)"
+                DEPS_STATUS["advisoryReason"] = f"NVIDIA GPU ({smiGpuName}) detected, but PyTorch is installed with CPU build ({tVer}). Run install.bat or ./run.sh install to install hardware-matched CUDA PyTorch."
+            else:
+                DEPS_STATUS["versions"]["cuda"] = "Not Available (Driver Mismatch)"
+                DEPS_STATUS["advisoryReason"] = f"PyTorch {tVer} CUDA initialization failed ({probeErr or 'driver mismatch'}). Run install.bat or ./run.sh install to select a driver-compatible CUDA wheel."
+        else:
+            DEPS_STATUS["cuda"] = False
+            DEPS_STATUS["hardwareAdvisory"] = True
+            DEPS_STATUS["versions"]["cuda"] = "Not Available"
+            if not DEPS_STATUS["advisoryReason"]:
+                DEPS_STATUS["advisoryReason"] = (
+                    "No CUDA-accelerable hardware detected. Running this program on non-CUDA accelerated platform "
+                    "will be considerably slower. Consider changing the platform or continue and accept less optimal performance."
+                )
     else:
         DEPS_STATUS["hardwareAdvisory"] = True
         DEPS_STATUS["advisoryReason"] = "PyTorch CUDA runtime is not installed."
@@ -1284,7 +1323,7 @@ def findAvailablePort(startPort: int = 7860, maxAttempts: int = 50) -> int:
 
 def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False) -> None:
     actualPort = port
-    print("=" * 96)
+    print("  " + "=" * 100)
     TermLog.emit(
         f"{APP_NAME} {TermLog.CYAN}{APP_VERSION}{TermLog.RESET} // Python {sys.version.split()[0]}",
         "bootstrap.py",
@@ -1883,6 +1922,32 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
                 elif cmdType == "open_algos":
                     openPathForeground(ALGOS_DIR)
                     self.sendJson({"ok": True})
+                elif cmdType in ("uninstall", "purge"):
+                    modeFlag = "--purge" if cmdType == "purge" else "--manifest"
+                    if rt.busy:
+                        rt.stopRequested = True
+                        time.sleep(0.3)
+                    cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
+                    if sys.platform == "win32":
+                        batPath = str(ROOT_DIR / "uninstall.bat")
+                        subprocess.Popen(["cmd.exe", "/c", "start", f"PORTtralica Lumiya ({cmdType.upper()})", "cmd.exe", "/c", batPath, modeFlag, "-y"])
+                    else:
+                        shPath = str(ROOT_DIR / "run.sh")
+                        term = shutil.which("x-terminal-emulator") or shutil.which("gnome-terminal") or shutil.which("konsole") or shutil.which("xfce4-terminal") or shutil.which("xterm")
+                        cmd = ["bash", "-c", f"bash '{shPath}' uninstall {modeFlag} -y; echo; read -n 1 -s -r -p 'Press any key to close...';"]
+                        if term and "gnome-terminal" in Path(term).name:
+                            subprocess.Popen([term, "--"] + cmd)
+                        elif term:
+                            subprocess.Popen([term, "-e"] + cmd)
+                        else:
+                            subprocess.Popen(["bash", shPath, "uninstall", modeFlag, "-y"])
+                    self.sendJson({"ok": True, "action": cmdType, "msg": f"{cmdType.capitalize()} initiated in detached window. Service shutting down."})
+
+                    def performShutdown() -> None:
+                        time.sleep(0.6)
+                        os._exit(0)
+
+                    threading.Thread(target=performShutdown, daemon=True).start()
                 else:
                     self.sendJson({"ok": False})
             else:
@@ -1933,8 +1998,12 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
         )
 
     url = f"http://127.0.0.1:{actualPort}"
+    gpuTarget = DEPS_STATUS.get("gpuName") or "CPU Only"
+    cudaVer = DEPS_STATUS.get("versions", {}).get("cuda") or "Not Available"
+    hwStatus = f"{gpuTarget} (CUDA: {cudaVer})" if DEPS_STATUS.get("cuda") else f"{gpuTarget} [CUDA: {cudaVer}]"
+    TermLog.emit(f"Hardware Compute Target: {TermLog.CYAN}{hwStatus}{TermLog.RESET}", "engine.py", "INFO")
     TermLog.emit(f"WebUI listening on {TermLog.GREEN}\"{url}\"{TermLog.RESET}", "server.py", "OK")
-    print("=" * 96)
+    print("  " + "=" * 100)
     if not noBrowser:
         canOpen = True
         if sys.platform != "win32":
@@ -1949,8 +2018,13 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine)
+        print("\n  [SHUTDOWN] Exiting Lumiya service (Ctrl+C)...", flush=True)
+        try:
+            cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
+        except Exception:
+            pass
         server.server_close()
+        os._exit(0)
 
 
 def runComputeWorker() -> None:
@@ -2015,13 +2089,22 @@ def runComputeWorker() -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=7860)
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument("--worker", action="store_true")
-    parser.add_argument("--compute-worker", action="store_true")
+    parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.021.4330 (Pilot) - Evaluative Suite")
+    parser.add_argument("--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
+    parser.add_argument("--debug", action="store_true", help="Launch in interactive debug / emulation mode")
+    parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch system browser on startup")
+    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--compute-worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--uninstall", action="store_true", help="Remove this program footprint dependencies (default: manifest cleanup)")
+    parser.add_argument("--purge", action="store_true", help="Thoroughly purge runtime pillars")
     args = parser.parse_args()
+    if args.uninstall or args.purge:
+        flag = "--purge" if args.purge else "--manifest"
+        if sys.platform == "win32":
+            subprocess.run([str(ROOT_DIR / "uninstall.bat"), flag, "-y"], cwd=str(ROOT_DIR))
+        else:
+            subprocess.run(["bash", str(ROOT_DIR / "run.sh"), "uninstall", flag, "-y"], cwd=str(ROOT_DIR))
+        sys.exit(0)
     if args.compute_worker:
         runComputeWorker()
     elif args.worker:
@@ -2040,6 +2123,7 @@ if __name__ == "__main__":
                 rc = childProc.wait()
             except KeyboardInterrupt:
                 childProc.kill()
+                print("\n  [SHUTDOWN] Exiting Lumiya launcher (Ctrl+C)...", flush=True)
                 break
             firstLaunch = False
             if rc != 42:

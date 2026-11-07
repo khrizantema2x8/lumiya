@@ -5,6 +5,17 @@
 set -e
 cd "$(dirname "$0")"
 
+# Ensure CUDA runtime libraries are discoverable by dynamic linker across standard Linux paths
+for p in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/local/cuda/lib64 /usr/lib/wsl/lib; do
+    if [ -d "$p" ]; then
+        case ":${LD_LIBRARY_PATH:-}:" in
+            *:"$p":*) ;;
+            *) LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$p" ;;
+        esac
+    fi
+done
+export LD_LIBRARY_PATH
+
 LOGO_GOLD="\033[38;2;243;214;137m"
 DIM="\033[90m"
 GREEN="\033[92m"
@@ -19,22 +30,22 @@ MANIFEST="$USER_DIR/install_manifest.log"
 
 print_banner() {
     echo -e "${LOGO_GOLD}"
-    echo "              :::::::::::::                                                                         "
-    echo "              :   :::::::::                                                                         "
-    echo "                :::                                            :::                                  "
-    echo "               ::                                              :::                                  "
-    echo "              ::   :::       ::    ::  ::::::   ::::::       ::       ::::    :::      ::::::::     "
-    echo "            :::   ::       :::     :::::   :: :::   ::     :::      :::      ::::   ::::      : :   "
-    echo "           ::    ::       ::     ::::      :::     ::     :::      ::       ::::  :::        ::::   "
-    echo "         :::    ::      :::    :::        ::      ::     ::      :::       :::   ::        :::    ::"
-    echo ":::::   ::     ::    :::::   :::        :::     ::    ::::    :::::      :::  :::::     ::::    ::: "
-    echo ":    :::       ::::::  ::::::::        ::       ::::::  :::::::  :::::::::::::   :::::::::::::::    "
-    echo " ::::::::       ::                                                     ::::                         "
-    echo "        :::::   ::                                                 ::::::                           "
-    echo "            :::::                                                :::::::                            "
-    echo "                                                              :::: :::                              "
-    echo "                                                             ::: ::::                               "
-    echo "                                                             ::::::                                 "
+    echo "                :::::::::::::                                                                         "
+    echo "                :   :::::::::                                                                         "
+    echo "                  :::                                            :::                                  "
+    echo "                 ::                                              :::                                  "
+    echo "                ::   :::       ::    ::  ::::::   ::::::       ::       ::::    :::      ::::::::     "
+    echo "              :::   ::       :::     :::::   :: :::   ::     :::      :::      ::::   ::::      : :   "
+    echo "             ::    ::       ::     ::::      :::     ::     :::      ::       ::::  :::        ::::   "
+    echo "           :::    ::      :::    :::        ::      ::     ::      :::       :::   ::        :::    ::"
+    echo "  :::::   ::     ::    :::::   :::        :::     ::    ::::    :::::      :::  :::::     ::::    ::: "
+    echo "  :    :::       ::::::  ::::::::        ::       ::::::  :::::::  :::::::::::::   :::::::::::::::    "
+    echo "   ::::::::       ::                                                     ::::                         "
+    echo "          :::::   ::                                                 ::::::                           "
+    echo "              :::::                                                :::::::                            "
+    echo "                                                                :::: :::                              "
+    echo "                                                               ::: ::::                               "
+    echo "                                                               ::::::                                 "
     echo -e "${RESET}"
     echo -e "  ${DIM}PORTtralica Lumiya - v0.6.021.4330 (Pilot) - (c) 2026 PORTtralica Media Group${RESET}"
     echo "  ===================================================================================================="
@@ -58,18 +69,30 @@ find_conda() {
     done
 }
 
+ensure_linux_cuda_lib_path() {
+    for lib_dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/local/cuda/lib64 /usr/lib/wsl/lib; do
+        if [ -d "$lib_dir" ]; then
+            case ":${LD_LIBRARY_PATH:-}:" in
+                *":$lib_dir:"*) ;;
+                *) export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$lib_dir" ;;
+            esac
+        fi
+    done
+}
+ensure_linux_cuda_lib_path
+
 check_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         case "$ID" in
             debian|ubuntu|linuxmint|pop)
-                echo -e "  [${GREEN}VERIFIED${RESET}] OS Distribution        : ${PRETTY_NAME:-$ID} (Debian/Ubuntu family)"
+                echo -e "  [${GREEN}VERIFIED${RESET}]  OS Distribution        : ${PRETTY_NAME:-$ID} (Debian/Ubuntu family)"
                 ;;
             *)
                 if echo "${ID_LIKE:-}" | grep -qE "debian|ubuntu"; then
                     echo -e "  [${GREEN}VERIFIED${RESET}]  OS Distribution        : ${PRETTY_NAME:-$ID} (Debian derivative)"
                 else
-                    echo -e "  [${YELLOW}CAUTION${RESET}]  OS Distribution        : ${PRETTY_NAME:-$ID}"
+                    echo -e "  [${YELLOW}CAUTION${RESET}]   OS Distribution        : ${PRETTY_NAME:-$ID}"
                     echo -e "  ${YELLOW}Notice: Lumiya is strictly validated for Debian/Ubuntu (64-bit).${RESET}"
                     echo -e "  ${YELLOW}Arch, openSUSE, Fedora, and other distributions are unvalidated and unsupported.${RESET}"
                 fi
@@ -194,7 +217,7 @@ do_install() {
     fi
     if command -v "$NVIDIA_SMI" >/dev/null 2>&1 || [ -x "$NVIDIA_SMI" ]; then
         DETECTED_GPU="$("$NVIDIA_SMI" --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 || true)"
-        if [ -n "$DETECTED_GPU" ]; then
+        if [ -n "$DETECTED_GPU" ] && ! echo "$DETECTED_GPU" | grep -qiE "No devices|N/A|failed|error"; then
             HAS_NVIDIA=1
             GPU_MODEL="$DETECTED_GPU"
         fi
@@ -238,7 +261,7 @@ do_install() {
     echo "  [03/05] Installing hardware-matched PyTorch for [$GPU_MODEL]..."
     CUDA_LEVEL=0
     if [ "$HAS_NVIDIA" -eq 1 ]; then
-        CUDA_VER_STR="$("$NVIDIA_SMI" 2>/dev/null | grep -o 'CUDA Version: [0-9]\+\.[0-9]\+' | cut -d' ' -f3 || true)"
+        CUDA_VER_STR="$("$NVIDIA_SMI" 2>/dev/null | sed -n 's/.*CUDA Version:[[:space:]]*\([0-9]\+\.[0-9]\+\).*/\1/p' | head -n 1 || true)"
         if [ -n "$CUDA_VER_STR" ]; then
             MAJOR=$(echo "$CUDA_VER_STR" | cut -d'.' -f1)
             MINOR=$(echo "$CUDA_VER_STR" | cut -d'.' -f2)
@@ -248,11 +271,18 @@ do_install() {
     echo -e "  [${CYAN}SYSTEM${RESET}]  Driver CUDA level: $CUDA_LEVEL"
 
     TORCH_BUILD=""
-    if [ "$CUDA_LEVEL" -ge 126 ]; then
-        for ver in 132 130 128 126; do
+    if [ "$CUDA_LEVEL" -ge 118 ]; then
+        for ver in 132 130 128 126 124 121 118; do
             if [ "$CUDA_LEVEL" -ge "$ver" ] && [ -z "$TORCH_BUILD" ]; then
+                echo "  [03/05] Trying PyTorch CUDA wheel cu$ver..."
                 if "$PY_BIN" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver"; then
-                    TORCH_BUILD="cu$ver"
+                    if "$PY_BIN" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+                        TORCH_BUILD="cu$ver"
+                        echo -e "  [${GREEN}VERIFIED${RESET}] PyTorch cu$ver initialized CUDA successfully on [$GPU_MODEL]."
+                        break
+                    else
+                        echo -e "  [${YELLOW}FALLBACK${RESET}] PyTorch cu$ver installed but driver rejected runtime; stepping down to older CUDA wheel..."
+                    fi
                 fi
             fi
         done
@@ -266,16 +296,30 @@ do_install() {
 
     # Core Dependencies
     echo "  [04/05] Installing pinned diffusion, image & telemetry packages..."
-    "$PY_BIN" -m pip install --no-cache-dir \
-        "diffusers>=0.30.0" \
-        "transformers>=4.44.0" \
-        "accelerate>=0.33.0" \
-        "huggingface-hub>=0.24.0" \
-        "safetensors>=0.4.3" \
-        "Pillow>=10.3.0" \
-        "psutil>=5.9.8" \
-        "numpy>=1.26.0" \
-        "pynvml>=11.5.0"
+    if [ "$TORCH_BUILD" != "cpu" ] && [ -n "$TORCH_BUILD" ]; then
+        "$PY_BIN" -m pip install --no-cache-dir \
+            --extra-index-url "https://download.pytorch.org/whl/$TORCH_BUILD" \
+            "diffusers>=0.30.0" \
+            "transformers>=4.44.0" \
+            "accelerate>=0.33.0" \
+            "huggingface-hub>=0.24.0" \
+            "safetensors>=0.4.3" \
+            "Pillow>=10.3.0" \
+            "psutil>=5.9.8" \
+            "numpy>=1.26.0" \
+            "pynvml>=11.5.0"
+    else
+        "$PY_BIN" -m pip install --no-cache-dir \
+            "diffusers>=0.30.0" \
+            "transformers>=4.44.0" \
+            "accelerate>=0.33.0" \
+            "huggingface-hub>=0.24.0" \
+            "safetensors>=0.4.3" \
+            "Pillow>=10.3.0" \
+            "psutil>=5.9.8" \
+            "numpy>=1.26.0" \
+            "pynvml>=11.5.0"
+    fi
 
     "$PY_BIN" -m pip list --format=freeze > "$POST_LIST" 2>/dev/null || true
 
@@ -315,47 +359,138 @@ do_install() {
 
 do_uninstall() {
     print_banner
-    echo -e "  [${RED}UNINSTALL${RESET}] Removing Lumiya's isolated dependencies (.env and Conda 'lumiya')."
-    echo "  Personal photos in results/ and configurations in user/ will NOT be touched."
-    echo ""
-    if [ -f "$MANIFEST" ]; then
-        echo "  --- Package Delta from install_manifest.log ---"
-        grep -E "\[ENV\]|\[NEW\]" "$MANIFEST" || true
-        echo "  -----------------------------------------------"
-        echo ""
-    fi
-
+    UNINSTALL_MODE="MANIFEST"
     CONFIRM_FLAG=0
-    for arg in "$@"; do
-        if [ "$arg" = "-y" ] || [ "$arg" = "--yes" ] || [ "$arg" = "-f" ] || [ "$arg" = "--force" ]; then
-            CONFIRM_FLAG=1
-        fi
-    done
 
-    if [ "$CONFIRM_FLAG" -eq 0 ]; then
-        read -r -p "  Proceed with removing Lumiya isolated environment? [y/N] " confirm
-        case "$confirm" in
-            [yY][eE][sS]|[yY]) ;;
-            *)
-                echo "  Uninstallation aborted."
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                echo "Usage: ./run.sh uninstall [OPTIONS]"
+                echo ""
+                echo "Options:"
+                echo "  --uninstall, -u       Remove this program footprint dependencies (default: manifest cleanup)"
+                echo "  --purge, -p           Thoroughly purge runtime pillars"
+                echo "  -y, --yes             Skip interactive confirmations"
+                echo "  -h, --help            Show this help reference"
+                echo ""
+                echo "Default Mode (without --purge):"
+                echo "  Performs manifest-based cleanup: removes this program footprint dependencies"
+                echo "  (.env & Conda 'lumiya') while keeping your exported photos (results/) and configurations (user/) safe."
+                echo ""
+                echo "Note:"
+                echo "  The program folder itself is ALWAYS kept intact so you can manage,"
+                echo "  back up, or delete remaining files at your discretion."
                 exit 0
                 ;;
+            --purge|-p|purge|--all)
+                UNINSTALL_MODE="PURGE"
+                ;;
+            --manifest|-m|manifest)
+                UNINSTALL_MODE="MANIFEST"
+                ;;
+            -y|--yes|-f|--force)
+                CONFIRM_FLAG=1
+                ;;
         esac
+    done
+
+    if [ "$UNINSTALL_MODE" = "PURGE" ]; then
+        echo -e "  ===================================================================================================="
+        echo -e "  [${RED}WARNING // THOROUGH PURGE SELECTED${RESET}]"
+        echo "  This will PERMANENTLY purge all runtime pillars:"
+        echo "    - Conda environment 'lumiya' and local .env"
+        echo "    - Pip/Conda package caches and temporary runtime data"
+        echo ""
+        echo "  The program folder itself and your exported photos (results/)"
+        echo "  are ALWAYS KEPT intact."
+        echo "  Pre-existing system foundations (Git, Miniconda, base Python) stay intact."
+        echo "  ===================================================================================================="
+        echo ""
+        if [ "$CONFIRM_FLAG" -eq 0 ]; then
+            read -r -p "  Are you sure you want to purge all runtime environments and caches? [y/N] " confirm
+            case "$confirm" in
+                [yY][eE][sS]|[yY]) ;;
+                *)
+                    echo "  Uninstallation aborted."
+                    exit 0
+                    ;;
+            esac
+        fi
+        echo ""
+        echo -e "  [${YELLOW}5-SECOND SAFETY COUNTDOWN${RESET}] Press Ctrl+C to cancel if this was chosen by mistake..."
+        for sec in 5 4 3 2 1; do
+            echo -ne "  Purging runtime pillars in $sec second(s)... (Press Ctrl+C to abort)\r"
+            sleep 1
+        done
+        echo ""
+    else
+        echo -e "  [${CYAN}MANIFEST CLEANUP // DEFAULT MODE${RESET}]"
+        echo "  Removing Lumiya's isolated dependencies (.env and Conda 'lumiya' environment)."
+        echo "  User configurations (user/) and exported photos (results/) will be KEPT."
+        echo ""
+        if [ -f "$MANIFEST" ]; then
+            echo "  --- Recorded Delta from install_manifest.log ---"
+            grep -E "\[ENV\]|\[NEW\]" "$MANIFEST" 2>/dev/null || true
+            echo "  -----------------------------------------------"
+            echo ""
+        fi
+        if [ "$CONFIRM_FLAG" -eq 0 ]; then
+            read -r -p "  Proceed with removing Lumiya isolated environment? [y/N] " confirm
+            case "$confirm" in
+                [yY][eE][sS]|[yY]) ;;
+                *)
+                    echo "  Uninstallation aborted."
+                    exit 0
+                    ;;
+            esac
+        fi
     fi
 
+    echo ""
+    echo "  Removing local .env virtual environment..."
     if [ -d "./.env" ]; then
         rm -rf ./.env
         echo -e "  [${GREEN}REMOVED${RESET}] Local .env directory deleted."
     fi
+
+    echo "  Removing Conda environment 'lumiya'..."
     CONDA_BIN="$(find_conda || true)"
     if [ -n "$CONDA_BIN" ]; then
         eval "$("$CONDA_BIN" shell.bash hook 2>/dev/null || true)"
-        if conda info --envs 2>/dev/null | grep -qw "lumiya"; then
-            conda env remove -n lumiya -y >/dev/null 2>&1 || true
-            echo -e "  [${GREEN}REMOVED${RESET}] Conda environment 'lumiya' removed."
-        fi
+        CONDA_ENV_DIR="$("$CONDA_BIN" info --envs 2>/dev/null | awk '$1 == "lumiya" {print $NF; exit}' || true)"
+        CONDA_ROOT="$("$CONDA_BIN" info --base 2>/dev/null || true)"
+        conda env remove -n lumiya -y >/dev/null 2>&1 || true
+        for d in "$CONDA_ENV_DIR" "${CONDA_ROOT:+$CONDA_ROOT/envs/lumiya}" "$HOME/.conda/envs/lumiya" "$HOME/miniconda3/envs/lumiya" "$HOME/anaconda3/envs/lumiya"; do
+            if [ -n "$d" ] && [ -d "$d" ]; then
+                rm -rf "$d"
+            fi
+        done
+        conda clean --all -y >/dev/null 2>&1 || true
+        echo -e "  [${GREEN}REMOVED${RESET}] Conda environment 'lumiya' removed."
     fi
-    echo -e "  [${GREEN}CLEAN${RESET}] Uninstallation complete."
+
+    find "$(pwd)" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+    if [ "$UNINSTALL_MODE" = "PURGE" ]; then
+        echo "  Purging runtime manifest and temporary logs..."
+        rm -f ./user/install_manifest.log ./user/history.json 2>/dev/null || true
+        echo ""
+        echo "  ===================================================================================================="
+        echo -e "  [${GREEN}COMPLETE${RESET}] Thorough uninstallation finished."
+        echo "  All runtime pillars (Conda 'lumiya' environment, .env, and caches)"
+        echo "  have been purged."
+        echo ""
+        echo "  The program folder and your exported photos (results/) were kept intact"
+        echo "  so you can manage remaining data at your discretion."
+        echo "  ===================================================================================================="
+        exit 0
+    fi
+
+    echo ""
+    echo "  ===================================================================================================="
+    echo -e "  [${GREEN}CLEAN${RESET}] Uninstallation complete. Isolated environment removed."
+    echo "  The program folder and exported photos (results/) were preserved."
+    echo "  ===================================================================================================="
     exit 0
 }
 
@@ -427,6 +562,11 @@ case "$1" in
         do_uninstall "$@"
         exit 0
         ;;
+    purge|--purge|-p)
+        shift
+        do_uninstall --purge "$@"
+        exit 0
+        ;;
     clean|--clean|-c)
         shift
         do_clean "$@"
@@ -451,7 +591,8 @@ case "$1" in
         echo ""
         echo "Subcommands:"
         echo "  install, setup        Provision environment & install hardware-matched dependencies"
-        echo "  uninstall, remove     Remove isolated Python environment (.env or Conda 'lumiya')"
+        echo "  uninstall, remove     Remove this program footprint dependencies (default: manifest cleanup)"
+        echo "  purge                 Thoroughly purge runtime pillars"
         echo "  clean                 Purge cache and temporary workspace files"
         echo "  test                  Run the core offline test suite"
         echo "  status                Display hardware, driver, and environment audit"
@@ -459,7 +600,8 @@ case "$1" in
         echo ""
         echo "Options:"
         echo "  -i, --install         Same as 'install'"
-        echo "  -u, --uninstall [-y]  Same as 'uninstall' (use -y for non-interactive)"
+        echo "  -u, --uninstall [-y]  Remove this program footprint dependencies (default: manifest cleanup)"
+        echo "  -p, --purge [-y]      Thoroughly purge runtime pillars"
         echo "  -c, --clean           Same as 'clean'"
         echo "  -t, --test            Same as 'test'"
         echo "  -h, --help            Show this help reference"
@@ -470,6 +612,7 @@ case "$1" in
 esac
 
 # Default: Normal Launch & Pre-flight Inspection
+trap 'echo -e "\n  [SHUTDOWN] Exiting Lumiya launcher (Ctrl+C)..."; exit 0' INT TERM
 print_banner
 check_distro
 
@@ -478,6 +621,16 @@ if command -v git >/dev/null 2>&1; then
 else
     echo -e "  [${YELLOW}MISSING${RESET}]   Git CLI                : Not detected in PATH (Recommended: Git 2.45+)"
 fi
+
+GPU_INFO="CPU Only (No NVIDIA GPU detected)"
+if command -v nvidia-smi >/dev/null 2>&1; then
+    GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 || true)"
+    CUDA_V="$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version:[[:space:]]*\([0-9]\+\.[0-9]\+\).*/\1/p' | head -n 1 || true)"
+    if [ -n "$GPU_NAME" ]; then
+        GPU_INFO="$GPU_NAME (Driver CUDA $CUDA_V)"
+    fi
+fi
+echo -e "  [${CYAN}TARGET${RESET}]    Hardware / CUDA        : $GPU_INFO"
 
 select_env_python
 
@@ -488,19 +641,14 @@ if [ -z "$SELECTED_PY" ] || [ "$SELECTED_ENV" = "system (python3)" ]; then
     echo "  ===================================================================================================="
     echo -e "  ${YELLOW}[ENVIRONMENT NOT INITIALIZED]${RESET}"
     echo "    [I] Run environment installer now (setup dependencies & hardware-matched PyTorch)"
-    echo "    [U] Uninstall existing broken environment"
     echo "    [W] Launch WebUI in limited mode (using system python3)"
     echo "    [Q] Exit"
     echo "  ===================================================================================================="
-    read -r -p "  Select option [I / U / W / Q]: " opt
+    read -r -p "  Select option [I / W / Q]: " opt
     case "$opt" in
         [iI])
             do_install
             select_env_python
-            ;;
-        [uU])
-            do_uninstall
-            exit 0
             ;;
         [wW])
             if command -v python3 >/dev/null 2>&1; then

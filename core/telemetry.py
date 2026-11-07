@@ -27,6 +27,8 @@ class _NvmlMemory(ctypes.Structure):
 class SensorSnapshot:
     cpu: float = 0.0
     ram: float = 0.0
+    ramUsed: float = 0.0
+    ramTotal: float = 0.0
     gpuName: str = "CPU"
     gpu: float = 0.0
     vramUsed: float = 0.0
@@ -59,6 +61,14 @@ class TelemetryMonitor:
         self.nvidiaSmiBin = nvidiaSmiBin
         self.lock = threading.Lock()
         self.snap = SensorSnapshot()
+        if self.depsStatus.get("psutil") and self.psutil:
+            try:
+                vmInit = self.psutil.virtual_memory()
+                self.snap.ram = vmInit.percent
+                self.snap.ramUsed = round((vmInit.total - vmInit.available) / (1024.0 ** 3), 1)
+                self.snap.ramTotal = round(vmInit.total / (1024.0 ** 3), 1)
+            except Exception:
+                pass
         self.tempWindow: List[float] = []
         self.rawTemps: List[float] = []
         self.debugOverride: Dict[str, Any] = {}
@@ -96,6 +106,9 @@ class TelemetryMonitor:
                 "libnvidia-ml.so",
                 "/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1",
                 "/usr/lib/x86_64-linux-gnu/libnvidia-ml.so",
+                "/usr/lib64/libnvidia-ml.so.1",
+                "/usr/lib64/libnvidia-ml.so",
+                "/usr/local/cuda/lib64/libnvidia-ml.so.1",
             ]
         )
         for pathStr in candidates:
@@ -246,8 +259,11 @@ class TelemetryMonitor:
         if self.depsStatus.get("psutil") and self.psutil is not None:
             self.psutil.cpu_percent(interval=None)
         while True:
+            vm = self.psutil.virtual_memory() if (self.depsStatus.get("psutil") and self.psutil) else None
             cpu = self.psutil.cpu_percent(interval=None) if (self.depsStatus.get("psutil") and self.psutil) else 0.0
-            ram = self.psutil.virtual_memory().percent if (self.depsStatus.get("psutil") and self.psutil) else 0.0
+            ram = vm.percent if vm else 0.0
+            ramU = round((vm.total - vm.available) / (1024.0 ** 3), 1) if vm else 0.0
+            ramT = round(vm.total / (1024.0 ** 3), 1) if vm else 0.0
             gpu, tempC, vramU, vramT, sensorLbl, gpuPowerW, pwrLbl = self.queryHardwareMetrics()
             tempC = self.smoothTemp(tempC)
 
@@ -266,6 +282,8 @@ class TelemetryMonitor:
                 self.snap = SensorSnapshot(
                     cpu=cpu,
                     ram=ram,
+                    ramUsed=ramU,
+                    ramTotal=ramT,
                     gpuName=self.gpuName,
                     gpu=gpu,
                     vramUsed=vramU,

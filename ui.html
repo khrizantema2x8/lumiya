@@ -186,7 +186,7 @@
   .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
   .stat-name { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
   .stat-val { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; display: flex; align-items: baseline; gap: 8px; }
-  .temp-f { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .stat-sub, .temp-f { font-size: 12px; color: var(--muted); font-weight: 400; }
 
   .warn-tri {
     display: none;
@@ -983,10 +983,19 @@
   }
   .algo-warn-slot {
     position: relative;
-    display: inline-flex;
+    display: none;
     width: 20px;
     height: 20px;
     flex-shrink: 0;
+  }
+  .algo-warn-slot.has-warn {
+    display: inline-flex;
+  }
+  .hw-loading .algo-warn-slot {
+    display: inline-flex !important;
+  }
+  .hw-off:not(.hw-loading) .algo-warn-slot {
+    display: none !important;
   }
   .algo-warn-spin {
     position: absolute;
@@ -1861,7 +1870,10 @@
         <span class="stat-name">RAM</span>
         <span class="warn-tri" id="w-ram" onclick="toggleSensorPop(event, 'pop-ram')">&#9650;</span>
       </div>
-      <div class="stat-val" id="s-ram">0.0%</div>
+      <div class="stat-val">
+        <span id="s-ram">0.0%</span>
+        <span class="stat-sub" id="s-ram-sub">0.0 / 0.0 GB</span>
+      </div>
     </div>
     <div class="sensor-popover" id="pop-ram">
       <strong>&#9650; High System Memory Usage</strong><br>
@@ -2641,12 +2653,12 @@
     <div class="cfg-panel">
       <div class="heading"><span>Environment, Dependencies &amp; Recommended Versions</span></div>
       <div id="deps-list"></div>
-      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;align-items:center;">
         <button class="q-btn primary" onclick="sysMaint('install')">Run Installer (install.bat / run.sh)</button>
         <button class="q-btn" onclick="loadManifest()">Refresh Manifest Log</button>
         <button class="q-btn" onclick="sysMaint('run_cleaner')">Run Memory &amp; Storage Cleaner</button>
-        <span style="color:var(--muted);font-size:11px;">To uninstall: close Lumiya and run uninstall.bat (or ./run.sh uninstall on Linux). It removes dependencies only; delete this folder, and Python, Miniconda and Git, manually.</span>
-        
+        <button class="q-btn danger" onclick="openUninstallModal()">Uninstall / Purge Program...</button>
+        <span style="color:var(--muted);font-size:11px;width:100%;margin-top:4px;">To uninstall: click &ldquo;Uninstall / Purge Program...&rdquo; above, or run uninstall.bat (or ./run.sh uninstall on Linux). Choose standard manifest cleanup or thorough purge (deletes all files &amp; environment).</span>
       </div>
       <div class="manifest-box" id="manifest-box">Click "Refresh Manifest Log" to inspect user/install_manifest.log...</div>
     </div>
@@ -2890,6 +2902,29 @@
     </div>
     <div class="modal-actions">
       <button class="q-btn primary" onclick="document.getElementById('hw-advisory-modal').classList.remove('open')">Acknowledge &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 5: In-Program Uninstall / Purge Confirmation -->
+<div class="modal-backdrop" id="uninstall-modal" onclick="document.getElementById('uninstall-modal').classList.remove('open')">
+  <div class="modal-card" style="width:540px;border-color:var(--red);" onclick="event.stopPropagation()">
+    <div class="modal-title" style="color:var(--red);">&#9650; Uninstall / Purge PORTtralica Lumiya</div>
+    <div class="modal-body" style="font-size:12px;line-height:1.5;color:var(--fg);">
+      Select uninstallation depth:
+      <div style="margin-top:10px;padding:12px;background:#181818;border:1px solid var(--line);">
+        <strong style="color:var(--fg);">1. Manifest Cleanup (Standard)</strong><br>
+        <span style="color:var(--muted);font-size:11px;">Removes the isolated Python dependencies (.env and Conda &lsquo;lumiya&rsquo; environment) and downloaded caches. Your user settings (user/) and exported photos (results/) are kept.</span>
+      </div>
+      <div style="margin-top:10px;padding:12px;background:#2a1114;border:1px solid var(--red);">
+        <strong style="color:var(--red);">2. Thorough Purge (Runtime Pillars Wipe)</strong><br>
+        <span style="color:var(--muted);font-size:11px;">Permanently purges all runtime pillars: Conda environment &lsquo;lumiya&rsquo;, .env, and caches. The program folder itself and your exported photos (results/) are ALWAYS kept intact so you can manage remaining data at your discretion.</span>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="q-btn" onclick="document.getElementById('uninstall-modal').classList.remove('open')">Cancel</button>
+      <button class="q-btn" onclick="executeUninstall('uninstall')">Standard Uninstall</button>
+      <button class="q-btn danger" onclick="executeUninstall('purge')">Thorough Purge</button>
     </div>
   </div>
 </div>
@@ -6063,15 +6098,16 @@ function renderOrganizeTab() {
     const hw = a.hardware || {};
     // Shared clock: the list can rebuild mid-spin, and a fresh element would otherwise restart its rotation.
     const spinPhase = -Math.round(performance.now() % 800);
-    const warnBadge = a.limitReason
-      ? `<span class="algo-warn-slot"><span class="algo-warn-spin" style="animation-delay:${spinPhase}ms"></span><span class="algo-warn-badge">!<span class="info-tooltip">
+    const badgeHtml = a.limitReason
+      ? `<span class="algo-warn-badge">!<span class="info-tooltip">
           <strong style="color:#fff;">${escapeHtml(a.name)}</strong><br>
           Tier ${escapeHtml(hw.tier || '—')} &bull; Needs ${escapeHtml(hw.minVramGb ?? '—')} GB VRAM${hw.requiresCuda ? ' &bull; NVIDIA CUDA' : ''}<br>
           Paper hardware: ${escapeHtml(hw.paperHardware || 'Not reported')}
           <hr style="border:none;border-top:1px solid var(--line);margin:5px 0;">
           ${escapeHtml(a.limitReason)}
-        </span></span></span>`
+        </span></span>`
       : '';
+    const warnBadge = `<span class="algo-warn-slot ${a.limitReason ? 'has-warn' : ''}"><span class="algo-warn-spin" style="animation-delay:${spinPhase}ms"></span>${badgeHtml}</span>`;
 
     return `
       <div class="algo-tree-item ${selectedOrgAlgoId === a.id ? 'active' : ''} ${isFav ? 'fav-item' : ''} ${orgGridFadePending ? 'grid-fade' : ''}" style="animation-delay:${fadeDelay}ms" onclick="selectOrgAlgo('${a.id}')">
@@ -6207,6 +6243,23 @@ async function sysMaint(cmd) {
   }
 }
 
+function openUninstallModal() {
+  document.getElementById('uninstall-modal').classList.add('open');
+}
+
+async function executeUninstall(type) {
+  document.getElementById('uninstall-modal').classList.remove('open');
+  const isPurge = type === 'purge';
+  const confMsg = isPurge
+    ? "Are you SURE you want to purge all Lumiya runtime pillars? This will remove the Conda 'lumiya' environment, .env, and caches. The program folder and your exported photos (results/) will ALWAYS be kept intact."
+    : "Proceed with removing the isolated Lumiya environment (.env & Conda 'lumiya')? The program folder and your exported photos (results/) will be kept intact.";
+  if (!confirm(confMsg)) return;
+  showBanner(`<strong>&#9650; ${isPurge ? 'Purging Runtime Pillars' : 'Uninstalling Environment'}:</strong> Initiating uninstaller in detached window and shutting down service...`, true);
+  try {
+    await fetch(`/api/system_maint?cmd=${type}`, { method: 'POST' });
+  } catch (e) {}
+}
+
 window.addEventListener('pagehide', () => {
   try {
     navigator.sendBeacon('/api/system_maint?cmd=tab_closed');
@@ -6302,6 +6355,10 @@ sse.onmessage = (e) => {
   document.getElementById('folder').innerText = 'RESULTS: ' + d.resultsRoot;
   document.getElementById('s-cpu').innerText = d.hw.cpu.toFixed(1) + '%';
   document.getElementById('s-ram').innerText = d.hw.ram.toFixed(1) + '%';
+  const ramSub = document.getElementById('s-ram-sub');
+  if (ramSub) {
+    ramSub.innerText = (d.hw.ramTotal > 0) ? `${d.hw.ramUsed.toFixed(1)} / ${d.hw.ramTotal.toFixed(1)} GB` : '';
+  }
   document.getElementById('s-gpu-name').innerText = 'GPU (' + d.hw.gpuName + ')';
   document.getElementById('s-gpu').innerText = d.hw.gpu.toFixed(0) + '%';
   document.getElementById('s-vram').innerText = d.hw.vramUsed.toFixed(1) + ' / ' + d.hw.vramTotal.toFixed(1) + ' GB';

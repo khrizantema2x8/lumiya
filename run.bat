@@ -3,6 +3,46 @@ setlocal EnableDelayedExpansion
 title PORTtralica Lumiya v0.6.021.4330 (Pilot)
 cd /d "%~dp0"
 
+if /I "%~1"=="-h" goto show_help
+if /I "%~1"=="--help" goto show_help
+if /I "%~1"=="/h" goto show_help
+if /I "%~1"=="/?" goto show_help
+if /I "%~1"=="/uninstall" goto forward_uninstall
+if /I "%~1"=="--uninstall" goto forward_uninstall
+if /I "%~1"=="-u" goto forward_uninstall
+if /I "%~1"=="/purge" goto forward_uninstall
+if /I "%~1"=="--purge" goto forward_uninstall
+if /I "%~1"=="-p" goto forward_uninstall
+if /I "%~1"=="purge" goto forward_uninstall
+goto proceed_run
+
+:show_help
+echo ========================================================================
+echo   PORTtralica Lumiya v0.6.021.4330 (Pilot) - CLI REFERENCE
+echo ========================================================================
+echo.
+echo Usage: run.bat [SUBCOMMAND ^| OPTIONS]
+echo.
+echo Subcommands:
+echo   install               Provision environment ^& install dependencies
+echo   uninstall             Remove this program footprint dependencies (default: manifest cleanup)
+echo   purge                 Thoroughly purge runtime pillars
+echo.
+echo Options:
+echo   --uninstall, -u       Remove this program footprint dependencies (default: manifest cleanup)
+echo   --purge, -p           Thoroughly purge runtime pillars
+echo   -y, --yes             Skip interactive confirmations
+echo   -h, --help, /?        Display this help reference
+echo.
+echo All other arguments (e.g. --port 7860, --debug, --no-browser) are forwarded to protect.py.
+exit /b 0
+
+:forward_uninstall
+call "%~dp0uninstall.bat" %*
+exit /b %ERRORLEVEL%
+
+:proceed_run
+
 chcp 65001 >nul 2>&1
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 set "LOGO_GOLD=%ESC%[38;2;243;214;137m"
@@ -196,11 +236,23 @@ if not defined SELECTED_PY (
 if defined CONDA_ROOT (
     call "!CONDA_ROOT!\Scripts\activate.bat" !SELECTED_ENV! >nul 2>&1
 )
+set "HW_INFO=CPU Only (No NVIDIA GPU detected)"
+nvidia-smi --query-gpu=name --format=csv,noheader > "%TEMP%\lumiya_gpu_run.txt" 2>nul
+if !ERRORLEVEL! EQU 0 (
+    set /p "DETECTED_GPU=" < "%TEMP%\lumiya_gpu_run.txt"
+    for /f "tokens=3 delims=:" %%A in ('nvidia-smi 2^>nul ^| findstr /C:"CUDA Version"') do (
+        for /f "tokens=1,2 delims=. " %%B in ("%%A") do (
+            set "HW_INFO=!DETECTED_GPU! (CUDA %%B.%%C)"
+        )
+    )
+)
+if exist "%TEMP%\lumiya_gpu_run.txt" del /f /q "%TEMP%\lumiya_gpu_run.txt"
+echo   [%CYAN%TARGET%RESET%]    Hardware / CUDA        : !HW_INFO!
 echo   [%GREEN%ACTIVE%RESET%]    Environment            : !SELECTED_ENV! ^("!SELECTED_PY!"^)
 echo   ====================================================================================================
 echo.
 
-"!SELECTED_PY!" "%~dp0protect.py"
+"!SELECTED_PY!" "%~dp0protect.py" %*
 echo.
 echo   [SERVICE STOPPED] Press any key to close this window...
 pause >nul

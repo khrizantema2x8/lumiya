@@ -30,11 +30,13 @@ def cleanMemoryAndStorage(
     if "psutil" in sys.modules and sys.modules["psutil"] is not None:
         try:
             psMod = sys.modules["psutil"]
-            for proc in psMod.process_iter(["pid", "name", "cmdline"]):
-                cmdList = proc.info.get("cmdline") or []
-                if "--compute-worker" in cmdList and proc.info.get("pid") != psMod.Process().pid:
-                    proc.kill()
-                    report["modelUnloaded"] = True
+            myUser = psMod.Process().username()
+            for proc in psMod.process_iter(["pid", "name", "cmdline", "username"]):
+                if proc.info.get("username") == myUser:
+                    cmdList = proc.info.get("cmdline") or []
+                    if "--compute-worker" in cmdList and proc.info.get("pid") != psMod.Process().pid:
+                        proc.kill()
+                        report["modelUnloaded"] = True
         except Exception:
             pass
 
