@@ -54,8 +54,8 @@ echo   purge                 Thoroughly purge runtime pillars
 echo   free-port [port]      Kill process occupying port (default: 7860)
 echo.
 echo Options:
-echo   -p, --port ^<PORT^>     Bind WebUI to specific port (e.g. -p 7860 or run.bat 7860)
-echo   --host ^<HOST^>         Bind to interface (default: 127.0.0.1, use 0.0.0.0 for LAN/remote)
+echo   -p, --port [port]     Bind WebUI to specific port (e.g. -p 7860 or run.bat 7860)
+echo   --host [host]         Bind to interface (default: 127.0.0.1, use 0.0.0.0 for LAN/remote)
 echo   --listen              Bind to 0.0.0.0 (allow remote or LAN access)
 echo   --no-browser          Do not automatically launch system browser
 echo   --debug               Launch backend in emulation / verbose mode
