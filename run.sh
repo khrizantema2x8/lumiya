@@ -16,6 +16,10 @@ for p in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/local/cuda/lib64 /usr/lib/wsl
 done
 export LD_LIBRARY_PATH
 
+# Direct temporary build directories to home to avoid strict 2GB /tmp quotas on university clusters
+export TMPDIR="${HOME}/.cache/lumiya_tmp"
+mkdir -p "$TMPDIR"
+
 LOGO_GOLD="\033[38;2;243;214;137m"
 DIM="\033[90m"
 GREEN="\033[92m"
