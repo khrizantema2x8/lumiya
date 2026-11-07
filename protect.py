@@ -2113,7 +2113,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.021.4330 (Pilot) - Evaluative Suite")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="WebUI HTTP listening interface (default: 127.0.0.1)")
     parser.add_argument("--listen", action="store_true", help="Bind to 0.0.0.0 to allow access from local network or remote machines")
-    parser.add_argument("--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
+    parser.add_argument("-p", "--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
     parser.add_argument("--debug", action="store_true", help="Launch in interactive debug / emulation mode")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch system browser on startup")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)

@@ -12,12 +12,31 @@ if /I "%~1"=="--uninstall" goto forward_uninstall
 if /I "%~1"=="-u" goto forward_uninstall
 if /I "%~1"=="/purge" goto forward_uninstall
 if /I "%~1"=="--purge" goto forward_uninstall
-if /I "%~1"=="-p" goto forward_uninstall
 if /I "%~1"=="purge" goto forward_uninstall
 if /I "%~1"=="free-port" goto do_free_port
 if /I "%~1"=="--free-port" goto do_free_port
 if /I "%~1"=="kill-port" goto do_free_port
 if /I "%~1"=="--kill-port" goto do_free_port
+if /I "%~1"=="reinstall-torch" goto do_reinstall_torch
+if /I "%~1"=="fix-cuda" goto do_reinstall_torch
+if /I "%~1"=="--reinstall-torch" goto do_reinstall_torch
+if /I "%~1"=="-p" goto handle_port_flag
+if /I "%~1"=="--port" goto handle_port_flag
+if /I "%~1"=="port" goto handle_port_flag
+goto check_numeric_port
+
+:handle_port_flag
+set "CLI_PORT=%~2"
+shift
+shift
+goto proceed_run
+
+:check_numeric_port
+echo %~1| findstr /r "^[0-9][0-9]*$" >nul 2>&1
+if not errorlevel 1 (
+    set "CLI_PORT=%~1"
+    shift
+)
 goto proceed_run
 
 :show_help
@@ -29,13 +48,19 @@ echo Usage: run.bat [SUBCOMMAND ^| OPTIONS]
 echo.
 echo Subcommands:
 echo   install               Provision environment ^& install dependencies
+echo   reinstall-torch [cu]  Reinstall CUDA PyTorch into active environment (default: cu124)
 echo   uninstall             Remove this program footprint dependencies (default: manifest cleanup)
 echo   purge                 Thoroughly purge runtime pillars
 echo   free-port [port]      Kill process occupying port (default: 7860)
 echo.
 echo Options:
+echo   -p, --port ^<PORT^>     Bind WebUI to specific port (e.g. -p 7860 or run.bat 7860)
+echo   --host ^<HOST^>         Bind to interface (default: 127.0.0.1, use 0.0.0.0 for LAN/remote)
+echo   --listen              Bind to 0.0.0.0 (allow remote or LAN access)
+echo   --no-browser          Do not automatically launch system browser
+echo   --debug               Launch backend in emulation / verbose mode
 echo   --uninstall, -u       Remove this program footprint dependencies (default: manifest cleanup)
-echo   --purge, -p           Thoroughly purge runtime pillars
+echo   --purge               Thoroughly purge runtime pillars
 echo   -y, --yes             Skip interactive confirmations
 echo   -h, --help, /?        Display this help reference
 echo.
@@ -52,6 +77,23 @@ if "%FREE_PORT%"=="" set "FREE_PORT=7860"
 echo   [PORT] Freeing port %FREE_PORT% and terminating lingering processes...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :%FREE_PORT%') do taskkill /f /pid %%a >nul 2>&1
 echo   [CLEARED] Port %FREE_PORT% cleared.
+exit /b 0
+
+:do_reinstall_torch
+set "TARGET_WHEEL=%~2"
+if "%TARGET_WHEEL%"=="" set "TARGET_WHEEL=cu124"
+echo   [CUDA] Reinstalling PyTorch (!TARGET_WHEEL!) into active environment...
+if exist "%USERPROFILE%\miniconda3\Scripts\activate.bat" (
+    call "%USERPROFILE%\miniconda3\Scripts\activate.bat" lumiya >nul 2>&1
+) else if exist "C:\ProgramData\miniconda3\Scripts\activate.bat" (
+    call "C:\ProgramData\miniconda3\Scripts\activate.bat" lumiya >nul 2>&1
+)
+if "!TARGET_WHEEL!"=="cpu" (
+    python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+) else (
+    python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/!TARGET_WHEEL! --extra-index-url https://pypi.org/simple
+)
+python -c "import torch; print('CUDA Available:', torch.cuda.is_available())"
 exit /b 0
 
 :proceed_run
@@ -265,7 +307,10 @@ echo   [%GREEN%ACTIVE%RESET%]    Environment            : !SELECTED_ENV! ^("!SEL
 echo   ====================================================================================================
 echo.
 
-"!SELECTED_PY!" "%~dp0protect.py" %*
+set "PORT_ARG="
+if defined CLI_PORT set "PORT_ARG=--port !CLI_PORT!"
+
+"!SELECTED_PY!" "%~dp0protect.py" !PORT_ARG! %*
 echo.
 echo   [SERVICE STOPPED] Press any key to close this window...
 pause >nul

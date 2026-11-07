@@ -272,10 +272,10 @@ do_install() {
 
     TORCH_BUILD=""
     if [ "$CUDA_LEVEL" -ge 118 ]; then
-        for ver in 132 130 128 126 124 121 118; do
+        for ver in 126 124 121 118; do
             if [ "$CUDA_LEVEL" -ge "$ver" ] && [ -z "$TORCH_BUILD" ]; then
                 echo "  [03/05] Trying PyTorch CUDA wheel cu$ver..."
-                if "$PY_BIN" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver"; then
+                if "$PY_BIN" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver" --extra-index-url https://pypi.org/simple; then
                     if "$PY_BIN" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
                         TORCH_BUILD="cu$ver"
                         echo -e "  [${GREEN}VERIFIED${RESET}] PyTorch cu$ver initialized CUDA successfully on [$GPU_MODEL]."
@@ -550,6 +550,25 @@ do_status() {
     exit 0
 }
 
+do_reinstall_torch() {
+    print_banner
+    check_distro
+    select_env_python
+    TARGET_WHEEL="${1:-cu124}"
+    echo -e "  [${CYAN}CUDA${RESET}] Reinstalling hardware-matched PyTorch ($TARGET_WHEEL) into $SELECTED_ENV..."
+    if [ "$TARGET_WHEEL" = "cpu" ]; then
+        "$SELECTED_PY" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+    else
+        "$SELECTED_PY" -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/$TARGET_WHEEL" --extra-index-url https://pypi.org/simple
+    fi
+    if "$SELECTED_PY" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+        echo -e "  [${GREEN}VERIFIED${RESET}] PyTorch $TARGET_WHEEL initialized CUDA successfully!"
+    else
+        echo -e "  [${YELLOW}WARNING${RESET}] PyTorch $TARGET_WHEEL installed. Note: torch.cuda.is_available() returned False."
+    fi
+    exit 0
+}
+
 # Omnipotent CLI argument & subcommand handling
 case "$1" in
     install|--install|-i|setup)
@@ -557,12 +576,17 @@ case "$1" in
         do_install "$@"
         exit 0
         ;;
+    reinstall-torch|fix-cuda|--reinstall-torch)
+        shift
+        do_reinstall_torch "$@"
+        exit 0
+        ;;
     uninstall|--uninstall|-u|remove)
         shift
         do_uninstall "$@"
         exit 0
         ;;
-    purge|--purge|-p)
+    purge|--purge)
         shift
         do_uninstall --purge "$@"
         exit 0
@@ -595,6 +619,17 @@ case "$1" in
         echo -e "  [${GREEN}CLEARED${RESET}] Port ${PORT_TO_FREE} released."
         exit 0
         ;;
+    port|--port|-p)
+        shift
+        WANTED_PORT="$1"
+        shift
+        set -- --port "$WANTED_PORT" "$@"
+        ;;
+    [0-9]*)
+        WANTED_PORT="$1"
+        shift
+        set -- --port "$WANTED_PORT" "$@"
+        ;;
     start|run)
         shift
         ;;
@@ -604,6 +639,7 @@ case "$1" in
         echo ""
         echo "Subcommands:"
         echo "  install, setup        Provision environment & install hardware-matched dependencies"
+        echo "  reinstall-torch [cu]  Reinstall CUDA PyTorch into active environment (default: cu124)"
         echo "  uninstall, remove     Remove this program footprint dependencies (default: manifest cleanup)"
         echo "  purge                 Thoroughly purge runtime pillars"
         echo "  free-port [port]      Kill process occupying port (default: 7860)"
@@ -613,14 +649,19 @@ case "$1" in
         echo "  start, run            Launch the Lumiya WebUI backend server"
         echo ""
         echo "Options:"
+        echo "  -p, --port <PORT>     Bind WebUI to specific port (e.g. -p 7860 or ./run.sh 7860)"
+        echo "  --host <HOST>         Bind to interface (default: 127.0.0.1, use 0.0.0.0 for LAN/remote)"
+        echo "  --listen              Bind to 0.0.0.0 (allow remote, SSH tunnel, or cluster access)"
+        echo "  --no-browser          Do not automatically launch system browser (recommended for remote/SSH)"
+        echo "  --debug               Launch backend in emulation / verbose mode"
         echo "  -i, --install         Same as 'install'"
         echo "  -u, --uninstall [-y]  Remove this program footprint dependencies (default: manifest cleanup)"
-        echo "  -p, --purge [-y]      Thoroughly purge runtime pillars"
+        echo "  --purge [-y]          Thoroughly purge runtime pillars"
         echo "  -c, --clean           Same as 'clean'"
         echo "  -t, --test            Same as 'test'"
         echo "  -h, --help            Show this help reference"
         echo ""
-        echo "All other arguments are passed directly to protect.py (e.g. --port 7860, --debug, --no-browser)."
+        echo "All other arguments are passed directly to protect.py."
         exit 0
         ;;
 esac

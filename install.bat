@@ -205,10 +205,10 @@ if "!HAS_NVIDIA!"=="1" (
 )
 echo   [%CYAN%SYSTEM%RESET%]  Driver CUDA level: !CUDA_NUM!
 set "TORCH_BUILD="
-for %%C in (132 130 128 126 124 121 118) do (
+for %%C in (126 124 121 118) do (
     if not defined TORCH_BUILD if !CUDA_NUM! GEQ %%C (
         echo   [03/05] Trying PyTorch CUDA wheel cu%%C...
-        python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu%%C
+        python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu%%C --extra-index-url https://pypi.org/simple
         if !ERRORLEVEL! EQU 0 (
             python -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
             if !ERRORLEVEL! EQU 0 (
