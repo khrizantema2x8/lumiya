@@ -307,7 +307,7 @@ do_install() {
             "Pillow>=10.3.0" \
             "psutil>=5.9.8" \
             "numpy>=1.26.0" \
-            "pynvml>=11.5.0"
+            "nvidia-ml-py>=12.535.133"
     else
         "$PY_BIN" -m pip install --no-cache-dir \
             "diffusers>=0.30.0" \
@@ -318,7 +318,7 @@ do_install() {
             "Pillow>=10.3.0" \
             "psutil>=5.9.8" \
             "numpy>=1.26.0" \
-            "pynvml>=11.5.0"
+            "nvidia-ml-py>=12.535.133"
     fi
 
     "$PY_BIN" -m pip list --format=freeze > "$POST_LIST" 2>/dev/null || true
@@ -582,6 +582,19 @@ case "$1" in
         do_status "$@"
         exit 0
         ;;
+    free-port|--free-port|kill-port|--kill-port)
+        PORT_TO_FREE="${2:-7860}"
+        echo -e "  [${CYAN}PORT${RESET}] Releasing port ${PORT_TO_FREE} and terminating zombie processes..."
+        if command -v fuser >/dev/null 2>&1; then
+            fuser -k "${PORT_TO_FREE}/tcp" 2>/dev/null || true
+        fi
+        if command -v lsof >/dev/null 2>&1; then
+            kill -9 $(lsof -t -i:"${PORT_TO_FREE}" 2>/dev/null) 2>/dev/null || true
+        fi
+        pkill -f "protect.py" 2>/dev/null || true
+        echo -e "  [${GREEN}CLEARED${RESET}] Port ${PORT_TO_FREE} released."
+        exit 0
+        ;;
     start|run)
         shift
         ;;
@@ -593,6 +606,7 @@ case "$1" in
         echo "  install, setup        Provision environment & install hardware-matched dependencies"
         echo "  uninstall, remove     Remove this program footprint dependencies (default: manifest cleanup)"
         echo "  purge                 Thoroughly purge runtime pillars"
+        echo "  free-port [port]      Kill process occupying port (default: 7860)"
         echo "  clean                 Purge cache and temporary workspace files"
         echo "  test                  Run the core offline test suite"
         echo "  status                Display hardware, driver, and environment audit"

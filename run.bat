@@ -14,6 +14,10 @@ if /I "%~1"=="/purge" goto forward_uninstall
 if /I "%~1"=="--purge" goto forward_uninstall
 if /I "%~1"=="-p" goto forward_uninstall
 if /I "%~1"=="purge" goto forward_uninstall
+if /I "%~1"=="free-port" goto do_free_port
+if /I "%~1"=="--free-port" goto do_free_port
+if /I "%~1"=="kill-port" goto do_free_port
+if /I "%~1"=="--kill-port" goto do_free_port
 goto proceed_run
 
 :show_help
@@ -27,6 +31,7 @@ echo Subcommands:
 echo   install               Provision environment ^& install dependencies
 echo   uninstall             Remove this program footprint dependencies (default: manifest cleanup)
 echo   purge                 Thoroughly purge runtime pillars
+echo   free-port [port]      Kill process occupying port (default: 7860)
 echo.
 echo Options:
 echo   --uninstall, -u       Remove this program footprint dependencies (default: manifest cleanup)
@@ -40,6 +45,14 @@ exit /b 0
 :forward_uninstall
 call "%~dp0uninstall.bat" %*
 exit /b %ERRORLEVEL%
+
+:do_free_port
+set "FREE_PORT=%~2"
+if "%FREE_PORT%"=="" set "FREE_PORT=7860"
+echo   [PORT] Freeing port %FREE_PORT% and terminating lingering processes...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :%FREE_PORT%') do taskkill /f /pid %%a >nul 2>&1
+echo   [CLEARED] Port %FREE_PORT% cleared.
+exit /b 0
 
 :proceed_run
 

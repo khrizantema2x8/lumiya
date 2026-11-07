@@ -19,6 +19,7 @@ import threading
 import time
 import urllib.parse
 import uuid
+import warnings
 import webbrowser
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -48,6 +49,7 @@ from stego.mark import PLACEMENTS, MarkError, embedMark, inspectStego, prepareMa
 
 # The progress bar uses block characters a legacy console codepage cannot encode.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+warnings.filterwarnings("ignore", message=".*pynvml.*deprecated.*", category=UserWarning)
 
 APP_NAME = "PORTtralica Lumiya"
 APP_VERSION = "v0.6.021.4330 (Pilot)"
@@ -1308,20 +1310,27 @@ class RuntimeState:
             self.saveHistory()
 
 
-def findAvailablePort(startPort: int = 7860, maxAttempts: int = 50) -> int:
+def findAvailablePort(startPort: int = 7860, maxAttempts: int = 50, host: str = "127.0.0.1") -> int:
     """Automatic Port Selection (APS): probes local sockets to find an available port."""
+    probeHost = "127.0.0.1" if host in ("0.0.0.0", "") else host
     for candidate in range(startPort, startPort + maxAttempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
-                s.bind(("127.0.0.1", candidate))
+                s.bind((probeHost, candidate))
                 return candidate
             except OSError:
                 continue
     return startPort
 
 
-def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False) -> None:
+def runServer(
+    host: str = "127.0.0.1",
+    port: int = 7860,
+    debugMode: bool = False,
+    noBrowser: bool = False,
+    allowRemote: bool = False,
+) -> None:
     actualPort = port
     print("  " + "=" * 100)
     TermLog.emit(
@@ -1552,7 +1561,7 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
             qs = urllib.parse.parse_qs(parsed.query)
 
             if parsed.path.startswith("/api/") and not isTrustedRequest(
-                self.headers.get("Host"), self.headers.get("Origin"), actualPort
+                self.headers.get("Host"), self.headers.get("Origin"), actualPort, allowRemote=allowRemote
             ):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return
@@ -1680,7 +1689,7 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
                 self.send_error(HTTPStatus.NOT_FOUND)
 
         def do_POST(self) -> None:
-            if not isTrustedRequest(self.headers.get("Host"), self.headers.get("Origin"), actualPort):
+            if not isTrustedRequest(self.headers.get("Host"), self.headers.get("Origin"), actualPort, allowRemote=allowRemote):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return
             parsed = urllib.parse.urlparse(self.path)
@@ -1966,6 +1975,7 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
 
     class QuietThreadingHTTPServer(ThreadingHTTPServer):
         allow_reuse_address = True
+        daemon_threads = True
 
         def handle_error(self, request: Any, client_address: Any) -> None:
             _, exc, _ = sys.exc_info()
@@ -1978,7 +1988,7 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
     for offset in range(maxAttempts):
         candidatePort = port + offset
         try:
-            server = QuietThreadingHTTPServer(("127.0.0.1", candidatePort), RequestHandler)
+            server = QuietThreadingHTTPServer((host, candidatePort), RequestHandler)
             actualPort = candidatePort
             break
         except OSError:
@@ -1997,23 +2007,30 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
             "INFO",
         )
 
-    url = f"http://127.0.0.1:{actualPort}"
+    displayHost = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    url = f"http://{displayHost}:{actualPort}"
     gpuTarget = DEPS_STATUS.get("gpuName") or "CPU Only"
     cudaVer = DEPS_STATUS.get("versions", {}).get("cuda") or "Not Available"
     hwStatus = f"{gpuTarget} (CUDA: {cudaVer})" if DEPS_STATUS.get("cuda") else f"{gpuTarget} [CUDA: {cudaVer}]"
     TermLog.emit(f"Hardware Compute Target: {TermLog.CYAN}{hwStatus}{TermLog.RESET}", "engine.py", "INFO")
     TermLog.emit(f"WebUI listening on {TermLog.GREEN}\"{url}\"{TermLog.RESET}", "server.py", "OK")
-    print("  " + "=" * 100)
+    print("  " + "=" * 100, flush=True)
     if not noBrowser:
         canOpen = True
         if sys.platform != "win32":
             if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
                 canOpen = False
+            elif os.environ.get("SSH_CLIENT") or os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"):
+                canOpen = False
         if canOpen:
-            try:
-                webbrowser.open(url)
-            except Exception:
-                pass
+            def _openBrowserAsync() -> None:
+                try:
+                    time.sleep(0.4)
+                    webbrowser.open(url)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_openBrowserAsync, daemon=True).start()
 
     try:
         server.serve_forever()
@@ -2025,6 +2042,10 @@ def runServer(port: int = 7860, debugMode: bool = False, noBrowser: bool = False
             pass
         server.server_close()
         os._exit(0)
+    except Exception as exc:
+        TermLog.emit(f"Server runtime exception: {exc}", "server.py", "ERROR")
+        server.server_close()
+        os._exit(1)
 
 
 def runComputeWorker() -> None:
@@ -2090,6 +2111,8 @@ def runComputeWorker() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.021.4330 (Pilot) - Evaluative Suite")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="WebUI HTTP listening interface (default: 127.0.0.1)")
+    parser.add_argument("--listen", action="store_true", help="Bind to 0.0.0.0 to allow access from local network or remote machines")
     parser.add_argument("--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
     parser.add_argument("--debug", action="store_true", help="Launch in interactive debug / emulation mode")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch system browser on startup")
@@ -2105,15 +2128,33 @@ if __name__ == "__main__":
         else:
             subprocess.run(["bash", str(ROOT_DIR / "run.sh"), "uninstall", flag, "-y"], cwd=str(ROOT_DIR))
         sys.exit(0)
+    bindHost = "0.0.0.0" if args.listen else args.host
+    allowRemote = bool(args.listen or bindHost in ("0.0.0.0", "::"))
     if args.compute_worker:
         runComputeWorker()
     elif args.worker:
-        runServer(port=args.port, debugMode=args.debug, noBrowser=args.no_browser)
+        runServer(
+            host=bindHost,
+            port=args.port,
+            debugMode=args.debug,
+            noBrowser=args.no_browser,
+            allowRemote=allowRemote,
+        )
     else:
-        targetPort = findAvailablePort(args.port)
+        targetPort = findAvailablePort(args.port, host=bindHost)
         firstLaunch = not args.no_browser
         while True:
-            cmd = [sys.executable, str(Path(__file__).resolve()), "--worker", "--port", str(targetPort)]
+            cmd = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--worker",
+                "--host",
+                bindHost,
+                "--port",
+                str(targetPort),
+            ]
+            if args.listen:
+                cmd.append("--listen")
             if args.debug:
                 cmd.append("--debug")
             if not firstLaunch:

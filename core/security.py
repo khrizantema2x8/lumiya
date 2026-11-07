@@ -54,8 +54,10 @@ def sanitizeFilename(filename: str, fallback: str = "image.png") -> str:
     return f"{cleanStem}{cleanExt}"
 
 
-def isTrustedRequest(host: Optional[str], origin: Optional[str], port: int) -> bool:
+def isTrustedRequest(host: Optional[str], origin: Optional[str], port: int, allowRemote: bool = False) -> bool:
     """Blocks cross-site and DNS-rebinding requests: browsers let any website reach localhost."""
+    if allowRemote:
+        return True
     allowed = (f"127.0.0.1:{port}", f"localhost:{port}")
     return host in allowed and (origin is None or origin in tuple(f"http://{a}" for a in allowed))
 

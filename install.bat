@@ -227,9 +227,9 @@ echo [HARDWARE] Torch build: !TORCH_BUILD! >> "%MANIFEST%"
 
 echo   [04/05] Installing pinned diffusion, image ^& telemetry packages...
 if not "!TORCH_BUILD!"=="cpu" if defined TORCH_BUILD (
-    python -m pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/!TORCH_BUILD! "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "pynvml>=11.5.0"
+    python -m pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/!TORCH_BUILD! "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
 ) else (
-    python -m pip install --no-cache-dir "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "pynvml>=11.5.0"
+    python -m pip install --no-cache-dir "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
 )
 
 python -m pip list --format=freeze > "%POST_LIST%"
