@@ -819,6 +819,12 @@ class ModularDefenseEngine:
     def unloadModel(self) -> bool:
         """Terminates the isolated CUDA compute worker subprocess and releases any in-process caches to drop idle RAM/VRAM to baseline."""
         hadModel = self.vae is not None or bool(self.cache) or (self.computeProc is not None)
+        if getattr(self, "workerErrFile", None) and not self.workerErrFile.closed:
+            try:
+                self.workerErrFile.close()
+            except Exception:
+                pass
+            self.workerErrFile = None
         if self.computeProc is not None:
             proc = self.computeProc
             self.computeProc = None
@@ -903,7 +909,13 @@ class ModularDefenseEngine:
                 saveKw["exif"] = exifBytes
             if hasStego and stegoText.strip():
                 saveKw["comment"] = f"[LUMIYA::{stegoText}]".encode("utf-8")
-            pilImg.convert("RGB").save(outBuf, format="JPEG", quality=CFG.jpegQuality, subsampling=0, optimize=True, **saveKw)
+            try:
+                pilImg.convert("RGB").save(outBuf, format="JPEG", quality=CFG.jpegQuality, subsampling=0, optimize=True, **saveKw)
+            except Exception:
+                saveKw.pop("exif", None)
+                outBuf.seek(0)
+                outBuf.truncate(0)
+                pilImg.convert("RGB").save(outBuf, format="JPEG", quality=CFG.jpegQuality, subsampling=0, optimize=True, **saveKw)
             markBytes = opts.get("mark") if (hasStego and opts.get("payload") == "image") else None
             if markBytes:
                 outBuf.write(base64.b64decode(markBytes))
@@ -972,11 +984,15 @@ class ModularDefenseEngine:
                 alpha = transposedIm.getchannel("A") if "A" in transposedIm.getbands() else None
                 outBytes = self.encodeOutputImage(im, fileExt, hasStego, stegoText, exifBytes, iccProfile, opts, alpha)
                 import numpy as np
-                before = np.asarray(im, dtype=np.float64)
-                after = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float64)
-                mse = float(np.mean((after - before) ** 2))
+                before = np.asarray(im, dtype=np.float32)
+                after = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float32)
+                diff = after - before
+                del before, after
+                mse = float(np.mean(diff ** 2))
                 psnr = 10.0 * math.log10((255.0 ** 2) / max(mse, 1e-10))
-                return outBytes, width, height, psnr, float(np.abs(after - before).max())
+                shift = float(np.abs(diff).max())
+                del diff
+                return outBytes, width, height, psnr, shift
             return rawBytes, 512, 512, 0.0, 0.0
 
         if self.useSubprocess:
@@ -1143,15 +1159,21 @@ class ModularDefenseEngine:
             del xOrig, limitMap, delta
             if device == "cuda" and torch is not None and torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        origArr = np.asarray(origRgb, dtype=np.float64)
+        origArr = np.asarray(origRgb, dtype=np.float32)
         outArr = np.clip(origArr + deltaInt, 0, 255).astype(np.uint8)
         outPil = Image.fromarray(outArr)
+        del deltaInt, outArr
         hasStego = stegoMode == "combined" and hasStegoPayload
         outBytes = self.encodeOutputImage(outPil, fileExt, hasStego, stegoText, exifBytes, iccProfile, opts, alpha)
-        finalArr = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float64)
-        mse = float(np.mean((finalArr - origArr) ** 2))
+        del outPil
+        finalArr = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float32)
+        diff = finalArr - origArr
+        del origArr, finalArr
+        mse = float(np.mean(diff ** 2))
         psnr = 10.0 * math.log10((255.0 ** 2) / max(mse, 1e-10))
-        return outBytes, origW, origH, psnr, float(np.abs(finalArr - origArr).max())
+        shift = float(np.abs(diff).max())
+        del diff
+        return outBytes, origW, origH, psnr, shift
 
     def _processImageViaSubprocess(
         self,
@@ -1200,11 +1222,13 @@ class ModularDefenseEngine:
                 if sys.platform == "win32":
                     startupInfo = subprocess.STARTUPINFO()
                     startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                workerErrPath = RESULTS_ROOT / ".worker.log"
+                self.workerErrFile = open(workerErrPath, "a+", encoding="utf-8", errors="replace")
                 self.computeProc = subprocess.Popen(
                     [sys.executable, "-u", str(Path(__file__).resolve()), "--compute-worker"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=self.workerErrFile,
                     text=True,
                     encoding="utf-8",
                     errors="replace",
@@ -1242,8 +1266,18 @@ class ModularDefenseEngine:
                     raise InterruptedError("Batch stopped by user.")
                 line = self.computeProc.stdout.readline()
                 if not line:
+                    exitCode = self.computeProc.poll()
+                    errLog = ""
+                    try:
+                        workerErrPath = RESULTS_ROOT / ".worker.log"
+                        if workerErrPath.exists():
+                            errLog = workerErrPath.read_text(encoding="utf-8", errors="replace").strip()
+                    except Exception:
+                        pass
                     self.unloadModel()
-                    raise RuntimeError("Compute worker process terminated unexpectedly (possible out-of-memory).")
+                    lastLine = errLog.splitlines()[-1] if errLog else ""
+                    hint = f" [{lastLine}]" if lastLine else " (possible out-of-memory or killed by OS)"
+                    raise RuntimeError(f"Compute worker process terminated unexpectedly (exit code {exitCode}){hint}.")
                 line = line.rstrip("\r\n")
                 if line.startswith("STEP\t"):
                     parts = line.split("\t")
@@ -2104,8 +2138,11 @@ def runComputeWorker() -> None:
             Path(req["outPath"]).write_bytes(outBytes)
             realOut.write("DONE\t" + json.dumps({"w": w, "h": h, "psnr": psnr, "shift": shift}) + "\n")
             realOut.flush()
-        except Exception as exc:
-            realOut.write(f"ERR\t{exc}\n")
+        except BaseException as exc:
+            import traceback
+            tb = traceback.format_exc().strip().splitlines()
+            lastErr = tb[-1] if tb else str(exc)
+            realOut.write(f"ERR\t{lastErr}\n")
             realOut.flush()
 
 
