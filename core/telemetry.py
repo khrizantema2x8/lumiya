@@ -108,7 +108,13 @@ class TelemetryMonitor:
                 "/usr/lib/x86_64-linux-gnu/libnvidia-ml.so",
                 "/usr/lib64/libnvidia-ml.so.1",
                 "/usr/lib64/libnvidia-ml.so",
+                "/usr/lib64/nvidia/libnvidia-ml.so.1",
+                "/usr/lib/libnvidia-ml.so.1",
+                "/opt/cuda/lib64/libnvidia-ml.so.1",
                 "/usr/local/cuda/lib64/libnvidia-ml.so.1",
+                "/usr/local/cuda/targets/x86_64-linux/lib/libnvidia-ml.so.1",
+                "/run/opengl-driver/lib/libnvidia-ml.so.1",
+                "/usr/lib/wsl/lib/libnvidia-ml.so.1",
             ]
         )
         for pathStr in candidates:

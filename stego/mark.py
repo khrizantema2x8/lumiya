@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import base64
 import io
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -43,8 +45,17 @@ _FONT_CANDIDATES = (
     r"C:\Windows\Fonts\calibrib.ttf",
     r"C:\Windows\Fonts\consolab.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/noto/NotoSans-Bold.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+    "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
+    "/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
 )
+_FC_MATCH_CACHE: Optional[str] = None
 
 
 class MarkError(ValueError):
@@ -52,13 +63,30 @@ class MarkError(ValueError):
 
 
 def _loadHighResFont(sizePx: int = 360) -> Any:
-    """Loads a crisp vector TrueType font at high resolution so glyphs never look pixelated."""
+    """Loads a crisp vector TrueType font at high resolution across Windows, macOS, and all Linux distros."""
+    global _FC_MATCH_CACHE
     for candidate in _FONT_CANDIDATES:
         if Path(candidate).exists():
             try:
                 return ImageFont.truetype(candidate, size=sizePx)
             except Exception:
                 continue
+    if _FC_MATCH_CACHE is None:
+        _FC_MATCH_CACHE = ""
+        if shutil.which("fc-match"):
+            try:
+                out = subprocess.check_output(
+                    ["fc-match", "-f", "%{file}", "sans-serif:bold"], stderr=subprocess.DEVNULL, timeout=1.5
+                ).decode("utf-8", errors="replace").strip()
+                if out and Path(out).exists():
+                    _FC_MATCH_CACHE = out
+            except Exception:
+                pass
+    if _FC_MATCH_CACHE:
+        try:
+            return ImageFont.truetype(_FC_MATCH_CACHE, size=sizePx)
+        except Exception:
+            pass
     return ImageFont.load_default(size=sizePx)
 
 
@@ -200,7 +228,7 @@ def embedMark(
 
     payloadMode = str(cfg.get("payload", "image" if cfg.get("mark") else "text")).lower()
     if payloadMode == "binary":
-        return rgbImg.convert("RGB")
+        return applySteganographyPil(rgbImg, text, cyclic=False)
 
     encoded = cfg.get("mark") or ""
     if (payloadMode == "image" or not text) and encoded:

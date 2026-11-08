@@ -34,7 +34,7 @@ def _depthwiseGaussianBlur(x: torch.Tensor, sigma: float = 2.8, kernelSize: int 
 
 
 def _radialPsdLogRatioLoss(xAdv: torch.Tensor, xOrig: torch.Tensor, numBins: int = 24) -> torch.Tensor:
-    """Computes radial 2D FFT power spectral density log-ratio regularizer from jsu-kim/BlurGuard."""
+    """Computes radial 2D FFT power spectral density log-ratio regularizer across concentric frequency rings (jsu-kim/BlurGuard)."""
     eps = 1e-8
     fftAdv = torch.fft.fftshift(torch.fft.fft2(xAdv.float(), norm="ortho"), dim=(-2, -1))
     fftOrig = torch.fft.fftshift(torch.fft.fft2(xOrig.float(), norm="ortho"), dim=(-2, -1))
@@ -44,11 +44,19 @@ def _radialPsdLogRatioLoss(xAdv: torch.Tensor, xOrig: torch.Tensor, numBins: int
     h, w = psdAdv.shape[-2:]
     yy = torch.linspace(-1.0, 1.0, h, device=xAdv.device).view(h, 1)
     xx = torch.linspace(-1.0, 1.0, w, device=xAdv.device).view(1, w)
-    radius = torch.sqrt(yy ** 2 + xx ** 2)
-    # Focus regularizer on mid-to-high radial frequencies where adversarial ringing is most perceptible
-    highFreqMask = (radius >= 0.25).float().unsqueeze(0)
-    logRatio = torch.abs(torch.log10(psdAdv) - torch.log10(psdOrig)) * highFreqMask
-    return logRatio.mean()
+    radius = torch.sqrt(yy ** 2 + xx ** 2).clamp(0.0, 1.4142)
+    binEdges = torch.linspace(0.20, 1.0, max(4, int(numBins)) + 1, device=xAdv.device)
+    ringLosses = []
+    for idx in range(len(binEdges) - 1):
+        ringMask = ((radius >= binEdges[idx]) & (radius < binEdges[idx + 1])).float()
+        ringSum = ringMask.sum()
+        if ringSum > 0:
+            ringAdv = (psdAdv * ringMask).sum(dim=(-2, -1)) / ringSum
+            ringOrig = (psdOrig * ringMask).sum(dim=(-2, -1)) / ringSum
+            ringLosses.append(torch.abs(torch.log10(ringAdv + eps) - torch.log10(ringOrig + eps)).mean())
+    if not ringLosses:
+        return torch.abs(torch.log10(psdAdv) - torch.log10(psdOrig)).mean()
+    return torch.stack(ringLosses).mean()
 
 
 def computeLoss(dist, ctx):

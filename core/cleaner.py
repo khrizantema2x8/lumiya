@@ -83,8 +83,8 @@ def cleanMemoryAndStorage(
         except Exception:
             pass
 
-    for pattern in ("*.tmp", "*.partial"):
-        for base in (rootDir, rootDir / "user"):
+    for pattern in ("*.tmp", "*.partial", ".worker.log"):
+        for base in (rootDir, rootDir / "user", resultsDir):
             if base.exists():
                 for tmpFile in base.glob(pattern):
                     try:

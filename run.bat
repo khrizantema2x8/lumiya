@@ -1,15 +1,37 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.021.4330 (Pilot)
+title PORTtralica Lumiya v0.6.073.8820 (Pilot)
 cd /d "%~dp0"
 
 if /I "%~1"=="-h" goto show_help
 if /I "%~1"=="--help" goto show_help
 if /I "%~1"=="/h" goto show_help
 if /I "%~1"=="/?" goto show_help
+if /I "%~1"=="install" (
+    shift
+    call "%~dp0install.bat" %*
+    exit /b %ERRORLEVEL%
+)
+if /I "%~1"=="--install" (
+    shift
+    call "%~dp0install.bat" %*
+    exit /b %ERRORLEVEL%
+)
+if /I "%~1"=="-i" (
+    shift
+    call "%~dp0install.bat" %*
+    exit /b %ERRORLEVEL%
+)
+if /I "%~1"=="setup" (
+    shift
+    call "%~dp0install.bat" %*
+    exit /b %ERRORLEVEL%
+)
 if /I "%~1"=="/uninstall" goto forward_uninstall
 if /I "%~1"=="--uninstall" goto forward_uninstall
 if /I "%~1"=="-u" goto forward_uninstall
+if /I "%~1"=="uninstall" goto forward_uninstall
+if /I "%~1"=="remove" goto forward_uninstall
 if /I "%~1"=="/purge" goto forward_uninstall
 if /I "%~1"=="--purge" goto forward_uninstall
 if /I "%~1"=="purge" goto forward_uninstall
@@ -20,6 +42,51 @@ if /I "%~1"=="--kill-port" goto do_free_port
 if /I "%~1"=="reinstall-torch" goto do_reinstall_torch
 if /I "%~1"=="fix-cuda" goto do_reinstall_torch
 if /I "%~1"=="--reinstall-torch" goto do_reinstall_torch
+if /I "%~1"=="clean" (
+    shift
+    set "EXTRA_DOCTOR=--clean"
+    goto proceed_run
+)
+if /I "%~1"=="--clean" (
+    shift
+    set "EXTRA_DOCTOR=--clean"
+    goto proceed_run
+)
+if /I "%~1"=="integrity" (
+    shift
+    set "EXTRA_DOCTOR=--integrity"
+    goto proceed_run
+)
+if /I "%~1"=="--integrity" (
+    shift
+    set "EXTRA_DOCTOR=--integrity"
+    goto proceed_run
+)
+if /I "%~1"=="cluster" (
+    shift
+    set "EXTRA_DOCTOR=--cluster"
+    goto proceed_run
+)
+if /I "%~1"=="doctor" (
+    shift
+    set "EXTRA_DOCTOR=--doctor"
+    goto proceed_run
+)
+if /I "%~1"=="update" (
+    shift
+    set "EXTRA_DOCTOR=--update"
+    goto proceed_run
+)
+if /I "%~1"=="--update" (
+    shift
+    set "EXTRA_DOCTOR=--update"
+    goto proceed_run
+)
+if /I "%~1"=="headless" (
+    shift
+    set "EXTRA_DOCTOR=--headless"
+    goto proceed_run
+)
 if /I "%~1"=="-p" goto handle_port_flag
 if /I "%~1"=="--port" goto handle_port_flag
 if /I "%~1"=="port" goto handle_port_flag
@@ -40,24 +107,61 @@ if not errorlevel 1 (
 goto proceed_run
 
 :show_help
-echo ========================================================================
-echo   PORTtralica Lumiya v0.6.021.4330 (Pilot) - CLI REFERENCE
-echo ========================================================================
+chcp 65001 >nul 2>&1
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+set "LOGO_GOLD=%ESC%[38;2;243;214;137m"
+set "DIM=%ESC%[90m"
+set "RESET=%ESC%[0m"
+echo.
+echo   %LOGO_GOLD%              :::::::::::::                                                                         %RESET%
+echo   %LOGO_GOLD%              :   :::::::::                                                                         %RESET%
+echo   %LOGO_GOLD%                :::                                            :::                                  %RESET%
+echo   %LOGO_GOLD%               ::                                              :::                                  %RESET%
+echo   %LOGO_GOLD%              ::   :::       ::    ::  ::::::   ::::::       ::       ::::    :::      ::::::::     %RESET%
+echo   %LOGO_GOLD%            :::   ::       :::     :::::   :: :::   ::     :::      :::      ::::   ::::      : :   %RESET%
+echo   %LOGO_GOLD%           ::    ::       ::     ::::      :::     ::     :::      ::       ::::  :::        ::::   %RESET%
+echo   %LOGO_GOLD%         :::    ::      :::    :::        ::      ::     ::      :::       :::   ::        :::    ::%RESET%
+echo   %LOGO_GOLD%:::::   ::     ::    :::::   :::        :::     ::    ::::    :::::      :::  :::::     ::::    ::: %RESET%
+echo   %LOGO_GOLD%:    :::       ::::::  ::::::::        ::       ::::::  :::::::  :::::::::::::   :::::::::::::::    %RESET%
+echo   %LOGO_GOLD% ::::::::       ::                                                     ::::                         %RESET%
+echo   %LOGO_GOLD%        :::::   ::                                                 ::::::                           %RESET%
+echo   %LOGO_GOLD%            :::::                                                :::::::                            %RESET%
+echo   %LOGO_GOLD%                                                              :::: :::                              %RESET%
+echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
+echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
+echo.
+echo   %DIM%PORTtralica Lumiya - v0.6.073.8820 (Pilot) - CLI REFERENCE%RESET%
+echo   ====================================================================================================
 echo.
 echo Usage: run.bat [SUBCOMMAND ^| OPTIONS]
 echo.
 echo Subcommands:
-echo   install               Provision environment ^& install dependencies
-echo   reinstall-torch [cu]  Reinstall CUDA PyTorch into active environment (default: cu124)
-echo   uninstall             Remove this program footprint dependencies (default: manifest cleanup)
+echo   install, setup        Provision environment ^& install dependencies
+echo   update                Protected GitHub self-pull ^& dependency/integrity check
+echo   integrity, verify     Verify SHA-256 and MD5 checksums against core/integrity.lmy
+echo   reinstall-torch [cu]  Reinstall CUDA PyTorch into active environment (auto-detects driver CUDA)
+echo   uninstall, remove     Remove this program footprint dependencies (default: manifest cleanup)
 echo   purge                 Thoroughly purge runtime pillars
 echo   free-port [port]      Kill process occupying port (default: 7860)
+echo   clean                 Purge cache and temporary workspace files
+echo   doctor                Run hardware, CUDA, NVML, font, and storage diagnostics
+echo   cluster               Launch in shared cluster/HPC mode (--no-browser, smart TMPDIR)
+echo   headless              Run batch protection directly from CLI without WebUI
 echo.
 echo Options:
 echo   -p, --port [port]     Bind WebUI to specific port (e.g. -p 7860 or run.bat 7860)
 echo   --host [host]         Bind to interface (default: 127.0.0.1, use 0.0.0.0 for LAN/remote)
 echo   --listen              Bind to 0.0.0.0 (allow remote or LAN access)
+echo   --auth-token [token]  Require access token for WebUI API requests
 echo   --no-browser          Do not automatically launch system browser
+echo   --tmp-dir [dir]       Override temporary directory
+echo   --cache-dir [dir]     Override PyTorch/HuggingFace/pip cache directory
+echo   --results-dir [dir]   Override exported results directory
+echo   --device [dev]        Force compute backend (auto, cuda, cpu)
+echo   --gpu [id]            Select GPU index (sets CUDA_VISIBLE_DEVICES)
+echo   --tile-size [px]      Override spatial PGD tile size (256-1024)
+echo   --low-vram            Enable low-VRAM optimizations (512px tiles, fp16, RAM spillover)
+echo   --headless -i [path]  Run CLI batch immunization on file/folder (with -o, --algo, --steps, --budget)
 echo   --debug               Launch backend in emulation / verbose mode
 echo   --uninstall, -u       Remove this program footprint dependencies (default: manifest cleanup)
 echo   --purge               Thoroughly purge runtime pillars
@@ -81,19 +185,35 @@ exit /b 0
 
 :do_reinstall_torch
 set "TARGET_WHEEL=%~2"
-if "%TARGET_WHEEL%"=="" set "TARGET_WHEEL=cu124"
-echo   [CUDA] Reinstalling PyTorch (!TARGET_WHEEL!) into active environment...
 if exist "%USERPROFILE%\miniconda3\Scripts\activate.bat" (
     call "%USERPROFILE%\miniconda3\Scripts\activate.bat" lumiya >nul 2>&1
 ) else if exist "C:\ProgramData\miniconda3\Scripts\activate.bat" (
     call "C:\ProgramData\miniconda3\Scripts\activate.bat" lumiya >nul 2>&1
 )
-if "!TARGET_WHEEL!"=="cpu" (
-    python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+if "%TARGET_WHEEL%"=="" (
+    set "CUDA_NUM=0"
+    for /f "tokens=3 delims=:" %%A in ('nvidia-smi 2^>nul ^| findstr /C:"CUDA Version"') do (
+        for /f "tokens=1,2 delims=. " %%B in ("%%A") do set /a "CUDA_NUM=%%B*10+%%C"
+    )
+    for %%C in (132 130 128 126 124 121 118) do (
+        if not defined TARGET_WHEEL if !CUDA_NUM! GEQ %%C (
+            echo   [CUDA] Querying https://download.pytorch.org/whl/cu%%C for PyTorch CUDA wheel cu%%C...
+            python -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu%%C
+            if !ERRORLEVEL! EQU 0 set "TARGET_WHEEL=cu%%C"
+        )
+    )
+    if not defined TARGET_WHEEL (
+        set "TARGET_WHEEL=cpu"
+        python -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+    )
+) else if "!TARGET_WHEEL!"=="cpu" (
+    echo   [CUDA] Reinstalling PyTorch (!TARGET_WHEEL!) into active environment...
+    python -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 ) else (
-    python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/!TARGET_WHEEL! --extra-index-url https://pypi.org/simple
+    echo   [CUDA] Reinstalling PyTorch (!TARGET_WHEEL!) into active environment...
+    python -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/!TARGET_WHEEL!
 )
-python -c "import torch; print('CUDA Available:', torch.cuda.is_available())"
+python -c "import torch; print('  [VERIFIED] CUDA Available:', torch.cuda.is_available(), '| Build:', getattr(torch.version, 'cuda', None))"
 exit /b 0
 
 :proceed_run
@@ -127,9 +247,8 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya - v0.6.021.4330 (Pilot) - (c) 2026 PORTtralica Media Group%RESET%
+echo   %DIM%PORTtralica Lumiya - v0.6.073.8820 (Pilot) - (c) 2026 PORTtralica Media Group%RESET%
 echo   ====================================================================================================
-echo.
 
 :: 1. Check Git
 where git >nul 2>&1
@@ -144,22 +263,12 @@ if !ERRORLEVEL! EQU 0 (
     )
 )
 
-:: 2. Check self-contained local .env inside the project folder first (folder-name independent)
+:: 2. Remove any legacy local .env virtualenv so Lumiya strictly uses Conda
 set "SELECTED_ENV="
 set "SELECTED_PY="
 set "FALLBACK_ENV="
 set "FALLBACK_PY="
-
-if exist "%~dp0.env\python.exe" (
-    "%~dp0.env\python.exe" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >nul 2>&1
-    if !ERRORLEVEL! EQU 0 (
-        set "SELECTED_ENV=.env (Local Self-Contained)"
-        set "SELECTED_PY=%~dp0.env\python.exe"
-    ) else (
-        set "FALLBACK_ENV=.env (Local Self-Contained)"
-        set "FALLBACK_PY=%~dp0.env\python.exe"
-    )
-)
+if exist "%~dp0.env" rd /s /q "%~dp0.env" >nul 2>&1
 
 :: 3. Locate Conda Root Directory across all standard paths
 set "CONDA_ROOT="
@@ -205,44 +314,29 @@ if defined CONDA_ROOT (
     exit /b 1
 )
 
-:: 4. Probe Conda environment (lumiya, or any env with torch+diffusers+PIL)
+:: 4. Probe Conda environment (lumiya) with verbose diagnostic feedback
+set "ERRLOG=%~dp0user\error.log"
+if not exist "%~dp0user" mkdir "%~dp0user" >nul 2>&1
 if not defined SELECTED_PY if defined CONDA_ROOT (
     for %%E in (lumiya) do (
         set "CAND_PY=!CONDA_ROOT!\envs\%%E\python.exe"
         if exist "!CAND_PY!" (
+            echo   [%CYAN%PROBE%RESET%]     Inspecting Conda Env   : "!CAND_PY!"
             if not defined FALLBACK_PY (
                 set "FALLBACK_ENV=%%E"
                 set "FALLBACK_PY=!CAND_PY!"
             )
             if not defined SELECTED_PY (
-                "!CAND_PY!" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >nul 2>&1
+                "!CAND_PY!" -c "import importlib.util as u; missing=[m for m in ('torch','diffusers','PIL','psutil') if not u.find_spec(m)]; print('  [DIAG]      Missing packages       :', ', '.join(missing)) if missing else None; raise SystemExit(0 if not missing else 1)"
                 if !ERRORLEVEL! EQU 0 (
                     set "SELECTED_ENV=%%E"
                     set "SELECTED_PY=!CAND_PY!"
+                ) else (
+                    echo [%DATE% %TIME%] [run.bat] Environment '!CAND_PY!' missing core packages. >> "!ERRLOG!"
                 )
             )
-        )
-    )
-)
-
-if not defined SELECTED_PY if defined CONDA_ROOT (
-    for /d %%D in ("!CONDA_ROOT!\envs\*") do (
-        if not defined SELECTED_PY if exist "%%~fD\python.exe" (
-            "%%~fD\python.exe" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >nul 2>&1
-            if !ERRORLEVEL! EQU 0 (
-                set "SELECTED_ENV=%%~nxD"
-                set "SELECTED_PY=%%~fD\python.exe"
-            )
-        )
-    )
-)
-
-if not defined SELECTED_PY if defined CONDA_ROOT (
-    if exist "!CONDA_ROOT!\python.exe" (
-        "!CONDA_ROOT!\python.exe" -c "import importlib.util as u; raise SystemExit(0 if (u.find_spec('torch') and u.find_spec('diffusers') and u.find_spec('PIL')) else 1)" >nul 2>&1
-        if !ERRORLEVEL! EQU 0 (
-            set "SELECTED_ENV=base"
-            set "SELECTED_PY=!CONDA_ROOT!\python.exe"
+        ) else (
+            echo   [%DIM%PROBE%RESET%]     Conda Env Path         : "!CAND_PY!" ^(not created yet^)
         )
     )
 )
@@ -266,17 +360,16 @@ if not defined SELECTED_PY (
     choice /C IWQ /N /M "  Select option [I / W / Q]: "
     set "CHOICE_RES=!ERRORLEVEL!"
     if "!CHOICE_RES!"=="1" (
+        set "LUMIYA_CALLER=1"
         call "%~dp0install.bat"
+        set "LUMIYA_CALLER="
         choice /C NL /N /M "  Installation finished. Reboot [N]ow or [L]ater? "
         if "!ERRORLEVEL!"=="1" (
             shutdown /r /t 5
             exit /b 0
         )
         echo   %YELLOW%Without a reboot the program will be unreliable and may not work as intended.%RESET%
-        if exist "%~dp0.env\python.exe" (
-            set "SELECTED_ENV=.env"
-            set "SELECTED_PY=%~dp0.env\python.exe"
-        ) else if exist "!CONDA_ROOT!\envs\lumiya\python.exe" (
+        if exist "!CONDA_ROOT!\envs\lumiya\python.exe" (
             set "SELECTED_ENV=lumiya"
             set "SELECTED_PY=!CONDA_ROOT!\envs\lumiya\python.exe"
         )
@@ -291,26 +384,33 @@ if not defined SELECTED_PY (
 if defined CONDA_ROOT (
     call "!CONDA_ROOT!\Scripts\activate.bat" !SELECTED_ENV! >nul 2>&1
 )
-set "HW_INFO=CPU Only (No NVIDIA GPU detected)"
+set "HW_INFO=CPU Only ^(No NVIDIA GPU detected^)"
 nvidia-smi --query-gpu=name --format=csv,noheader > "%TEMP%\lumiya_gpu_run.txt" 2>nul
 if !ERRORLEVEL! EQU 0 (
     set /p "DETECTED_GPU=" < "%TEMP%\lumiya_gpu_run.txt"
     for /f "tokens=3 delims=:" %%A in ('nvidia-smi 2^>nul ^| findstr /C:"CUDA Version"') do (
         for /f "tokens=1,2 delims=. " %%B in ("%%A") do (
-            set "HW_INFO=!DETECTED_GPU! (CUDA %%B.%%C)"
+            set "HW_INFO=!DETECTED_GPU! ^(CUDA %%B.%%C^)"
         )
     )
 )
 if exist "%TEMP%\lumiya_gpu_run.txt" del /f /q "%TEMP%\lumiya_gpu_run.txt"
 echo   [%CYAN%TARGET%RESET%]    Hardware / CUDA        : !HW_INFO!
 echo   [%GREEN%ACTIVE%RESET%]    Environment            : !SELECTED_ENV! ^("!SELECTED_PY!"^)
+"!SELECTED_PY!" -c "import sys, torch; print(f'  [\x1b[96mRUNTIME\x1b[0m]   PyTorch / Python       : torch {torch.__version__} (CUDA={torch.cuda.is_available()}, build={getattr(torch.version, \"cuda\", None)}) // Python {sys.version.split()[0]}')" 2>nul
+echo   [%DIM%LOGFILE%RESET%]   Diagnostic Error Log   : "%~dp0user\error.log"
 echo   ====================================================================================================
-echo.
 
+set "LUMIYA_BANNER_PRINTED=1"
 set "PORT_ARG="
 if defined CLI_PORT set "PORT_ARG=--port !CLI_PORT!"
 
-"!SELECTED_PY!" "%~dp0protect.py" !PORT_ARG! %*
+"!SELECTED_PY!" "%~dp0protect.py" !PORT_ARG! !EXTRA_DOCTOR! %*
+set "EXIT_CODE=!ERRORLEVEL!"
+if !EXIT_CODE! NEQ 0 (
+    echo [%DATE% %TIME%] [run.bat] protect.py exited with non-zero code !EXIT_CODE!. >> "!ERRLOG!"
+    echo   [%RED%ERROR%RESET%]     Service exited with code !EXIT_CODE!. Diagnostic details written to user\error.log
+)
 echo.
 echo   [SERVICE STOPPED] Press any key to close this window...
 pause >nul

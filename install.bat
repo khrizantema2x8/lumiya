@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.021.4330 (Pilot) - Environment Installer
+title PORTtralica Lumiya v0.6.073.8820 (Pilot) - Environment Installer
 cd /d "%~dp0"
 
 if /I "%~1"=="-h" goto show_help
@@ -17,7 +17,7 @@ goto proceed_installer
 
 :show_help
 echo ========================================================================
-echo   PORTtralica Lumiya v0.6.021.4330 (Pilot) - INSTALLER REFERENCE
+echo   PORTtralica Lumiya v0.6.073.8820 (Pilot) - INSTALLER REFERENCE
 echo ========================================================================
 echo.
 echo Usage: install.bat [OPTIONS]
@@ -48,11 +48,12 @@ set "RESET=%ESC%[0m"
 set "USER_DIR=%~dp0user"
 if not exist "%USER_DIR%" mkdir "%USER_DIR%"
 set "MANIFEST=%USER_DIR%\install_manifest.log"
+set "ERRLOG=%USER_DIR%\error.log"
 set "PRE_LIST=%TEMP%\lumiya_pre.txt"
 set "POST_LIST=%TEMP%\lumiya_post.txt"
 
 echo ======================================================================== > "%MANIFEST%"
-echo   PORTtralica Lumiya v0.6.021.4330 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
+echo   PORTtralica Lumiya v0.6.073.8820 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
 echo   Timestamp : %DATE% %TIME% >> "%MANIFEST%"
 echo   Username  : %USERNAME% >> "%MANIFEST%"
 echo ======================================================================== >> "%MANIFEST%"
@@ -76,9 +77,8 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya v0.6.021.4330 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
+echo   %DIM%PORTtralica Lumiya v0.6.073.8820 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
 echo   ====================================================================================================
-echo.
 
 set "MISSING_CORE=0"
 
@@ -174,12 +174,12 @@ set "ENV_NAME=lumiya"
 
 call conda info --envs | findstr /I "\b!ENV_NAME!\b" >nul 2>&1
 if !ERRORLEVEL! NEQ 0 (
-    echo   [02/05] Creating isolated Python 3.13 environment '!ENV_NAME!'...
-    call conda create -n !ENV_NAME! python=3.13 -c conda-forge --override-channels -y
+    echo   [02/05] Creating isolated Python 3.12 environment '!ENV_NAME!'...
+    call conda create -n !ENV_NAME! python=3.12 -c conda-forge --override-channels -y
     if !ERRORLEVEL! NEQ 0 (
-        call conda create -n !ENV_NAME! python=3.13 -y
+        call conda create -n !ENV_NAME! python=3.12 -y
     )
-    echo [ENV] Created environment: !ENV_NAME! ^(Python 3.13^) >> "%MANIFEST%"
+    echo [ENV] Created environment: !ENV_NAME! ^(Python 3.12^) >> "%MANIFEST%"
 ) else (
     echo   [02/05] Using existing environment '!ENV_NAME!'...
     echo [ENV] Kept existing environment: !ENV_NAME! >> "%MANIFEST%"
@@ -196,38 +196,48 @@ if !ERRORLEVEL! NEQ 0 (
 python -m pip list --format=freeze > "%PRE_LIST%"
 
 echo   [03/05] Installing hardware-matched PyTorch for [!GPU_MODEL!]...
-:: The driver sets the newest CUDA build it can run: try builds newest first, then fall back to CPU.
+:: The driver sets the newest CUDA build it can run: try builds newest first (cu132 -> cu118), then fall back to CPU.
 set "CUDA_NUM=0"
 if "!HAS_NVIDIA!"=="1" (
     for /f "tokens=3 delims=:" %%A in ('nvidia-smi ^| findstr /C:"CUDA Version"') do (
         for /f "tokens=1,2 delims=. " %%B in ("%%A") do set /a "CUDA_NUM=%%B*10+%%C"
     )
 )
-echo   [%CYAN%SYSTEM%RESET%]  Driver CUDA level: !CUDA_NUM!
+echo   [%CYAN%SYSTEM%RESET%]  Driver CUDA level: !CUDA_NUM! ^(stepping descending: cu132 -^> cu130 -^> cu128 -^> cu126 -^> cu124 -^> cu121 -^> cu118^)
 set "TORCH_BUILD="
-for %%C in (126 124 121 118) do (
+for %%C in (132 130 128 126 124 121 118) do (
     if not defined TORCH_BUILD if !CUDA_NUM! GEQ %%C (
-        echo   [03/05] Trying PyTorch CUDA wheel cu%%C...
-        python -m pip install --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu%%C --extra-index-url https://pypi.org/simple
+        echo   [03/05] Querying https://download.pytorch.org/whl/cu%%C for PyTorch CUDA wheel cu%%C...
+        python -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu%%C
         if !ERRORLEVEL! EQU 0 (
-            python -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
+            python -c "import torch; raise SystemExit(0 if (torch.cuda.is_available() or getattr(torch.version, 'cuda', None) is not None) else 1)"
             if !ERRORLEVEL! EQU 0 (
                 set "TORCH_BUILD=cu%%C"
                 echo   [%GREEN%VERIFIED%RESET%] PyTorch cu%%C initialized CUDA successfully.
             ) else (
-                echo   [%YELLOW%FALLBACK%RESET%] PyTorch cu%%C installed but driver rejected runtime; stepping down...
+                echo   [%YELLOW%FALLBACK%RESET%] PyTorch cu%%C installed without active CUDA runtime; stepping down to next wheel...
+                echo [%DATE% %TIME%] [install.bat] PyTorch cu%%C installed but CUDA check returned non-zero; stepping down. >> "%ERRLOG%"
             )
+        ) else (
+            echo   [%DIM%SKIP%RESET%]     PyTorch wheel index cu%%C not yet published for this Python/OS; stepping down...
+            echo [%DATE% %TIME%] [install.bat] Wheel index https://download.pytorch.org/whl/cu%%C unavailable; stepping down. >> "%ERRLOG%"
         )
     )
 )
 if not defined TORCH_BUILD (
+    echo   [%YELLOW%FALLBACK%RESET%] Installing CPU PyTorch build ^(no compatible CUDA wheel succeeded^)...
+    echo [%DATE% %TIME%] [install.bat] Falling back to CPU PyTorch build ^(HAS_NVIDIA=!HAS_NVIDIA!, CUDA_NUM=!CUDA_NUM!^). >> "%ERRLOG%"
     python -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && set "TORCH_BUILD=cpu"
 )
 echo [HARDWARE] Torch build: !TORCH_BUILD! >> "%MANIFEST%"
 
 echo   [04/05] Installing pinned diffusion, image ^& telemetry packages...
 if not "!TORCH_BUILD!"=="cpu" if defined TORCH_BUILD (
-    python -m pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/!TORCH_BUILD! "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
+    python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/!TORCH_BUILD! --extra-index-url https://pypi.org/simple "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
+    python -c "import torch; raise SystemExit(0 if getattr(torch.version, 'cuda', None) is not None else 1)" >nul 2>&1
+    if !ERRORLEVEL! NEQ 0 (
+        python -m pip install --upgrade --force-reinstall --no-deps --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/!TORCH_BUILD!
+    )
 ) else (
     python -m pip install --no-cache-dir "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
 )
@@ -277,7 +287,9 @@ echo   [%GREEN%COMPLETE%RESET%] Environment '!ENV_NAME!' is ready. Manifest save
 echo              user\install_manifest.log
 echo   ====================================================================================================
 echo.
-echo   Press any key to close installer...
-pause >nul
+if not defined LUMIYA_CALLER (
+    echo   Press any key to close installer...
+    pause >nul
+)
 exit /b 0
 

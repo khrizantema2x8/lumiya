@@ -6,6 +6,7 @@ import json
 import re
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -54,11 +55,27 @@ def sanitizeFilename(filename: str, fallback: str = "image.png") -> str:
     return f"{cleanStem}{cleanExt}"
 
 
-def isTrustedRequest(host: Optional[str], origin: Optional[str], port: int, allowRemote: bool = False) -> bool:
-    """Blocks cross-site and DNS-rebinding requests: browsers let any website reach localhost."""
+def isLoopbackClient(clientIp: str) -> bool:
+    """Returns True if the HTTP client IP is strictly local loopback."""
+    return clientIp in ("127.0.0.1", "::1", "::ffff:127.0.0.1", "localhost")
+
+
+def isTrustedRequest(
+    host: Optional[str],
+    origin: Optional[str],
+    port: int,
+    allowRemote: bool = False,
+    authToken: str = "",
+    reqToken: str = "",
+) -> bool:
+    """Blocks cross-site and DNS-rebinding requests; verifies Origin matches Host even in --listen mode."""
+    if authToken and reqToken != authToken:
+        return False
     if allowRemote:
-        return True
-    allowed = (f"127.0.0.1:{port}", f"localhost:{port}")
+        if not host:
+            return False
+        return origin is None or urllib.parse.urlparse(origin).netloc == host
+    allowed = (f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}")
     return host in allowed and (origin is None or origin in tuple(f"http://{a}" for a in allowed))
 
 
@@ -104,20 +121,9 @@ def verifyBrandAssets(rootDir: Path) -> Dict[str, Any]:
 def openPathForeground(targetPath: Path) -> None:
     """Opens a folder in the OS file manager safely without shell-interpolating untrusted strings."""
     targetPath.mkdir(parents=True, exist_ok=True)
-    resolved = str(targetPath.resolve())
-    if sys.platform == "win32":
-        try:
-            subprocess.Popen(["explorer.exe", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-    elif sys.platform == "darwin":
-        try:
-            subprocess.Popen(["open", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-    else:
-        try:
-            subprocess.Popen(["xdg-open", resolved], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
+    opener = "explorer.exe" if sys.platform == "win32" else ("open" if sys.platform == "darwin" else "xdg-open")
+    try:
+        subprocess.Popen([opener, str(targetPath.resolve())], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 

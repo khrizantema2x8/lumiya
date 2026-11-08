@@ -24,17 +24,37 @@ ALGO_META = {
 }
 
 
+_DCT8_BASIS_CACHE: dict = {}
+
+
+def _getDct8Basis(device: torch.device) -> torch.Tensor:
+    key = str(device)
+    if key not in _DCT8_BASIS_CACHE:
+        n = 8
+        k = torch.arange(n, device=device, dtype=torch.float32).unsqueeze(1)
+        i = torch.arange(n, device=device, dtype=torch.float32).unsqueeze(0)
+        mat = torch.cos(math.pi * (2.0 * i + 1.0) * k / (2.0 * n))
+        mat[0, :] *= math.sqrt(1.0 / n)
+        mat[1:, :] *= math.sqrt(2.0 / n)
+        _DCT8_BASIS_CACHE[key] = mat
+    return _DCT8_BASIS_CACHE[key]
+
+
 def _patchHighFreqEnergy(x: torch.Tensor, patchSize: int = 8) -> torch.Tensor:
-    """Computes Patch-wise Frequency Guidance (PFG) on bottom-right high-frequency quadrant of s x s patches."""
+    """Computes Patch-wise Frequency Guidance (PFG) on bottom-right high-frequency quadrant of 8x8 2D DCT-II patches."""
     b, c, h, w = x.shape
     hp = (h // patchSize) * patchSize
     wp = (w // patchSize) * patchSize
     xCrop = x[:, :, :hp, :wp].float()
     patches = xCrop.unfold(2, patchSize, patchSize).unfold(3, patchSize, patchSize)
-    spec = torch.fft.fft2(patches, norm="ortho")
+    dctBasis = _getDct8Basis(x.device) if patchSize == 8 else None
+    if dctBasis is not None:
+        dctCoeffs = torch.matmul(torch.matmul(dctBasis, patches), dctBasis.t())
+    else:
+        dctCoeffs = torch.fft.fftshift(torch.fft.fft2(patches, norm="ortho"), dim=(-2, -1)).abs()
     half = patchSize // 2
-    hiQuad = spec[..., half:, half:]
-    return (hiQuad.real ** 2 + hiQuad.imag ** 2).mean()
+    hiQuad = dctCoeffs[..., half:, half:]
+    return (hiQuad ** 2).mean()
 
 
 def computeLoss(dist, ctx):

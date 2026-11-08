@@ -14,6 +14,7 @@ from core.config import (
 from core.loader import LEGACY_SKIP_DIRS, AlgoPluginManager, hardwareBlockReason
 from core.security import (
     WINDOWS_RESERVED_NAMES,
+    isLoopbackClient,
     isTrustedRequest,
     openPathForeground,
     parseJsonBody,
@@ -21,6 +22,13 @@ from core.security import (
     verifyBrandAssets,
 )
 from core.telemetry import SensorSnapshot, TelemetryMonitor, resolveHardwareTier
+from core.updater import (
+    checkRemoteUpdate,
+    computeProgramIntegrity,
+    filterSafeRequirements,
+    isAllowedGitRemote,
+    runProtectedUpdate,
+)
 
 __all__ = [
     "DEFAULT_ALGO_IDS",
@@ -33,12 +41,18 @@ __all__ = [
     "SuiteConfig",
     "TelemetryMonitor",
     "atomicWrite",
+    "checkRemoteUpdate",
     "cleanMemoryAndStorage",
+    "computeProgramIntegrity",
+    "filterSafeRequirements",
     "hardwareBlockReason",
+    "isAllowedGitRemote",
+    "isLoopbackClient",
     "isTrustedRequest",
     "openPathForeground",
     "parseJsonBody",
     "resolveHardwareTier",
+    "runProtectedUpdate",
     "safeFloat",
     "safeInt",
     "sanitizeFilename",

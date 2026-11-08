@@ -1221,6 +1221,10 @@
   table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); }
   th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; }
   th { background: var(--panelAlt); color: var(--muted); font-size: 11px; text-transform: uppercase; font-family: 'IBM Plex Mono', monospace; }
+  .hist-batch-row { background: #1e1e1e; cursor: pointer; user-select: none; }
+  .hist-batch-row:hover { background: #292929; }
+  .hist-file-row { background: var(--panel); }
+  .hist-file-row:hover { background: #2c2c2c; }
   .tag {
     display: inline-block;
     padding: 2px 8px;
@@ -1341,8 +1345,12 @@
   /* Inspect Tab Layout */
   .insp-shell {
     display: grid;
-    grid-template-rows: 1fr 124px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 124px;
     flex: 1;
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
     min-height: 0;
     height: 100%;
     background: #1a1a1a;
@@ -1351,8 +1359,11 @@
   }
   .insp-upper {
     display: grid;
-    grid-template-columns: 270px 1fr 340px;
+    grid-template-columns: 270px minmax(0, 1fr) 340px;
+    width: 100%;
+    min-width: 0;
     min-height: 0;
+    overflow: hidden;
     border-bottom: 1px solid var(--line);
   }
   .insp-left {
@@ -1716,10 +1727,15 @@
     background: #151515;
     display: flex;
     flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: 0;
+    overflow: hidden;
   }
   .insp-filmstrip-bar {
     height: 26px;
+    flex-shrink: 0;
     background: #1c1c1c;
     border-bottom: 1px solid var(--line);
     padding: 0 14px;
@@ -1733,10 +1749,16 @@
   .insp-filmstrip {
     flex: 1;
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
   }
   .insp-thumb-card {
     width: 92px;
@@ -1815,7 +1837,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="hdr-version-badge" id="hdr-version">v0.6.021.4330 (Pilot)</span>
+    <span class="hdr-version-badge" id="hdr-version">v0.6.073.8820 (Pilot)</span>
     <button class="q-btn" onclick="sysMaint('run_cleaner')" title="Clean VRAM, RAM Working Set & Temp Files">Clean Memory &amp; Temps</button>
     <button class="q-btn" onclick="sysMaint('restart_service')" title="Clean memory &amp; restart the PORTtralica Lumiya backend service">Restart Service</button>
     <div class="folder-tag" id="folder" onclick="sysMaint('open_results')" title="Open results root folder in foreground">RESULTS: ...</div>
@@ -2234,11 +2256,11 @@
       <table>
         <thead>
           <tr>
-            <th>File</th>
-            <th>Batch</th>
+            <th>Batch / File</th>
             <th>Resolution</th>
             <th>PSNR <span class="info-icon">i<span class="info-tooltip">Peak signal-to-noise ratio: how close the output is to the original. Higher means less visible change. Above about 40 dB is usually hard to see.</span></span></th>
             <th>Shift <span class="info-icon">i<span class="info-tooltip">The largest change made to any single pixel value, on a 0 to 255 scale.</span></span></th>
+            <th>Time</th>
             <th>Status</th>
             <th></th>
           </tr>
@@ -2828,6 +2850,51 @@
     </div>
   </div>
 
+  <!-- Application Well-being Section -->
+  <div class="about-panel" id="updates-integrity-panel">
+    <div class="heading">
+      <span>Application Well-being</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="q-btn" onclick="verifyProgramIntegrity()">Verify Integrity</button>
+        <button class="q-btn" onclick="checkForUpdates()">Check for Updates</button>
+        <button class="q-btn primary" id="btn-self-update" onclick="triggerSelfUpdate()" disabled title="Click 'Check for Updates' first">Update Now</button>
+      </div>
+    </div>
+    <div id="update-status-bar" class="mono" style="background:#161616;border:1px solid var(--line);padding:10px 14px;margin-bottom:14px;font-size:11px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span id="upd-state-msg" style="color:var(--muted);">Ready.</span>
+      <span id="upd-manifest-tag" class="tag">VERIFIED</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Target</th>
+          <th>File Counts</th>
+          <th>SHA-256</th>
+          <th>MD5</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="integrity-lump-rows">
+        <tr><td colspan="5" class="mono" style="color:var(--dim);">Checking files...</td></tr>
+      </tbody>
+    </table>
+    <details style="margin-top:12px;">
+      <summary class="mono" style="cursor:pointer;font-size:11px;color:var(--gold);padding:4px 0;user-select:none;">Inspect Individual Files</summary>
+      <table style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>File</th>
+            <th>SHA-256</th>
+            <th>MD5</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="integrity-file-rows"></tbody>
+      </table>
+    </details>
+  </div>
+
   <!-- About & Intellectual Acknowledgements Section at Bottom of Configuration Tab (Chrome-Style Card) -->
   <div class="about-panel">
     <div class="heading"><span>About</span></div>
@@ -2836,7 +2903,7 @@
       <div>
         <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:0.3px;">PORTtralica Lumiya Evaluative Suite</div>
         <div class="mono" style="font-size:12px;color:var(--gold);margin-top:4px;" id="about-version-line">
-          Version v0.6.021.4330 (Pilot) (64-bit)
+          Version v0.6.073.8820 (Pilot) (64-bit)
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px;">
           &copy; 2026 PORTtralica Media Group. All rights reserved.
@@ -3020,7 +3087,10 @@ function switchTab(tab) {
     if (btn) btn.classList.toggle('active', t === tab);
     if (page) page.classList.toggle('active', t === tab);
   });
-  if (tab === 'cfg') loadManifest();
+  if (tab === 'cfg') {
+    loadManifest();
+    if (!integrityLoadedOnce) verifyProgramIntegrity();
+  }
   if (tab === 'org') renderOrganizeTab();
   if (tab === 'insp') renderInspectModule();
 }
@@ -5398,6 +5468,15 @@ function renderInspectModule() {
   document.getElementById('im-shift').innerText = item && item.shift ? `${item.shift} / 255` : '—';
 
   if (strip) {
+    if (!strip.dataset.wheelBound) {
+      strip.dataset.wheelBound = '1';
+      strip.addEventListener('wheel', (ev) => {
+        if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) {
+          ev.preventDefault();
+          strip.scrollLeft += ev.deltaY;
+        }
+      }, { passive: false });
+    }
     if (inspectItems.length === 0) {
       strip.innerHTML = `<div style="color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:11px;">[ Collection empty — send photos from Workspace or import photos manually ]</div>`;
     } else {
@@ -5408,6 +5487,10 @@ function renderInspectModule() {
           <div class="insp-thumb-lbl">${idx + 1}. ${escapeHtml(it.name)}</div>
         </div>
       `).join('');
+      const activeCard = strip.querySelector('.insp-thumb-card.active');
+      if (activeCard && typeof activeCard.scrollIntoView === 'function') {
+        activeCard.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
     }
   }
 
@@ -6343,6 +6426,222 @@ function saveGlobalConfig() {
 
 let lastHistorySig = '';
 let lastDepsSig = '';
+let collapsedHistoryBatches = {};
+let latestHistoryList = [];
+let integrityLoadedOnce = false;
+
+function toggleHistoryBatch(batchId) {
+  if (!batchId) return;
+  const curCol = collapsedHistoryBatches[batchId] !== false;
+  collapsedHistoryBatches[batchId] = !curCol;
+  renderHistoryTable(latestHistoryList);
+}
+
+function renderHistoryTable(historyArr) {
+  const histEl = document.getElementById('history-rows');
+  if (!histEl) return;
+  latestHistoryList = Array.isArray(historyArr) ? historyArr : [];
+  if (latestHistoryList.length === 0) {
+    histEl.innerHTML = `
+      <tr>
+        <td colspan="7" style="padding:28px 16px;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);">
+            <div class="sad-face-glyph" style="width:64px;height:64px;font-size:32px;margin-bottom:10px;">:(</div>
+            <div style="font-size:13px;color:var(--dim);font-style:italic;">
+              You wouldn&rsquo;t wanna walk barefoot don&rsquo;t ya?
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const batchGroups = [];
+  const groupMap = {};
+  latestHistoryList.forEach(item => {
+    const bId = item.batch || 'unassigned';
+    if (!groupMap[bId]) {
+      groupMap[bId] = [];
+      batchGroups.push({ batchId: bId, items: groupMap[bId] });
+    }
+    groupMap[bId].push(item);
+  });
+
+  const rowsHtml = [];
+  batchGroups.forEach(grp => {
+    const bId = grp.batchId;
+    const items = grp.items;
+    const isCol = collapsedHistoryBatches[bId] !== false;
+    const psnrVals = items.map(x => parseFloat(x.psnr)).filter(v => !isNaN(v));
+    const shiftVals = items.map(x => parseFloat(x.shift)).filter(v => !isNaN(v));
+    const avgPsnr = psnrVals.length ? (psnrVals.reduce((a, b) => a + b, 0) / psnrVals.length).toFixed(1) : '—';
+    const maxShift = shiftVals.length ? Math.max(...shiftVals).toFixed(1) : '—';
+    const latestTime = items[0] && items[0].time ? items[0].time : '—';
+
+    rowsHtml.push(`
+      <tr class="hist-batch-row" data-batch="${escapeHtml(bId)}" onclick="toggleHistoryBatch(this.dataset.batch)">
+        <td class="mono">
+          <span class="batch-arrow ${isCol ? 'collapsed' : ''}" style="margin-right:4px;">&#9662;</span>
+          <strong style="color:var(--gold);">results/${escapeHtml(bId)}</strong>
+          <span style="color:var(--dim);font-size:11px;margin-left:6px;">[${items.length} file${items.length === 1 ? '' : 's'}]</span>
+        </td>
+        <td class="mono" style="color:var(--dim);">BATCH TREE</td>
+        <td class="mono" style="color:var(--gold);">Avg ${avgPsnr} dB</td>
+        <td class="mono" style="color:var(--muted);">Max ${maxShift} / 255</td>
+        <td class="mono" style="color:var(--dim);font-size:11px;">${escapeHtml(latestTime)}</td>
+        <td><span class="tag" style="border-color:var(--gold);color:var(--gold);background:#28210d;">BATCH</span></td>
+        <td><button class="q-btn" data-batch="${escapeHtml(bId)}" onclick="event.stopPropagation();openResultFolder(this.dataset.batch)" title="Open Batch Folder in Explorer" aria-label="Open Batch Folder"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1 3h5l2 2h7v8H1z"/></svg></button></td>
+      </tr>
+    `);
+
+    if (!isCol) {
+      items.forEach((r, idx) => {
+        const branchChar = (idx === items.length - 1) ? '&#9492;&#9472;' : '&#9500;&#9472;';
+        rowsHtml.push(`
+          <tr class="hist-file-row">
+            <td class="mono" title="${escapeHtml(r.name)}" style="padding-left:28px;">
+              <span style="color:var(--dim);margin-right:6px;">${branchChar}</span>${formatQueueFileName(r.name, 40)}
+            </td>
+            <td class="mono">${escapeHtml(r.size)}</td>
+            <td class="mono">${escapeHtml(r.psnr)} dB</td>
+            <td class="mono">${escapeHtml(r.shift)} / 255</td>
+            <td class="mono" style="color:var(--dim);font-size:11px;">${escapeHtml(r.time || '—')}</td>
+            <td><span class="tag">DONE</span></td>
+            <td><button class="q-btn" data-batch="${escapeHtml(r.batch)}" onclick="openResultFolder(this.dataset.batch)" title="Open in Explorer" aria-label="Open in Explorer"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1 3h5l2 2h7v8H1z"/></svg></button></td>
+          </tr>
+        `);
+      });
+    }
+  });
+
+  histEl.innerHTML = rowsHtml.join('');
+}
+
+function renderIntegrityReport(rep) {
+  if (!rep) return;
+  integrityLoadedOnce = true;
+  const msgEl = document.getElementById('upd-state-msg');
+  const tagEl = document.getElementById('upd-manifest-tag');
+  const lumpBody = document.getElementById('integrity-lump-rows');
+  const fileBody = document.getElementById('integrity-file-rows');
+
+  if (msgEl) {
+    const mismatchCount = (rep.mismatches || []).length;
+    if (rep.ok) {
+      msgEl.innerHTML = `<span style="color:var(--green);">&#10004; You're good!</span>`;
+    } else {
+      msgEl.innerHTML = `<span style="color:var(--yellow);">&#9650; ${mismatchCount} modified file(s) detected.</span>`;
+    }
+  }
+  if (tagEl) {
+    tagEl.innerText = rep.ok ? 'VERIFIED' : 'MODIFIED';
+    tagEl.style.cssText = rep.ok ? '' : 'border-color:var(--yellow);color:var(--yellow);background:#302605;';
+  }
+
+  if (lumpBody && rep.lumpSums) {
+    const order = ['master', 'core', 'scripts'];
+    lumpBody.innerHTML = order.map(k => {
+      const item = rep.lumpSums[k];
+      if (!item) return '';
+      const ok = item.status === 'VERIFIED';
+      const stStyle = ok ? '' : 'border-color:var(--yellow);color:var(--yellow);background:#302605;';
+      return `
+        <tr>
+          <td class="mono"><strong>${escapeHtml(item.key)}</strong></td>
+          <td class="mono">${item.count}</td>
+          <td class="mono" style="font-size:11px;word-break:break-all;">${escapeHtml(item.sha256)}</td>
+          <td class="mono" style="font-size:11px;">${escapeHtml(item.md5)}</td>
+          <td><span class="tag" style="${stStyle}">${escapeHtml(item.status)}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (fileBody && Array.isArray(rep.files)) {
+    fileBody.innerHTML = rep.files.map(f => {
+      const ok = f.status === 'VERIFIED';
+      const stStyle = ok ? '' : 'border-color:var(--yellow);color:var(--yellow);background:#302605;';
+      return `
+        <tr>
+          <td class="mono" style="font-size:11px;color:var(--gold);">${escapeHtml(f.pillar)}</td>
+          <td class="mono" style="font-size:11px;">${escapeHtml(f.path)}</td>
+          <td class="mono" style="font-size:10px;word-break:break-all;">${escapeHtml(f.sha256)}</td>
+          <td class="mono" style="font-size:10px;">${escapeHtml(f.md5)}</td>
+          <td><span class="tag" style="${stStyle}">${escapeHtml(f.status)}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+}
+
+async function verifyProgramIntegrity() {
+  const msgEl = document.getElementById('upd-state-msg');
+  if (msgEl) msgEl.innerText = 'Checking files...';
+  const r = await fetch('/api/system_maint?cmd=verify_integrity', { method: 'POST' });
+  const d = await r.json();
+  if (d.integrity) renderIntegrityReport(d.integrity);
+  else if (d.error) showBanner(`<strong>&#9650; Integrity Check:</strong> ${escapeHtml(d.error)}`, true);
+}
+
+async function checkForUpdates() {
+  const msgEl = document.getElementById('upd-state-msg');
+  const updBtn = document.getElementById('btn-self-update');
+  if (updBtn) {
+    updBtn.disabled = true;
+    updBtn.title = "Checking for updates...";
+  }
+  if (msgEl) msgEl.innerText = 'Checking GitHub...';
+  const r = await fetch('/api/system_maint?cmd=check_update', { method: 'POST' });
+  const d = await r.json();
+  if (d.integrity) renderIntegrityReport(d.integrity);
+  if (!d.ok) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:var(--red);">&#10008; ${escapeHtml(d.error || 'Update check failed.')}</span>`;
+    if (updBtn) updBtn.title = "Update check failed";
+    showBanner(`<strong>&#9650; Update Check:</strong> ${escapeHtml(d.error || 'Could not reach GitHub.')}`, true);
+    return;
+  }
+  let statusStr = '';
+  if (d.updateAvailable) {
+    statusStr = `<span style="color:var(--gold);">&#9650; Update available:</span> <code>${escapeHtml(d.localVersion || d.localSha)}</code> &rarr; <code>${escapeHtml(d.remoteVersion || d.remoteSha)}</code>`;
+    if (updBtn) {
+      updBtn.disabled = false;
+      updBtn.title = `Update to ${d.remoteVersion || d.remoteSha}`;
+    }
+  } else if (d.versionAhead && d.localVersion && d.remoteVersion && d.localVersion !== d.remoteVersion) {
+    statusStr = `<span style="color:var(--green);">&#10004; Local build (<code>${escapeHtml(d.localVersion)}</code>) is ahead of GitHub (<code>${escapeHtml(d.remoteVersion)}</code> / <code>${escapeHtml(d.remoteSha)}</code>).</span>`;
+    if (updBtn) updBtn.title = "Local build is ahead of GitHub";
+  } else if (d.aheadOfRemote || (d.aheadCount && d.aheadCount > 0)) {
+    statusStr = `<span style="color:var(--green);">&#10004; Local build (<code>${escapeHtml(d.localSha)}</code>) is ${d.aheadCount} commit(s) ahead of GitHub (<code>${escapeHtml(d.remoteSha)}</code>).</span>`;
+    if (updBtn) updBtn.title = "Local build is ahead of GitHub";
+  } else {
+    statusStr = `<span style="color:var(--green);">&#10004; Up to date (<code>${escapeHtml(d.localVersion || d.localSha)}</code>).</span>`;
+    if (updBtn) updBtn.title = "Already up to date";
+  }
+  if (msgEl) msgEl.innerHTML = statusStr;
+}
+
+async function triggerSelfUpdate() {
+  const updBtn = document.getElementById('btn-self-update');
+  if (updBtn && updBtn.disabled) return;
+  if (updBtn) updBtn.disabled = true;
+  const msgEl = document.getElementById('upd-state-msg');
+  if (msgEl) msgEl.innerText = 'Updating from GitHub...';
+  const r = await fetch('/api/system_maint?cmd=self_update', { method: 'POST' });
+  const d = await r.json();
+  if (d.integrity) renderIntegrityReport(d.integrity);
+  if (!d.ok) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:var(--red);">&#10008; ${escapeHtml(d.error || 'Update failed.')}</span>`;
+    showBanner(`<strong>&#9650; Update Failed:</strong> ${escapeHtml(d.error || 'Update failed')}`, true);
+    return;
+  }
+  const msg = d.message || d.msg || 'Up to date.';
+  if (msgEl) msgEl.innerHTML = `<span style="color:var(--green);">&#10004; ${escapeHtml(msg)}</span>`;
+  showBanner(`<strong>&#10004; Update:</strong> ${escapeHtml(msg)}`, false);
+  if (d.updated) {
+    setTimeout(() => window.location.reload(), 1500);
+  }
+}
 
 const sse = new EventSource('/api/stream');
 sse.onmessage = (e) => {
@@ -6499,37 +6798,11 @@ sse.onmessage = (e) => {
 
   renderQueueTree(d.batches || allBatches, d.ui.busy, d.ui.activeBatch, d.majorReady);
 
-  // History Table with Humorous Empty Placeholder
-  const histEl = document.getElementById('history-rows');
+  // History Table (Batch-Tree Grouped, Collapsible & Expandable in One Table)
   const histSig = JSON.stringify(d.ui.history || []);
-  if (histEl && histSig !== lastHistorySig) {
+  if (histSig !== lastHistorySig) {
     lastHistorySig = histSig;
-    if (d.ui.history && d.ui.history.length > 0) {
-      histEl.innerHTML = d.ui.history.map(r => `
-        <tr>
-          <td class="mono" title="${escapeHtml(r.name)}">${formatQueueFileName(r.name, 42)}</td>
-          <td class="mono">results/${escapeHtml(r.batch)}</td>
-          <td class="mono">${escapeHtml(r.size)}</td>
-          <td class="mono">${r.psnr} dB</td>
-          <td class="mono">${r.shift} / 255</td>
-          <td><span class="tag">DONE</span></td>
-          <td><button class="q-btn" data-batch="${escapeHtml(r.batch)}" onclick="openResultFolder(this.dataset.batch)" title="Open in Explorer" aria-label="Open in Explorer"><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1 3h5l2 2h7v8H1z"/></svg></button></td>
-        </tr>
-      `).join('');
-    } else {
-      histEl.innerHTML = `
-        <tr>
-          <td colspan="7" style="padding:28px 16px;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);">
-              <div class="sad-face-glyph" style="width:64px;height:64px;font-size:32px;margin-bottom:10px;">:(</div>
-              <div style="font-size:13px;color:var(--dim);font-style:italic;">
-                You wouldn&rsquo;t wanna walk barefoot don&rsquo;t ya?
-              </div>
-            </div>
-          </td>
-        </tr>
-      `;
-    }
+    renderHistoryTable(d.ui.history || []);
   }
 
   // Configuration Dependency List + Recommended Version Matrix

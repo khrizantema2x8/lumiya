@@ -37,9 +37,13 @@ from core.init import (
     SuiteConfig,
     TelemetryMonitor,
     atomicWrite,
+    checkRemoteUpdate,
+    computeProgramIntegrity,
+    isLoopbackClient,
     isTrustedRequest,
     openPathForeground,
     parseJsonBody,
+    runProtectedUpdate,
     safeFloat,
     safeInt,
     sanitizeFilename,
@@ -52,7 +56,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 warnings.filterwarnings("ignore", message=".*pynvml.*deprecated.*", category=UserWarning)
 
 APP_NAME = "PORTtralica Lumiya"
-APP_VERSION = "v0.6.021.4330 (Pilot)"
+APP_VERSION = "v0.6.073.8820 (Pilot)"
 
 if sys.platform == "win32":
     kernel32 = ctypes.windll.kernel32
@@ -72,6 +76,25 @@ class TermLog:
     MAGENTA = "\x1b[95m"
     WHITE = "\x1b[97m"
     WIDTH = 102
+    ERROR_LOG_PATH = Path(__file__).resolve().parent / "user" / "error.log"
+
+    @classmethod
+    def writeErrorLog(cls, context: str, detail: str, module: str = "lumiyaCore.py") -> None:
+        try:
+            cls.ERROR_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            entry = (
+                f"[{ts}] [{module}] {context}\n"
+                f"  Python : {sys.version.split()[0]} ({sys.executable})\n"
+                f"  OS     : {sys.platform}\n"
+                f"  Detail : {detail.strip()}\n"
+                + ("-" * 88)
+                + "\n"
+            )
+            with cls.ERROR_LOG_PATH.open("a", encoding="utf-8", errors="replace") as fh:
+                fh.write(entry)
+        except Exception:
+            pass
 
     @classmethod
     def emit(cls, msg: str, module: str = "lumiyaCore.py", level: str = "INFO") -> None:
@@ -85,6 +108,9 @@ class TermLog:
         cleanText = msg
         for code in (cls.RESET, cls.DIM, cls.CYAN, cls.GREEN, cls.YELLOW, cls.RED, cls.MAGENTA, cls.WHITE):
             cleanText = cleanText.replace(code, "")
+
+        if level == "ERROR":
+            cls.writeErrorLog("Runtime Error", cleanText, module=module)
 
         rightTag = f"{cls.DIM}{module} :: {lvlColor}{level}{cls.RESET}"
         rightLen = len(f"{module} :: {level}")
@@ -111,6 +137,24 @@ class TermLog:
         if step >= total:
             sys.stdout.write("\n")
         sys.stdout.flush()
+
+
+def _installGlobalExceptionHook() -> None:
+    origHook = sys.excepthook
+
+    def _lumiyaExceptHook(excType: Any, excValue: Any, excTb: Any) -> None:
+        if issubclass(excType, KeyboardInterrupt):
+            origHook(excType, excValue, excTb)
+            return
+        import traceback
+        tbText = "".join(traceback.format_exception(excType, excValue, excTb))
+        TermLog.writeErrorLog(f"Uncaught {getattr(excType, '__name__', 'Exception')}", tbText, module="protect.py")
+        origHook(excType, excValue, excTb)
+
+    sys.excepthook = _lumiyaExceptHook
+
+
+_installGlobalExceptionHook()
 
 
 DEPS_STATUS: Dict[str, Any] = {
@@ -179,14 +223,54 @@ def resolveNvidiaSmi() -> str:
     return "nvidia-smi"
 
 
+def _applyEarlyCliEnv() -> None:
+    """Applies --gpu, --tmp-dir, --cache-dir, and --cluster environment variables before CUDA/PyTorch probing."""
+    argv = sys.argv[1:]
+    for i, arg in enumerate(argv):
+        if arg == "--gpu" and i + 1 < len(argv):
+            os.environ["CUDA_VISIBLE_DEVICES"] = argv[i + 1]
+        elif arg == "--tmp-dir" and i + 1 < len(argv):
+            tmpPath = Path(argv[i + 1]).resolve()
+            tmpPath.mkdir(parents=True, exist_ok=True)
+            os.environ["TMPDIR"] = str(tmpPath)
+            os.environ["TEMP"] = str(tmpPath)
+            os.environ["TMP"] = str(tmpPath)
+        elif arg == "--cache-dir" and i + 1 < len(argv):
+            cachePath = Path(argv[i + 1]).resolve()
+            cachePath.mkdir(parents=True, exist_ok=True)
+            os.environ["TORCH_HOME"] = str(cachePath / "torch")
+            os.environ["HF_HOME"] = str(cachePath / "huggingface")
+            os.environ["PIP_CACHE_DIR"] = str(cachePath / "pip")
+        elif arg == "--cluster" and sys.platform != "win32" and "TMPDIR" not in os.environ:
+            try:
+                if shutil.disk_usage("/tmp").free < 4 * (1024 ** 3):
+                    fallbackTmp = Path.home() / ".cache" / "lumiya_tmp"
+                    fallbackTmp.mkdir(parents=True, exist_ok=True)
+                    os.environ["TMPDIR"] = str(fallbackTmp)
+            except Exception:
+                pass
+
+
 def ensureLinuxCudaLibPath() -> None:
     if sys.platform != "win32":
-        for p in ("/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/local/cuda/lib64", "/usr/lib/wsl/lib"):
+        for p in (
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib64",
+            "/usr/lib64/nvidia",
+            "/usr/lib",
+            "/opt/cuda/lib64",
+            "/usr/local/cuda/lib64",
+            "/usr/local/cuda/targets/x86_64-linux/lib",
+            "/run/opengl-driver/lib",
+            "/usr/lib/wsl/lib",
+        ):
             if os.path.isdir(p):
                 cur = os.environ.get("LD_LIBRARY_PATH", "")
                 if p not in cur.split(":"):
                     os.environ["LD_LIBRARY_PATH"] = f"{cur}:{p}" if cur else p
 
+
+_applyEarlyCliEnv()
 ensureLinuxCudaLibPath()
 
 NVIDIA_SMI_BIN = resolveNvidiaSmi()
@@ -247,7 +331,6 @@ def probeStartupDeps() -> None:
             DEPS_STATUS["cuda"] = False
             DEPS_STATUS["versions"]["cuda"] = "Not Available"
     elif DEPS_STATUS["torch"]:
-        gpuDetected = False
         cudaProbeOk = False
         probeErr = ""
         probeInfo = {}
@@ -320,7 +403,6 @@ def probeStartupDeps() -> None:
             pass
 
         if cudaProbeOk:
-            gpuDetected = True
             DEPS_STATUS["cuda"] = True
             DEPS_STATUS["versions"]["cuda"] = probeInfo.get("ver", "Working")
             DEPS_STATUS["gpuName"] = probeInfo.get("name") or smiGpuName or "NVIDIA GPU"
@@ -366,29 +448,14 @@ ALGOS_DIR = ROOT_DIR / "algos"
 RESULTS_ROOT = ROOT_DIR / "results"
 IDENTITY_DIR = ROOT_DIR / "identity"
 USER_DIR = ROOT_DIR / "user"
-UI_FILE = ROOT_DIR / "ui.html"
+UI_FILE = (ROOT_DIR / "core" / "ui.html") if (ROOT_DIR / "core" / "ui.html").exists() else (ROOT_DIR / "ui.html")
+REQ_FILE = (ROOT_DIR / "core" / "requirements.txt") if (ROOT_DIR / "core" / "requirements.txt").exists() else (ROOT_DIR / "requirements.txt")
 CONFIG_FILE = USER_DIR / "config.json"
 HISTORY_FILE = USER_DIR / "history.json"
 MANIFEST_FILE = USER_DIR / "install_manifest.log"
 
 BRAND_STATUS = verifyBrandAssets(ROOT_DIR)
 CFG = SuiteConfig.load(CONFIG_FILE)
-
-
-def workingSizes(width: int, height: int, vramGb: float, allowRamSpillover: bool = True) -> List[Tuple[int, int]]:
-    """Editor input sizes: geometric grid up to native/VRAM-supported resolution."""
-    topMp = min(4.2, 2.1 if (allowRamSpillover or vramGb >= 8.0) else 0.8)
-    pixels = max(64, width * height)
-    sizes = []
-    mp = min(topMp, 0.5)
-    while True:
-        scale = min(1.0, math.sqrt(mp * 1e6 / pixels))
-        size = (max(8, round(height * scale / 8) * 8), max(8, round(width * scale / 8) * 8))
-        if size not in sizes:
-            sizes.append(size)
-        if mp >= topMp:
-            return sizes
-        mp = min(topMp, mp * 1.96)
 
 
 def nativeTiles(width: int, height: int, workingDim: int = 768, allowRamSpillover: bool = True, vramGb: float = 6.0) -> List[Tuple[int, int, int, int]]:
@@ -523,6 +590,8 @@ class QueueManager:
         self.batches: Dict[str, BatchQueue] = {}
         self.batchOrder: List[str] = []
         self.rev: int = 1
+        self._cachedTreeRev: int = -1
+        self._cachedTree: List[Dict[str, Any]] = []
 
     def createNewBatch(self) -> BatchQueue:
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -645,23 +714,19 @@ class QueueManager:
             return {"ok": True}
 
     def getFileBytes(self, batchId: str, fileId: str, preferExport: bool = False) -> Optional[Tuple[bytes, str]]:
+        mimeMap = {".png": "image/png", ".webp": "image/webp", ".bmp": "image/bmp", ".tiff": "image/tiff"}
         with self.lock:
             b = self.batches.get(batchId)
             if not b:
                 return None
             for f in b.files:
                 if f.fileId == fileId:
-                    if preferExport and f.outPath and Path(f.outPath).exists():
-                        outExt = Path(f.outPath).suffix.lower()
-                        outMime = "image/png" if outExt == ".png" else ("image/webp" if outExt == ".webp" else "image/jpeg")
-                        return Path(f.outPath).read_bytes(), outMime
-                    mime = "image/png" if f.ext == ".png" else ("image/webp" if f.ext == ".webp" else "image/jpeg")
+                    hasDisk = bool(f.outPath and Path(f.outPath).exists())
+                    if (preferExport or not f.rawBytes) and hasDisk:
+                        outPath = Path(f.outPath)
+                        return outPath.read_bytes(), mimeMap.get(outPath.suffix.lower(), "image/jpeg")
                     if f.rawBytes:
-                        return f.rawBytes, mime
-                    if f.outPath and Path(f.outPath).exists():
-                        outExt = Path(f.outPath).suffix.lower()
-                        outMime = "image/png" if outExt == ".png" else ("image/webp" if outExt == ".webp" else "image/jpeg")
-                        return Path(f.outPath).read_bytes(), outMime
+                        return f.rawBytes, mimeMap.get(f.ext.lower(), "image/jpeg")
             return None
 
     def removeFile(self, batchId: str, fileId: str) -> Dict[str, Any]:
@@ -693,6 +758,8 @@ class QueueManager:
 
     def serializeTree(self) -> List[Dict[str, Any]]:
         with self.lock:
+            if self._cachedTreeRev == self.rev:
+                return self._cachedTree
             out = []
             for bid in reversed(self.batchOrder):
                 b = self.batches[bid]
@@ -743,6 +810,8 @@ class QueueManager:
                         ],
                     }
                 )
+            self._cachedTree = out
+            self._cachedTreeRev = self.rev
             return out
 
 
@@ -937,6 +1006,18 @@ class ModularDefenseEngine:
             pilImg.convert("RGB").save(outBuf, format="BMP")
         return outBuf.getvalue()
 
+    @staticmethod
+    def _computeMetrics(origArr: Any, outBytes: bytes) -> Tuple[float, float]:
+        import numpy as np
+        after = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float32)
+        diff = after - origArr
+        del after
+        mse = float(np.mean(diff ** 2))
+        psnr = 10.0 * math.log10((255.0 ** 2) / max(mse, 1e-10))
+        shift = float(np.abs(diff).max())
+        del diff
+        return psnr, shift
+
     def processImage(
         self,
         rawBytes: bytes,
@@ -985,13 +1066,9 @@ class ModularDefenseEngine:
                 outBytes = self.encodeOutputImage(im, fileExt, hasStego, stegoText, exifBytes, iccProfile, opts, alpha)
                 import numpy as np
                 before = np.asarray(im, dtype=np.float32)
-                after = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float32)
-                diff = after - before
-                del before, after
-                mse = float(np.mean(diff ** 2))
-                psnr = 10.0 * math.log10((255.0 ** 2) / max(mse, 1e-10))
-                shift = float(np.abs(diff).max())
-                del diff
+                del im, transposedIm, rawIm
+                psnr, shift = self._computeMetrics(before, outBytes)
+                del before
                 return outBytes, width, height, psnr, shift
             return rawBytes, 512, 512, 0.0, 0.0
 
@@ -1151,7 +1228,8 @@ class ModularDefenseEngine:
             scaled = (delta.detach() * 255.0).squeeze(0).cpu()
             if not torch.isfinite(scaled).all():
                 scaled = torch.zeros_like(scaled)
-            deltaInt = torch.round(scaled).clamp(-limit, limit).permute(1, 2, 0).numpy()
+            deltaInt = torch.round(scaled).clamp(-limit, limit).to(torch.int16).permute(1, 2, 0).numpy()
+            del scaled
         finally:
             ctx.clear()
             for k in [ck for ck in list(self.cache.keys()) if isinstance(ck[0], int) and ck[0] < 0]:
@@ -1160,19 +1238,15 @@ class ModularDefenseEngine:
             if device == "cuda" and torch is not None and torch.cuda.is_available():
                 torch.cuda.empty_cache()
         origArr = np.asarray(origRgb, dtype=np.float32)
+        del rawIm, transposedIm, origRgb
         outArr = np.clip(origArr + deltaInt, 0, 255).astype(np.uint8)
         outPil = Image.fromarray(outArr)
         del deltaInt, outArr
         hasStego = stegoMode == "combined" and hasStegoPayload
         outBytes = self.encodeOutputImage(outPil, fileExt, hasStego, stegoText, exifBytes, iccProfile, opts, alpha)
         del outPil
-        finalArr = np.asarray(Image.open(io.BytesIO(outBytes)).convert("RGB"), dtype=np.float32)
-        diff = finalArr - origArr
-        del origArr, finalArr
-        mse = float(np.mean(diff ** 2))
-        psnr = 10.0 * math.log10((255.0 ** 2) / max(mse, 1e-10))
-        shift = float(np.abs(diff).max())
-        del diff
+        psnr, shift = self._computeMetrics(origArr, outBytes)
+        del origArr
         return outBytes, origW, origH, psnr, shift
 
     def _processImageViaSubprocess(
@@ -1212,9 +1286,17 @@ class ModularDefenseEngine:
             raise RuntimeError("None of the selected algorithms can run on this system.")
 
         RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
+        ipcDir = RESULTS_ROOT
+        if sys.platform != "win32":
+            shmPath = Path("/dev/shm")
+            try:
+                if shmPath.is_dir() and os.access(shmPath, os.W_OK) and shutil.disk_usage(shmPath).free > 512 * (1024 ** 2):
+                    ipcDir = shmPath
+            except Exception:
+                pass
         uid = uuid.uuid4().hex
-        jobIn = RESULTS_ROOT / f".job_in_{uid}.tmp"
-        jobOut = RESULTS_ROOT / f".job_out_{uid}.tmp"
+        jobIn = ipcDir / f".lumiya_in_{uid}.tmp"
+        jobOut = ipcDir / f".lumiya_out_{uid}.tmp"
         try:
             jobIn.write_bytes(rawBytes)
             if self.computeProc is None or self.computeProc.poll() is not None:
@@ -1223,7 +1305,7 @@ class ModularDefenseEngine:
                     startupInfo = subprocess.STARTUPINFO()
                     startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 workerErrPath = RESULTS_ROOT / ".worker.log"
-                self.workerErrFile = open(workerErrPath, "a+", encoding="utf-8", errors="replace")
+                self.workerErrFile = open(workerErrPath, "w", encoding="utf-8", errors="replace")
                 self.computeProc = subprocess.Popen(
                     [sys.executable, "-u", str(Path(__file__).resolve()), "--compute-worker"],
                     stdin=subprocess.PIPE,
@@ -1364,9 +1446,11 @@ def runServer(
     debugMode: bool = False,
     noBrowser: bool = False,
     allowRemote: bool = False,
+    authToken: str = "",
 ) -> None:
     actualPort = port
-    print("  " + "=" * 100)
+    if not os.environ.get("LUMIYA_BANNER_PRINTED"):
+        print("  " + "=" * 100)
     TermLog.emit(
         f"{APP_NAME} {TermLog.CYAN}{APP_VERSION}{TermLog.RESET} // Python {sys.version.split()[0]}",
         "bootstrap.py",
@@ -1590,12 +1674,28 @@ def runServer(
         def log_message(self, fmt: str, *args: Any) -> None:
             return
 
+        def _sendSecurityHeaders(self) -> None:
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+
+        def _extractReqToken(self, qs: Dict[str, List[str]]) -> str:
+            hdr = self.headers.get("X-Lumiya-Token") or self.headers.get("Authorization") or ""
+            if hdr.lower().startswith("bearer "):
+                hdr = hdr[7:].strip()
+            return hdr or (qs.get("token", [""])[0] if "token" in qs else "")
+
         def do_GET(self) -> None:
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
 
             if parsed.path.startswith("/api/") and not isTrustedRequest(
-                self.headers.get("Host"), self.headers.get("Origin"), actualPort, allowRemote=allowRemote
+                self.headers.get("Host"),
+                self.headers.get("Origin"),
+                actualPort,
+                allowRemote=allowRemote,
+                authToken=authToken,
+                reqToken=self._extractReqToken(qs),
             ):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return
@@ -1603,6 +1703,7 @@ def runServer(
             if parsed.path == "/":
                 body = UI_FILE.read_bytes()
                 self.send_response(HTTPStatus.OK)
+                self._sendSecurityHeaders()
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
@@ -1723,13 +1824,21 @@ def runServer(
                 self.send_error(HTTPStatus.NOT_FOUND)
 
         def do_POST(self) -> None:
-            if not isTrustedRequest(self.headers.get("Host"), self.headers.get("Origin"), actualPort, allowRemote=allowRemote):
-                self.send_error(HTTPStatus.FORBIDDEN)
-                return
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query)
+            if not isTrustedRequest(
+                self.headers.get("Host"),
+                self.headers.get("Origin"),
+                actualPort,
+                allowRemote=allowRemote,
+                authToken=authToken,
+                reqToken=self._extractReqToken(qs),
+            ):
+                self.send_error(HTTPStatus.FORBIDDEN)
+                return
             length = safeInt(self.headers.get("Content-Length", "0"), 0, 0, 200_000_000)
             rawBody = self.rfile.read(length) if length > 0 else b""
+            clientIp = self.client_address[0] if self.client_address else ""
 
             if parsed.path == "/api/create_batch":
                 b = qMgr.createOrGetStagingBatch()
@@ -1755,6 +1864,9 @@ def runServer(
                     self.sendJson({"ok": False, "error": "This file could not be read as an image."})
 
             elif parsed.path == "/api/open_result":
+                if not isLoopbackClient(clientIp):
+                    self.sendJson({"ok": False, "error": "Opening local OS folders is restricted to localhost."})
+                    return
                 name = qs.get("batch", [""])[0]
                 folder = RESULTS_ROOT / name
                 if not name or folder.resolve().parent != RESULTS_ROOT.resolve() or not folder.is_dir():
@@ -1846,7 +1958,7 @@ def runServer(
                     )
                     self.sendJson(res)
                 elif act == "open_batch_export" and b:
-                    if b.exportDir.exists():
+                    if isLoopbackClient(clientIp) and b.exportDir.exists():
                         openPathForeground(b.exportDir)
                     self.sendJson({"ok": True})
                 elif act == "delete_batch":
@@ -1921,19 +2033,60 @@ def runServer(
 
             elif parsed.path == "/api/system_maint":
                 cmdType = qs.get("cmd", [""])[0]
-                if cmdType == "install":
+                if cmdType in (
+                    "install",
+                    "uninstall",
+                    "purge",
+                    "open_results",
+                    "open_algos",
+                    "verify_integrity",
+                    "check_update",
+                    "self_update",
+                ) and not isLoopbackClient(clientIp):
+                    self.sendJson({"ok": False, "error": "Local system maintenance is restricted to localhost."})
+                    return
+
+                def launchDetachedTerminal(winTitle: str, winCmd: List[str], shArgs: List[str]) -> None:
                     if sys.platform == "win32":
-                        subprocess.Popen(["cmd.exe", "/c", "start", "PORTtralica Installer", "cmd.exe", "/k", str(ROOT_DIR / "install.bat")])
+                        subprocess.Popen(["cmd.exe", "/c", "start", winTitle, "cmd.exe", *winCmd])
                     else:
                         shPath = str(ROOT_DIR / "run.sh")
-                        term = shutil.which("x-terminal-emulator") or shutil.which("gnome-terminal") or shutil.which("konsole") or shutil.which("xfce4-terminal") or shutil.which("xterm")
-                        cmd = ["bash", "-c", f"bash '{shPath}' --install; echo; read -n 1 -s -r -p 'Press any key to close...';"]
-                        if term and "gnome-terminal" in Path(term).name:
-                            subprocess.Popen([term, "--"] + cmd)
+                        hasDisplay = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+                        term = None
+                        if hasDisplay:
+                            for tName in (
+                                "x-terminal-emulator",
+                                "ptyxis",
+                                "gnome-terminal",
+                                "konsole",
+                                "xfce4-terminal",
+                                "kitty",
+                                "alacritty",
+                                "wezterm",
+                                "foot",
+                                "tilix",
+                                "mate-terminal",
+                                "xterm",
+                            ):
+                                foundTerm = shutil.which(tName)
+                                if foundTerm:
+                                    term = foundTerm
+                                    break
+                        cmd = ["bash", "-c", 'bash "$1" "${@:2}"; echo; read -n 1 -s -r -p "Press any key to close...";', "_", shPath, *shArgs]
+                        tBase = Path(term).name if term else ""
+                        if term and tBase in ("gnome-terminal", "ptyxis"):
+                            subprocess.Popen([term, "--", *cmd])
+                        elif term and tBase == "wezterm":
+                            subprocess.Popen([term, "start", "--", *cmd])
+                        elif term and tBase == "foot":
+                            subprocess.Popen([term, *cmd])
                         elif term:
-                            subprocess.Popen([term, "-e"] + cmd)
+                            subprocess.Popen([term, "-e", *cmd])
                         else:
-                            subprocess.Popen(["bash", shPath, "--install"])
+                            subprocess.Popen(["bash", shPath, *shArgs])
+
+                if cmdType == "install":
+                    launchDetachedTerminal("PORTtralica Installer", ["/k", str(ROOT_DIR / "install.bat")], ["--install"])
                     self.sendJson({"ok": True})
                 elif cmdType == "run_cleaner":
                     rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine)
@@ -1965,25 +2118,30 @@ def runServer(
                 elif cmdType == "open_algos":
                     openPathForeground(ALGOS_DIR)
                     self.sendJson({"ok": True})
+                elif cmdType == "verify_integrity":
+                    self.sendJson({"ok": True, "integrity": computeProgramIntegrity(ROOT_DIR, APP_VERSION)})
+                elif cmdType == "check_update":
+                    self.sendJson(checkRemoteUpdate(ROOT_DIR, APP_VERSION, fetchRemote=True))
+                elif cmdType == "self_update":
+                    if rt.busy:
+                        self.sendJson({"ok": False, "error": "Cannot self-update while a protection batch is actively running."})
+                        return
+                    res = runProtectedUpdate(ROOT_DIR, sys.executable, APP_VERSION)
+                    self.sendJson(res)
+                    if res.get("ok") and res.get("updated"):
+                        def _restartAfterUpdate() -> None:
+                            time.sleep(0.5)
+                            TermLog.emit("Applying self-update and restarting PORTtralica Lumiya service...", "updater.py", "OK")
+                            os._exit(42)
+
+                        threading.Thread(target=_restartAfterUpdate, daemon=True).start()
                 elif cmdType in ("uninstall", "purge"):
                     modeFlag = "--purge" if cmdType == "purge" else "--manifest"
                     if rt.busy:
                         rt.stopRequested = True
                         time.sleep(0.3)
                     cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
-                    if sys.platform == "win32":
-                        batPath = str(ROOT_DIR / "uninstall.bat")
-                        subprocess.Popen(["cmd.exe", "/c", "start", f"PORTtralica Lumiya ({cmdType.upper()})", "cmd.exe", "/c", batPath, modeFlag, "-y"])
-                    else:
-                        shPath = str(ROOT_DIR / "run.sh")
-                        term = shutil.which("x-terminal-emulator") or shutil.which("gnome-terminal") or shutil.which("konsole") or shutil.which("xfce4-terminal") or shutil.which("xterm")
-                        cmd = ["bash", "-c", f"bash '{shPath}' uninstall {modeFlag} -y; echo; read -n 1 -s -r -p 'Press any key to close...';"]
-                        if term and "gnome-terminal" in Path(term).name:
-                            subprocess.Popen([term, "--"] + cmd)
-                        elif term:
-                            subprocess.Popen([term, "-e"] + cmd)
-                        else:
-                            subprocess.Popen(["bash", shPath, "uninstall", modeFlag, "-y"])
+                    launchDetachedTerminal(f"PORTtralica Lumiya ({cmdType.upper()})", ["/c", str(ROOT_DIR / "uninstall.bat"), modeFlag, "-y"], ["uninstall", modeFlag, "-y"])
                     self.sendJson({"ok": True, "action": cmdType, "msg": f"{cmdType.capitalize()} initiated in detached window. Service shutting down."})
 
                     def performShutdown() -> None:
@@ -2000,6 +2158,7 @@ def runServer(
             try:
                 raw = json.dumps(obj).encode("utf-8")
                 self.send_response(HTTPStatus.OK)
+                self._sendSecurityHeaders()
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
@@ -2140,24 +2299,136 @@ def runComputeWorker() -> None:
             realOut.flush()
         except BaseException as exc:
             import traceback
-            tb = traceback.format_exc().strip().splitlines()
+            tbFull = traceback.format_exc().strip()
+            TermLog.writeErrorLog("Compute Worker Exception", tbFull, module="computeWorker.py")
+            tb = tbFull.splitlines()
             lastErr = tb[-1] if tb else str(exc)
             realOut.write(f"ERR\t{lastErr}\n")
             realOut.flush()
 
 
+def runDoctor() -> None:
+    """Prints a cross-distro diagnostic of Python, PyTorch, CUDA, NVML, vector fonts, temp storage, and algorithms."""
+    import tempfile
+    from stego.mark import _FONT_CANDIDATES
+
+    algoMgr = AlgoPluginManager(ALGOS_DIR, CFG, DEPS_STATUS, lambda *a, **kw: None)
+    runnable = sum(1 for p in algoMgr.plugins.values() if not p["notRebuilt"] and not algoMgr.blockReason(p))
+    totalRebuilt = sum(1 for p in algoMgr.plugins.values() if not p["notRebuilt"])
+    fontPath = next((c for c in _FONT_CANDIDATES if Path(c).exists()), "Fallback (fc-match / default)")
+    tmpDir = Path(tempfile.gettempdir())
+    try:
+        tmpFreeGb = round(shutil.disk_usage(tmpDir).free / (1024 ** 3), 2)
+    except Exception:
+        tmpFreeGb = -1.0
+
+    print("  " + "=" * 96)
+    TermLog.emit(f"Python Runtime     : {sys.version.split()[0]} ({sys.executable})", "doctor.py", "OK")
+    TermLog.emit(
+        f"PyTorch / CUDA     : {DEPS_STATUS['versions']['torch']} / CUDA {DEPS_STATUS['versions']['cuda']} ({DEPS_STATUS['gpuName']}, {DEPS_STATUS['vramGb']} GB)",
+        "doctor.py",
+        "OK" if DEPS_STATUS["cuda"] else "WARNING",
+    )
+    TermLog.emit(f"Active Temp Dir    : {tmpDir} ({tmpFreeGb} GB free)", "doctor.py", "OK" if tmpFreeGb >= 4.0 else "WARNING")
+    TermLog.emit(f"Results Directory  : {RESULTS_ROOT}", "doctor.py", "OK")
+    TermLog.emit(f"Vector Font Source : {fontPath}", "doctor.py", "OK")
+    TermLog.emit(f"Runnable Algos     : {runnable}/{totalRebuilt} ready on current hardware tier", "doctor.py", "OK")
+    print("  " + "=" * 96)
+
+
+def runHeadlessCli(args: argparse.Namespace) -> None:
+    """Executes photo protection directly from the command line without launching the HTTP WebUI."""
+    inTarget = Path(args.input).resolve() if args.input else None
+    if not inTarget or not inTarget.exists():
+        TermLog.emit("Headless mode requires a valid --input (-i) file or directory.", "cli.py", "ERROR")
+        sys.exit(1)
+    files = [inTarget] if inTarget.is_file() else sorted(p for p in inTarget.iterdir() if p.is_file() and p.suffix.lower() in VALID_EXTS)
+    if not files:
+        TermLog.emit(f"No supported image files found in {inTarget}", "cli.py", "ERROR")
+        sys.exit(1)
+
+    outDir = Path(args.output).resolve() if args.output else (RESULTS_ROOT / datetime.now().strftime("cli_%Y-%m-%d_%H-%M-%S"))
+    outDir.mkdir(parents=True, exist_ok=True)
+    algoMgr = AlgoPluginManager(ALGOS_DIR, CFG, DEPS_STATUS, TermLog.emit)
+    engine = ModularDefenseEngine(algoMgr, useSubprocess=False)
+
+    requestedAlgos = [a.strip().lower() for a in (args.algo or "photoguard").split(",") if a.strip()]
+    layers = {k: (k.lower() in requestedAlgos) for k in algoMgr.plugins}
+    if not any(layers.values()):
+        TermLog.emit(f"Unknown --algo '{args.algo}'. Available: {', '.join(sorted(algoMgr.plugins))}", "cli.py", "ERROR")
+        sys.exit(1)
+
+    stegoText = (args.stego_text or "").strip()
+    stegoMode = "combined" if stegoText else "off"
+    budget = safeFloat(args.budget, CFG.epsilon, 1.0, 32.0)
+    steps = safeInt(args.steps, CFG.steps, 1, MAX_STEPS)
+
+    for idx, fPath in enumerate(files, start=1):
+        TermLog.emit(f"[{idx}/{len(files)}] Protecting {fPath.name} (budget={budget}/255, steps={steps})...", "cli.py", "INFO")
+        outBytes, w, h, psnr, shift = engine.processImage(
+            rawBytes=fPath.read_bytes(),
+            fileExt=fPath.suffix.lower(),
+            epsilon255=budget,
+            steps=steps,
+            stegoMode=stegoMode,
+            stegoText=stegoText,
+            layers=layers,
+            stepCb=lambda s, tot, el: None,
+            controlCb=lambda: "RUN",
+            emulateDebug=args.debug,
+        )
+        dest = outDir / f"{fPath.stem}_lumiya{fPath.suffix.lower()}"
+        dest.write_bytes(outBytes)
+        TermLog.emit(f"Saved {dest} ({w}x{h}, {psnr:.1f}dB, maxShift={shift:.1f})", "cli.py", "OK")
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.021.4330 (Pilot) - Evaluative Suite")
+    parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.073.8820 (Pilot) - Evaluative Suite")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="WebUI HTTP listening interface (default: 127.0.0.1)")
     parser.add_argument("--listen", action="store_true", help="Bind to 0.0.0.0 to allow access from local network or remote machines")
     parser.add_argument("-p", "--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
+    parser.add_argument("--auth-token", type=str, default="", help="Require access token for WebUI API requests")
     parser.add_argument("--debug", action="store_true", help="Launch in interactive debug / emulation mode")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically launch system browser on startup")
+    parser.add_argument("--cluster", action="store_true", help="Shared cluster/HPC preset (--no-browser, smart TMPDIR, /dev/shm IPC)")
+    parser.add_argument("--tmp-dir", type=str, default="", help="Override temporary directory (TMPDIR)")
+    parser.add_argument("--cache-dir", type=str, default="", help="Override PyTorch/HuggingFace/pip cache directory")
+    parser.add_argument("--results-dir", type=str, default="", help="Override exported results directory")
+    parser.add_argument("--device", type=str, choices=("auto", "cuda", "cpu"), default="", help="Force compute target (auto, cuda, cpu)")
+    parser.add_argument("--gpu", type=str, default="", help="Select GPU index (sets CUDA_VISIBLE_DEVICES)")
+    parser.add_argument("--tile-size", type=int, default=0, help="Override spatial PGD tile size (256-1024)")
+    parser.add_argument("--low-vram", action="store_true", help="Enable low-VRAM optimizations (512px tiles, fp16, RAM spillover)")
+    parser.add_argument("--doctor", action="store_true", help="Run cross-distro hardware, CUDA, font, and storage diagnostics")
+    parser.add_argument("--update", action="store_true", help="Run protected GitHub self-pull and dependency update")
+    parser.add_argument("--integrity", action="store_true", help="Verify SHA-256 and MD5 checksums against core/integrity.lmy")
+    parser.add_argument("--clean", action="store_true", help="Purge temporary files, __pycache__, and IPC staging")
+    parser.add_argument("--headless", action="store_true", help="Run batch protection directly in CLI without starting WebUI")
+    parser.add_argument("-i", "--input", type=str, default="", help="Input image file or directory for --headless mode")
+    parser.add_argument("-o", "--output", type=str, default="", help="Output directory for --headless mode")
+    parser.add_argument("--algo", type=str, default="photoguard", help="Comma-separated algorithm IDs for --headless mode")
+    parser.add_argument("--budget", type=float, default=CFG.epsilon, help="Perturbation budget (1-32) for --headless mode")
+    parser.add_argument("--steps", type=int, default=CFG.steps, help="Optimization steps for --headless mode")
+    parser.add_argument("--stego-text", type=str, default="", help="Optional watermark text for --headless mode")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--compute-worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--uninstall", action="store_true", help="Remove this program footprint dependencies (default: manifest cleanup)")
     parser.add_argument("--purge", action="store_true", help="Thoroughly purge runtime pillars")
     args = parser.parse_args()
+
+    if args.results_dir:
+        RESULTS_ROOT = Path(args.results_dir).resolve()
+        RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
+    if args.device:
+        CFG.computeBackend = args.device
+    if args.tile_size:
+        CFG.workingDim = safeInt(args.tile_size, CFG.workingDim, 256, 1024)
+    if args.low_vram:
+        CFG.workingDim = min(CFG.workingDim, 512)
+        CFG.precision = "fp16"
+        CFG.allowRamSpillover = True
+    if args.cluster:
+        args.no_browser = True
+
     if args.uninstall or args.purge:
         flag = "--purge" if args.purge else "--manifest"
         if sys.platform == "win32":
@@ -2165,8 +2436,39 @@ if __name__ == "__main__":
         else:
             subprocess.run(["bash", str(ROOT_DIR / "run.sh"), "uninstall", flag, "-y"], cwd=str(ROOT_DIR))
         sys.exit(0)
+    if args.update:
+        res = runProtectedUpdate(ROOT_DIR, sys.executable, APP_VERSION)
+        lvl = "OK" if res.get("ok") else "ERROR"
+        TermLog.emit(str(res.get("message") or res.get("error") or "Update finished."), "updater.py", lvl)
+        sys.exit(0 if res.get("ok") else 1)
+    if args.integrity:
+        rep = computeProgramIntegrity(ROOT_DIR, APP_VERSION)
+        for k in ("master", "core", "scripts"):
+            g = rep["lumpSums"][k]
+            TermLog.emit(
+                f"{g['key']:<16} ({g['count']} files)  SHA-256: {g['sha256'][:16]}...  MD5: {g['md5']}",
+                "updater.py",
+                "OK" if g["status"] == "VERIFIED" else "ERROR",
+            )
+        if rep.get("ok"):
+            TermLog.emit("✔ You're good! All tracked files match core/integrity.lmy.", "updater.py", "OK")
+            sys.exit(0)
+        TermLog.emit(f"Integrity mismatch in: {', '.join(rep.get('mismatches', []))}", "updater.py", "ERROR")
+        sys.exit(1)
+    if args.clean:
+        rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, {}, None, clearRawBytes=True)
+        TermLog.emit(f"Cleaned workspace ({rep.get('removedFiles', 0)} temp files removed).", "cleaner.py", "OK")
+        sys.exit(0)
+    if args.doctor:
+        runDoctor()
+        sys.exit(0)
+    if args.headless:
+        runHeadlessCli(args)
+        sys.exit(0)
+
     bindHost = "0.0.0.0" if args.listen else args.host
     allowRemote = bool(args.listen or bindHost in ("0.0.0.0", "::"))
+    authToken = args.auth_token or os.environ.get("LUMIYA_AUTH_TOKEN", "")
     if args.compute_worker:
         runComputeWorker()
     elif args.worker:
@@ -2176,6 +2478,7 @@ if __name__ == "__main__":
             debugMode=args.debug,
             noBrowser=args.no_browser,
             allowRemote=allowRemote,
+            authToken=authToken,
         )
     else:
         targetPort = findAvailablePort(args.port, host=bindHost)
@@ -2192,8 +2495,20 @@ if __name__ == "__main__":
             ]
             if args.listen:
                 cmd.append("--listen")
+            if authToken:
+                cmd.extend(["--auth-token", authToken])
             if args.debug:
                 cmd.append("--debug")
+            if args.cluster:
+                cmd.append("--cluster")
+            if args.low_vram:
+                cmd.append("--low-vram")
+            if args.device:
+                cmd.extend(["--device", args.device])
+            if args.tile_size:
+                cmd.extend(["--tile-size", str(args.tile_size)])
+            if args.results_dir:
+                cmd.extend(["--results-dir", str(RESULTS_ROOT)])
             if not firstLaunch:
                 cmd.append("--no-browser")
             childProc = subprocess.Popen(cmd, cwd=str(ROOT_DIR))

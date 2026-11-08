@@ -40,7 +40,8 @@ def transformInput(xDef, step, ctx):
         augMask = 1.0 - F.max_pool2d(1.0 - baseMask, kernel_size=kSize, stride=1, padding=abs(offset))
     else:
         augMask = baseMask
-    return xDef * (1.0 - 0.55 * augMask)
+    xOrig = ctx.get("xOrigWork", torch.zeros_like(xDef))
+    return xDef * (1.0 - augMask) + (0.45 * xDef + 0.55 * xOrig) * augMask
 
 
 def computeLoss(dist, ctx):

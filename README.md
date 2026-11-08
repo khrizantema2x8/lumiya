@@ -4,382 +4,213 @@
 
 # PORTtralica Lumiya
 
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PyTorch 2.15+](https://img.shields.io/badge/PyTorch-2.15%2B%20cu132-EE4C2C.svg)](https://pytorch.org/)
-[![Platform: Windows & Debian/Ubuntu](https://img.shields.io/badge/Platform-Windows%20%7C%20Debian%20%2F%20Ubuntu-0078D6.svg)](#system-requirements)
+[![Version v0.6.073.8820](https://img.shields.io/badge/Release-v0.6.073.8820%20(Pilot)-E5B869.svg)](#)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.13-blue.svg)](https://www.python.org/)
+[![PyTorch CUDA 12.6–13.2](https://img.shields.io/badge/PyTorch-CUDA%2012.6%E2%80%9313.2-EE4C2C.svg)](https://pytorch.org/)
+[![Platform: Windows & Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6.svg)](#system-requirements)
 [![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-gold.svg)](LICENSE)
 
-PORTtralica Lumiya is a stand-alone backend and WebUI deployment for hosting photo-defense algorithms targeting AI photo manipulation, style mimicry, data scraping; and forensic toolkit for Intellectual Property validation. Adapted to use open-sourced algorithms contributed by scientific researches and journals; steganographic watermark embedding, decoding, and analysing.
+**PORTtralica Lumiya** is a local-first adversarial photo defense and steganographic forensic suite built to protect photography and visual artwork against unauthorized AI scraping, style mimicry, generative inpainting, and biometric identity cloning. It brings open-source defenses from peer-reviewed machine learning papers (`ICML`, `ICLR`, `CVPR`, `ICCV`, `NeurIPS`, `arXiv`) into a single self-hosted engine with a native-resolution darkroom inspector and multi-layer steganography.
 
-Everything executes locally on your machine.
+Everything runs locally on your own hardware — no photos or telemetry ever leave your machine.
+
+<p align="center">
+  <img src="identity/media/workspace.png" alt="PORTtralica Lumiya Workspace & Terminal Pre-Flight" width="100%">
+</p>
 
 ---
 
 ## Important Disclaimer
 
-PORTtralica Lumiya is an early evaluative pilot developed and maintained as a solo-developer research operation. It is not yet a complete commercial-grade product. Community participation and reproducible academic contributions to the `algos/` directory are welcome under the terms of the PolyForm Shield 1.0.0 license (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+PORTtralica Lumiya is an evaluative pilot developed and maintained as an independent research project. While core algorithms and steganographic pipelines are audited against their published paper specifications, several literature modules (marked with `▲`) remain in active development awaiting upstream author checkpoints or multi-GPU video pipelines. Reproducible academic contributions to `algos/` are welcome under the [PolyForm Shield 1.0.0 License](LICENSE) (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ---
 
 ## System Requirements
 
 | Component | Minimum | Recommended |
-|---|---|---|
-| OS | Windows 10 / 11 (64-bit) or Debian-based Linux (Debian 11/12, Ubuntu 22.04/24.04 LTS) | Windows 11 (64-bit) / Ubuntu 22.04+ LTS |
-| Python | Python 3.10+ | Python 3.13 (via Miniconda3) |
-| GPU | NVIDIA GPU with 4 GB VRAM (CUDA 12.6+) or CPU | NVIDIA RTX GPU with 6+ GB VRAM (CUDA 12.8+) |
-| RAM | 8 GB System Memory | 16+ GB System Memory |
-| Storage | 10 GB Free Storage Space | Fast NVMe SSD |
+| :--- | :--- | :--- |
+| **Operating System** | Windows 10 / 11 (64-bit) or Linux (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, WSL2) | Windows 11 (64-bit) or Ubuntu 22.04 / 24.04 LTS |
+| **Python** | Python 3.10+ | Python 3.13 (via Miniconda3) |
+| **GPU Acceleration** | NVIDIA GPU with 4 GB VRAM (CUDA 12.6+) or CPU fallback (with System RAM Spillover) | NVIDIA RTX GPU with 6+ GB VRAM (CUDA 12.8 – 13.2) |
+| **System Memory** | 8 GB RAM | 16+ GB RAM |
+| **Storage** | 10 GB Free Space (supports `/tmp` & `/dev/shm` routing on quota-capped lab clusters) | Fast NVMe SSD |
 
 ---
 
 ## Quick Start
 
-### Option 1: One-Click Startup (Recommended)
+### 1. One-Click Launch (Recommended)
 
-1. Clone or download the repository to your local drive.
-2. Launch the launcher for your operating system:
-
-   **Windows:**
-   ```cmd
-   run.bat
-   ```
-
-   **Linux:**
-   ```bash
-   chmod +x run.sh
-   ./run.sh
-   ```
-   *Lumiya runs automatic pre-flight verification on startup. If the environment or PyTorch packages are not yet provisioned, the launcher prompts you to install automatically, detecting your hardware, installing the matched CUDA build (`cu132 / cu130 / cu128 / cu126`), setting up all dependencies, and launching the WebUI.*
-
-### Option 2: Direct Automated Installer
-
-To run the automated dependency and environment installation upfront:
+Clone the repository and run the launcher for your OS:
 
 **Windows:**
 ```cmd
-install.bat
+run.bat
 ```
 
 **Linux:**
 ```bash
-./run.sh install    # or ./run.sh --install
+chmod +x run.sh
+./run.sh
 ```
 
-### Uninstallation
+On startup, Lumiya runs a pre-flight hardware and environment check. If your Conda environment or CUDA-matched PyTorch packages are not installed yet, the launcher offers to provision them automatically (`cu132`, `cu130`, `cu128`, or `cu126`), verifies the installation, and opens the WebUI at `http://127.0.0.1:7860`.
 
-To cleanly remove Lumiya's isolated dependencies (`.env` or Conda `lumiya`) while preserving all exported photos in `results/` and configurations in `user/`:
+### 2. Direct Installer, Updater & Maintenance Commands
 
-**Windows:**
-```cmd
-uninstall.bat
-```
+| Action | Windows (`cmd`) | Linux (`bash`) | Direct Python CLI |
+| :--- | :--- | :--- | :--- |
+| **Launch Suite** | `run.bat` | `./run.sh` | `python protect.py` |
+| **Install / Repair Environment** | `install.bat` | `./run.sh install` | — |
+| **Protected GitHub Self-Update** | `run.bat update` | `./run.sh update` | `python protect.py --update` |
+| **System & GPU Doctor Audit** | `run.bat --doctor` | `./run.sh doctor` | `python protect.py --doctor` |
+| **Headless / Cluster Mode** | `run.bat --headless` | `./run.sh cluster` | `python protect.py --cluster` |
+| **Free Occupied Port** | `run.bat free-port 7860` | `./run.sh free-port 7860` | — |
+| **Clean Temps & Caches** | — | `./run.sh clean` | `python protect.py --clean` |
+| **Uninstall Environment** | `uninstall.bat` | `./run.sh uninstall` | — |
 
-**Linux:**
+### 3. Command-Line Flags for Linux Clusters & Shared Lab Machines
+
+For university compute clusters (tested on Rutgers iLab/rLab) or remote SSH servers where home directories have strict NFS disk quotas, Lumiya automatically checks free space and routes temporary worker files to local `/tmp` and in-memory `/dev/shm`. You can also customize runtime behavior directly via CLI flags:
+
 ```bash
-./run.sh uninstall  # or ./run.sh --uninstall (-y for non-interactive)
+./run.sh --cluster --port 7860 --gpu 0 --tile-size 768 --low-vram \
+         --tmp-dir /tmp/lumiya_work --cache-dir /tmp/lumiya_cache \
+         --results-dir ./results --auth-token my_secret_token
 ```
 
-### Option 3: Manual Installation
+---
 
-If you prefer managing environments manually:
+## Interface & Core Workflows
 
-```bash
-# 1. Create and activate environment
-conda create -n lumiya python=3.13 -y
-conda activate lumiya
+### 1. Workspace, Native-Resolution Tiling & Collapsible Batch History
 
-# 2. Install PyTorch with CUDA 13.2 support
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
+* **1:1 Native-Resolution Tiling:** Rather than downsampling high-resolution camera files into blurry 512×512 thumbnails, Lumiya optimizes perturbations across native tiles (up to 1024×1024) and blends residuals cleanly back onto the full-resolution canvas while preserving alpha channels, EXIF metadata, and ICC color profiles.
+* **Ephemeral Compute Worker & System RAM Spillover:** Batch optimization runs inside an isolated worker subprocess (`--compute-worker`) that releases 100% of GPU VRAM and host RAM back to the OS the moment a batch finishes or stops. On 4 GB – 6 GB GPUs, **System RAM Spillover** streams intermediate VAE activations to system memory to prevent Out-Of-Memory crashes.
+* **Collapsible Batch-Tree History:** Processed runs are grouped under collapsible `results/<batch>` rows inside a single unified table (collapsed by default to keep your workspace clean), showing batch average PSNR, max pixel shift, and individual protected files on expand.
 
-# 3. Install dependencies
-pip install -r requirements.txt
+### 2. Inspect Darkroom: Forensic & Spectral Toolkit
 
-# 4. Launch server
-python protect.py
-```
+The **Inspect** tab provides a synchronized 1x–16x pan-and-zoom darkroom with **Loupe**, **Side-by-Side (A|B)**, and **Sliding Door** comparison views alongside an independently scrollable bottom collection filmstrip:
+
+<p align="center">
+  <img src="identity/media/inspect.png" alt="PORTtralica Lumiya Inspect Darkroom & Forensic Toolkit" width="100%">
+</p>
+
+* **Live RGB + Luminance Histogram:** Real-time channel distribution, mean/std statistics, and LSB $\chi^2$ anomaly readout.
+* **9 Forensic & Spectral Lenses:**
+  * `Standard RGB (1:1)` — Clean optical reference.
+  * `PGD Heatmap |A-B|` — Amplifies exact pixel-level perturbation deltas between clean and protected images.
+  * `2D Freq Residual` — Log-magnitude 2D Fourier spectrum exposing high-frequency energy injection.
+  * `Error Level (ELA)` — DCT recompression delta analysis.
+  * `Sobel Edge Map` & `SRM Noise Map` — Structural edge derivatives and Spatial Rich Model high-pass noise residuals.
+  * `Luminance Map` & `Chroma Anomaly` — Isolates Y-luma vs. CbCr color opponent perturbations.
+  * `Attention Heatmap` — VETO-inspired red-yellow-green heatmap visualizing where diffusion cross-attention scatters.
+
+### 3. Steganography Forensics & Provenance Scanner
+
+Lumiya includes a 3-mode steganographic engine (`2-Bit Cyclic LSB Text`, `LMY1 Binary Stream`, and `QIM / Bit-0 Visual Watermark`) paired with an interactive decoder and bit-plane analyzer in the Inspect tab:
+
+<p align="center">
+  <img src="identity/media/stego.gif" alt="Steganography Forensics Bit-Plane Slicer & Channel Isolator" width="100%">
+</p>
+
+* **Channel Isolator & Bit-Plane Slicer:** Step through individual color channels (`RGB`, `R`, `G`, `B`, `Alpha`, `Luminance`) and slice raw binary bit-planes from `Bit 0` (LSB) through `Bit 7` (MSB), with bitwise `XOR 0xFF` inversion and high-contrast random LUT coloring.
+* **Hidden Mark (`QIM/B0`) & `2-Bit LSB (×85)` Lenses:** Exposes parity-quantized visual watermarks and scanline headers directly on the main stage.
+* **Live 64-Byte LSB Hex/ASCII Stream & One-Click Scanner:** Inspect raw row-first or column-first LSB bytes in real time and automatically recover embedded ownership text and visual watermark stamps.
+
+### 4. Application Well-being & Protected Self-Updater
+
+Located in the **Configuration** tab, the **Application Well-being** panel lets you verify program integrity and pull updates without touching the terminal:
+
+* **Built-In Integrity Validator (`core/integrity.lmy`):** Verifies SHA-256 and MD5 checksums across all **49 tracked program files** grouped into `core-services` (10 files), `core-functions` (35 algorithm and steganography modules), and `executables` (4 launchers).
+* **Protected GitHub Self-Update:** Enforces strict repository origin allowlisting, disables Git hooks and local file protocols during fetch, requires fast-forward merges with automatic rollback on syntax or asset verification failure, and migrates your existing `user/config.json` in place without overwriting your saved settings.
 
 ---
 
 ## Repository Structure
 
-```
+```text
 lumiya/
-|-- algos/                   # 29 Literature-derived defense algorithm implementations
-|   |-- photoguard/          # PhotoGuard ICML 2023 encoder attack
-|   |-- veto/                # VETO cross-attention transformer cloak (MMDiT / FLUX)
-|   |-- mist/                # Mist v2 Nyquist checkerboard adversarial target
-|   |-- antiprompt/          # AntiPrompt semantic invariance decoupling
-|   |-- idguardian/          # Zero-checkpoint biometric contour defense
-|   `-- ...                  # MetaCloak, DiffusionGuard, BlurGuard, SRIM, etc.
-|-- core/                    # Modular core subsystem package (PEP 420 namespace)
-|   |-- cleaner.py           # Memory management, garbage collection, and process termination
-|   |-- config.py            # Configuration validation, persistence, and SSE snapshots
-|   |-- loader.py            # Dynamic algorithm discovery, AST parsing, and hardware gating
-|   |-- security.py          # Origin verification and Windows device stem sanitization
-|   |-- telemetry.py         # NVML GPU wattage/temp/vram sensors and system telemetry
-|   `-- init.py              # Package coordinator (zero __init__.py)
-|-- stego/                   # 3-mode steganography and resilient visual marker engine
-|   |-- lsb.py               # 2-bit cyclic LSB text and binary stream (LMY1) embedding
-|   |-- mark.py              # TrueType visual watermark placement and QIM recovery
-|-- identity/                # Brand identity assets and icons
-|   |-- logo.png             # High-resolution film-strip banner for README.md
-|   |-- lumiya_blk.ico       # Browser tab favicon
-|   `-- lumiya_t.ico         # WebUI header and About card emblem
-|-- user/                    # Persistent user configuration, history, and install manifests
-|   |-- config.json          # Default application and algorithm suite configuration
-|   |-- history.json         # Local artifact history log (git-ignored)
-|   `-- install_manifest.log # Environment installation log (git-ignored)
-|-- results/                 # Exported protected batches (git-ignored)
-|-- install.bat              # Automated environment and driver-matched CUDA installer (Windows)
-|-- run.bat                  # Production application launcher with pre-flight checks (Windows)
-|-- run.sh                   # All-in-one launcher, installer (--install), and uninstaller (Debian / Ubuntu)
-|-- uninstall.bat            # Clean uninstaller for Conda environment and dependencies (Windows)
-|-- protect.py               # Main HTTP server, PGD native-tiling engine, and compute worker
-|-- requirements.txt         # Core dependencies
-|-- ui.html                  # Single-file WebUI (10-lens forensic darkroom, A/B & split-curtain)
-|-- CONTRIBUTING.md          # Scientific paper guidelines for algo contributions
-|-- LICENSE                  # PolyForm Shield License 1.0.0
-`-- README.md
+├── algos/                   # Literature-derived defense algorithm modules
+│   ├── photoguard/          # PhotoGuard (ICML 2023) VAE encoder disruption
+│   ├── antipure/            # AntiPure (ICCV 2025) 8x8 2D Type-II DCT purification counter-defense
+│   ├── blurguard/           # BlurGuard (NeurIPS 2025) azimuthal radial ring PSD log-ratio defense
+│   ├── decontext/           # DeContext (arXiv 2025) DiT cross-attention context key detachment
+│   ├── anti_inpainting/     # Anti-Inpainting (arXiv 2025) contour-shrunk composite mask defense
+│   ├── idguardian/          # IDGuardian (arXiv 2026) Adversarial Conceptual Bridge identity cloak
+│   ├── veto/                # VETO (arXiv 2026) MMDiT / FLUX joint-attention entropy defense
+│   └── ...                  # Mist v2, MetaCloak, DiffusionGuard, SRIM, IMPRESS, AntiPrompt, etc.
+├── core/                    # Core backend services, WebUI, and self-updater
+│   ├── cleaner.py           # VRAM/RAM working-set reclamation and temp cleanup
+│   ├── config.py            # Default config provisioning, bounds checking, and schema migration
+│   ├── init.py              # Core package coordinator
+│   ├── integrity.lmy        # Versioned SHA-256 & MD5 integrity manifest (LMY_INTEGRITY_V1)
+│   ├── loader.py            # AST-validated plugin loader and hardware capability gating
+│   ├── requirements.txt     # Core Python package dependencies
+│   ├── security.py          # Localhost origin guards, filename sanitizer, and brand verification
+│   ├── telemetry.py         # NVML / sysfs GPU power, temperature, VRAM, and CPU/RAM telemetry
+│   ├── ui.html              # Single-file WebUI (Workspace, Inspect Darkroom, Organize, Configuration)
+│   └── updater.py           # Protected GitHub self-updater and SHA-256 / MD5 integrity validator
+├── stego/                   # Steganography and resilient visual watermark engine
+│   ├── lsb.py               # 2-bit cyclic LSB text and LMY1 binary stream encoder/decoder
+│   └── mark.py              # Vector typography watermark renderer and QIM bit-0 extractor
+├── identity/                # Official brand icons and documentation media
+├── user/                    # Persistent local configuration and install logs (git-ignored)
+├── results/                 # Exported protected photo batches (git-ignored)
+├── protect.py               # Main HTTP server, native-tiling PGD engine, and CLI entrypoint
+├── run.bat                  # Windows launcher, updater, and pre-flight checker
+├── install.bat              # Automated Windows Conda & CUDA-matched PyTorch installer
+├── uninstall.bat            # Windows environment and dependency uninstaller
+└── run.sh                   # All-in-one Linux launcher, installer, updater, and cluster runner
 ```
-
----
-
-## Configuration and Defaults
-
-Lumiya ships with `user/config.json` containing default application and protection parameters. The core engine (`protect.py:SuiteConfig`) also contains hardcoded internal defaults, ensuring the suite can gracefully boot with clean settings even if `user/config.json` is missing.
-
-Key configuration fields include:
-* `epsilon`: Default perturbation budget (4.0/255).
-* `steps`: Optimization iteration budget (50 steps).
-* `precision`: Numerical precision (`fp16` or `fp32`).
-* `reserveVramMb`: Safety margin reserved for OS and display rendering (600 MB).
-* `jpegQuality`: Export compression quality (98).
-* `overrideHardware`: Enforces hardware safety tiers (`false` by default).
-* `favoriteAlgos`: Pinned algorithms in the WebUI.
-
----
-
-## Installation Process and Manifest Log
-
-`install.bat` sets up the project dependencies and writes a full log to `user/install_manifest.log` so you can verify everything that was installed.
-
-### 1. Environment Check (`run.bat`)
-When you launch `run.bat`, it checks your system before running:
-* Confirms Git and Python are present.
-* Looks for an existing Python environment in this order:
-  1. Local `.env` folder inside the project.
-  2. Conda installations (Miniconda / Anaconda).
-  3. An existing `lumiya` Conda environment.
-* If required packages (`torch`, `diffusers`, `Pillow`) are missing, it asks how to proceed:
-  - Press `I` to run `install.bat`.
-  - Press `W` to start in limited mode using your base Python.
-  - Press `Q` to exit.
-
-### 2. What `install.bat` Does
-When `install.bat` runs, it:
-1. Verifies that Git and Conda are installed.
-2. Checks for an NVIDIA graphics card and reads your driver's CUDA version using `nvidia-smi`.
-3. Creates an isolated Conda environment named `lumiya` (Python 3.13) so your global setup is untouched.
-4. Installs the matching PyTorch build for your GPU (`cu132`, `cu130`, `cu128`, or `cu126`). If no NVIDIA GPU is detected or your driver supports less than CUDA 12.6, it installs the CPU build.
-5. Installs required libraries: `diffusers`, `transformers`, `accelerate`, `safetensors`, `Pillow`, `psutil`, and `numpy`.
-6. Clears pip and Conda cache files to save disk space.
-
-### 3. What is in `user/install_manifest.log`
-Each time the installer runs, it writes `user/install_manifest.log` to document:
-* System info: Date, time, Windows username, and Conda path.
-* Hardware detected: GPU model and the chosen PyTorch build.
-* Package list:
-  - `[KEPT]`: Packages already present.
-  - `[NEW]`: Packages added by the installer with their exact version numbers.
-* Verification check: Tests importing each library and logs their versions to confirm they load without errors.
 
 ---
 
 ## Active Algorithms and Scientific References
 
-All algorithms implemented in the `algos/` directory are sourced from peer-reviewed scientific literature and established preprints.
+All defense modules in `algos/` are adapted from peer-reviewed papers and preprints. Switching algorithms in the Workspace automatically snaps the Perturbation Budget ($\epsilon$) and step sliders to the authors' published defaults.
 
-> Note: Algorithms marked with a triangle (`▲`) represent modules currently in development or awaiting upstream author specifications, public pretrained weight checkpoints, or multi-frame video pipelines.
+> **Note:** Algorithms marked with a triangle (`▲`) indicate modules awaiting public author weight checkpoints or multi-GPU video sequence pipelines.
 
-### Functional Algorithms
+### Functional Photo-Defense Algorithms
 
-1. PhotoGuard (Encoder Attack)
-   - Paper: Raising the Cost of Malicious AI: Impeding Image-to-Image Translation with Adversarial Attacks
-   - Authors: Hadi Salman, Alaa Khaddaj, Guillaume Leclerc, Andrew Ilyas, Aleksander Madry (MIT CSAIL)
-   - Venue: ICML 2023
-   - Citation: [arXiv:2302.06588](https://arxiv.org/abs/2302.06588)
-   - Threat Model: VAE latent disruption forcing image-to-image translations toward an arbitrary target or gray latent.
+| # | Algorithm | Venue | Target Mechanism & Threat Model | Paper Reference |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | **PhotoGuard** | ICML 2023 | Disrupts VAE latent encoding so image-to-image and diffusion edits collapse toward a gray/target latent. | [Salman et al., arXiv:2302.06588](https://arxiv.org/abs/2302.06588) |
+| **2** | **VETO** | arXiv 2026 | Maximizes bidirectional joint-attention entropy in multi-modal Diffusion Transformers (`MMDiT` / `FLUX` / `SD3`). | [Grebe et al., arXiv:2607.27292](https://arxiv.org/abs/2607.27292) |
+| **3** | **AntiPure** | ICCV 2025 | Projects $8\times8$ blocks onto an orthonormal 2D Type-II DCT basis to concentrate high-frequency guidance against `DiffPure`. | [Yang et al., ICCV 2025](https://arxiv.org/search/?query=AntiPure+diffusion+purification&searchtype=all) |
+| **4** | **BlurGuard** | NeurIPS 2025 | Preserves azimuthal radial ring power spectral density (PSD) log-ratios across Gaussian blur and JPEG quantization. | [Kim et al., arXiv:2511.00143](https://arxiv.org/abs/2511.00143) |
+| **5** | **DiffusionGuard** | ICLR 2025 | Contour-shrunk mask augmentation maximizing U-Net posterior error against generative object removal and inpainting. | [Choi et al., arXiv:2410.05694](https://arxiv.org/abs/2410.05694) |
+| **6** | **Anti-Inpainting** | arXiv 2025 | Composites $0.45\,x_{\text{def}} + 0.55\,x_{\text{orig}}$ inside contour-shrunk masks so PGD gradients protect both masked and unmasked regions. | [Guo et al., arXiv:2505.13023](https://arxiv.org/abs/2505.13023) |
+| **7** | **DeContext** | arXiv 2025 | Scales spatial token masks ($\alpha$) and detaches target queries from both current and clean context keys (`kOrigContext`). | [Shen et al., arXiv:2512.16625](https://arxiv.org/abs/2512.16625) |
+| **8** | **IDGuardian** | arXiv 2026 | Adversarial Conceptual Bridge (`acbDiff`) minimizing target distance while maximizing $L_1$ divergence from clean facial posteriors. | [Xiong et al., arXiv:2610.19717](https://arxiv.org/abs/2610.19717) |
+| **9** | **MetaCloak** | CVPR 2024 | Meta-learning surrogate transformations crafting perturbations resilient against DreamBooth/LoRA fine-tuning filters. | [Liu et al., arXiv:2311.13127](https://arxiv.org/abs/2311.13127) |
+| **10** | **Mist v2 / AdvDM** | ICML 2023 | Injects directed semantic and textural gradient errors into latent representations to break style mimicry. | [Liang et al., arXiv:2302.04578](https://arxiv.org/abs/2302.04578) |
+| **11** | **IMPRESS** | NeurIPS 2023 | Concentrates perturbation energy into high-frequency structural bands that low-pass purifiers fail to strip. | [Cao et al., arXiv:2310.19248](https://arxiv.org/abs/2310.19248) |
+| **12** | **PromptFlare** | arXiv 2025 | Redirects cross-attention weights onto invariant Beginning-of-Sequence (`BOS`) tokens to neutralize text prompts. | [PromptFlare Cross-Attention](https://arxiv.org/search/?query=PromptFlare+cross+attention&searchtype=all) |
+| **13** | **SRIM** | CVPR 2025 | Minimax optimization across continuous geometric scaling anchors (`1.7x` – `7.1x`) to survive web downscaling and cropping. | [Scale-Robust Immunization](https://arxiv.org/search/?query=scale+robust+image+protection+diffusion&searchtype=all) |
+| **14** | **AntiPrompt** | arXiv 2026 | Decouples conditioned text embeddings from image latents to block prompt-driven instruction editing. | [arXiv:2607.01499](https://arxiv.org/abs/2607.01499) |
+| **15** | **Vid-Freeze** | arXiv 2025 | Suppresses temporal motion vectors so image-to-video diffusion samplers collapse into static frames. | [Video Motion Freezing](https://arxiv.org/search/?query=video+diffusion+adversarial+motion+freezing&searchtype=all) |
 
-2. VETO
-   - Paper: VETO: Latent Semantic & Cross-Attention Veto Defense for Diffusion Transformers
-   - Authors: Jonas Grebe, Mohammadreza Shakibania, Jeanette Braun, Marcus Rohrbach, Anna Rohrbach (TU Darmstadt & hessian.AI)
-   - Venue: arXiv 2026
-   - Citation: [arXiv:2607.27292](https://arxiv.org/abs/2607.27292)
-   - Threat Model: Bidirectional canvas-reference joint-attention entropy maximization in multi-modal Diffusion Transformers (MMDiT / FLUX / SD3).
+### Pending & Hardware/Weight-Gated Modules (`▲`)
 
-3. DiffusionGuard
-   - Paper: Contour-Based Mask Augmentation Inpainting Defense
-   - Authors: William June Suk Choi et al.
-   - Venue: ICLR 2025
-   - Citation: [arXiv:2410.05694](https://arxiv.org/abs/2410.05694)
-   - Threat Model: U-Net and posterior error maximization using contour-shrink mask augmentation against object removal and generative inpainting.
-
-4. MetaCloak
-   - Paper: MetaCloak: Preventing Unauthorized Fine-Tuning of Diffusion Models via Meta-Learning
-   - Authors: Yixin Liu, Chenrui Fan, Yutong Dai, Xun Chen, Pan Zhou, Lichao Sun
-   - Venue: CVPR 2024
-   - Citation: [arXiv:2311.13127](https://arxiv.org/abs/2311.13127)
-   - Threat Model: Meta-learning surrogate transformations crafting perturbations robust against image filtering and Gaussian blur during fine-tuning (DreamBooth/LoRA).
-
-5. Mist v2 / AdvDM
-   - Paper: Adversarial Example Defense Against Diffusion-Based Image Manipulation
-   - Authors: Chumeng Liang, Xiaoyu Wu, Yang Hua, Jiaru Zhang, Yiming Xue, Tao Song, Haibing Guan
-   - Venue: ICML 2023
-   - Citation: [arXiv:2302.04578](https://arxiv.org/abs/2302.04578)
-   - Threat Model: Directed gradient errors injected into latent representations causing unauthorized fine-tuning and style mimicry to collapse into chaotic textures.
-
-6. BlurGuard
-   - Paper: BlurGuard: Frequency-Naturalness Hardening Against Adversarial Purification
-   - Authors: Jongheon Jeong et al. (Korea University / TAIL Lab)
-   - Venue: arXiv 2025
-   - Citation: [arXiv:2511.00143](https://arxiv.org/abs/2511.00143)
-   - Threat Model: Differentiable Gaussian smoothing and quantization optimization to ensure perturbations survive spatial low-pass filtering and lossy JPEG compression.
-
-7. AntiPure
-   - Paper: Erroneous Timestep Guidance Against Diffusion Purifiers
-   - Authors: Diffusion Purification Counter-Defense Research
-   - Citation: [arXiv Search: Diffusion Purification Adversarial Defense](https://arxiv.org/search/?query=diffusion+purification+adversarial+defense+DiffPure&searchtype=all)
-   - Threat Model: Exploiting diffusion purification schedules (DiffPure / Score-SDE) via erroneous timestep guidance so purifying pipelines embed adversarial noise deeper into latents.
-
-8. IMPRESS
-   - Paper: IMPRESS: Imperceptible High-Frequency Reconstruction Resilience Defense
-   - Authors: Bochuan Cao, Changjiang Li, Ting Wang, Jinyuan Jia, Bo Li, Jinghui Chen
-   - Venue: NeurIPS 2023
-   - Citation: [arXiv:2310.19248](https://arxiv.org/abs/2310.19248)
-   - Threat Model: Concentrating perturbation power into high-frequency structural bands that low-pass purification algorithms fail to strip.
-
-9. Anti-Inpainting
-   - Paper: 9-Channel Masked Boundary Context Poisoning
-   - Authors: Spatial Occlusion & Boundary Conditioning Defense (PORTtralica Research Synthesis)
-   - Citation: [arXiv:2302.06588](https://arxiv.org/abs/2302.06588)
-   - Threat Model: Simulating stochastic brush masks during projected gradient descent to poison boundary contexts used by 9-channel inpainting models (SD-Inpaint / ControlNet).
-
-10. PromptFlare
-    - Paper: Cross-Attention BOS Token Decoy Defense
-    - Authors: Invariant Token Cross-Attention Decoy Architecture
-    - Citation: [arXiv Search: PromptFlare Cross-Attention Defense](https://arxiv.org/search/?query=PromptFlare+cross+attention+adversarial+diffusion&searchtype=all)
-    - Threat Model: Directing cross-attention weights away from text prompts and anchoring them onto invariant Beginning-of-Sequence (BOS) tokens to neutralize conditioning.
-
-11. SRIM
-    - Paper: Scale-Robust Image Immunization via Minimax Geometric Anchors
-    - Authors: Scale-Robust Minimax Defense Architecture
-    - Citation: [arXiv Search: Scale-Robust Diffusion Defense](https://arxiv.org/search/?query=scale+robust+image+protection+diffusion&searchtype=all)
-    - Threat Model: Minimax optimization over continuous geometric scaling anchors (1.7x to 7.1x) ensuring protection survives web scraper downscaling and responsive cropping.
-
-12. Vid-Freeze
-    - Paper: Motion Dynamics Suppression via Target Attention Freezing Loss
-    - Authors: Video Diffusion Motion Freezing Architecture
-    - Citation: [arXiv Search: Video Diffusion Motion Freezing Defense](https://arxiv.org/search/?query=video+diffusion+adversarial+motion+freezing&searchtype=all)
-    - Threat Model: Suppressing motion dynamic latent vectors so video generation pipelines collapse into static frame repetition.
-
-13. AntiPrompt
-    - Paper: AntiPrompt: Adversarial Invariance Decoupling for Prompt Conditioning
-    - Authors: Prompt Decoupling & Semantic Disruption Research
-    - Venue: arXiv 2026
-    - Citation: [arXiv:2607.01499](https://arxiv.org/abs/2607.01499)
-    - Threat Model: Decoupling conditioned text embeddings from image latents to nullify prompt-driven generative editing.
-
-14. IDGuardian
-    - Paper: Zero-Checkpoint Biometric Contour & Identity Protection
-    - Authors: Facial Identity & Feature Disruption Research
-    - Threat Model: Facial boundary and keypoint perturbation disrupting biometric recognition models without requiring external pretrained weights.
-
-### Pending & TBD Algorithms (▲)
-
-15. ▲ Anti-I2V
-    - Paper: Perceptual Opponent-Color & Spectral Image-to-Video Disruption
-    - Status: Upstream specification advisory / pending public repository release.
-    - Threat Model: Disrupting temporal frame coherence in image-to-video generators (SVD, Kling, Runway Gen-3) via opponent-color and spectral frequency optimization.
-
-16. ▲ ChronoLock
-    - Paper: Temporal Denoising & Cross-Chunk Boundary Disruption
-    - Status: Multi-frame video blocker / requires multi-GPU 5-frame sequence setup.
-    - Threat Model: Securing visual assets against text-to-video personalization by combining intra-chunk chaos and cross-chunk boundary disruption across sliding-window samplers.
-
-17. ▲ DeContext & CaD
-    - Paper: Context Detachment for Diffusion Transformers (DeContext & CaD)
-    - Status: Context detachment architecture pending public checkpoint release.
-    - Threat Model: Restricting optimization to early timesteps and context-heavy attention blocks in DiT architectures to detach input conditioning from generated output.
-
-18. ▲ DiffVax
-    - Paper: DiffVax: Nested Multi-Scale Skip-Connection Cloak
-    - Status: Weight-blocked / requires authors' pretrained feed-forward UNet++ checkpoints.
-    - Threat Model: Targeting U-Net and ResNet multi-scale skip-connection pooling to disrupt spatial edits and fine-grained video manipulation.
-
-19. ▲ FastProtect & TC-UAP
-    - Paper: Universal Adversarial Perturbation & Temporal-Consistent UAP Basis Defense
-    - Status: Weight-blocked / awaiting release of authors' pre-computed cluster banks and 3D video VAE tensors.
-    - Threat Model: Rapid pre-computed Universal Adversarial Perturbation basis vectors accelerating spatial and temporal protection with minimal GPU step budgets.
-
-20. ▲ GenPTW & TAG-WM
-    - Paper: Latent-Space Provenance Watermarking & Tamper Localization
-    - Status: Weight-blocked (GenPTW) and generation-time noise scope lock (TAG-WM).
-    - Threat Model: Embedding structured dual latent-space provenance watermarks for downstream tamper localization and ownership verification.
-
-21. ▲ IDProtector
-    - Paper: Multi-Encoder Biometric Identity Inconsistency Defense
-    - Status: Weight-blocked / requires pretrained ViT immunizer checkpoint from showlab/IDProtector.
-    - Threat Model: Inducing feature inconsistency across facial recognition backbones and biometric identity adapters (InstantID, IP-Adapter-FaceID, PhotoMaker).
-
-22. ▲ MIRAGE
-    - Paper: Policy & Moderation Classifier Alignment Defense
-    - Status: Ensemble & compute blocker / requires 8-model vision ensemble with 5,000 PGD steps.
-    - Threat Model: Aligning image representations with safety-classifier boundary anchors so commercial multimodal APIs trigger refusal flags on automated edit requests.
-
-23. ▲ Obliviate
-    - Paper: KL-Supervised Visual Token Distribution Concept Erasure
-    - Status: Generator-side scope lock / fine-tunes internal model LoRA adapters rather than input images.
-    - Threat Model: Erasing semantic concepts in autoregressive visual-language models via KL divergence supervision over visual token distributions.
-
----
-
-## Key Capabilities (Expected)
-
-> Note: The capabilities detailed below represent the architectural design and active development roadmap of the Lumiya pilot. Because algorithmic porting and hardware optimizations are actively being refined, full perfection and complete deployment across all defense combinations are in progress.
-
-### Modular AI-Defense Layers (Expected)
-Lumiya integrates 21 modular adversarial defense algorithms published across machine learning venues (ICML, ICLR, CVPR, NeurIPS, arXiv). Each layer targets distinct vulnerabilities in modern diffusion models, vision transformers, and multimodal encoders:
-
-* Latent Encoder and VAE Disruptors: PhotoGuard, AntiPure, Mirage, MetaCloak, IMPRESS.
-* Diffusion Transformers (DiT and MMDiT) Hooks: VETO, DeContext & CaD.
-* Temporal and Video Diffusion Cloaks: Anti-I2V, ChronoLock, Vid-Freeze.
-* Inpainting and Mask Augmentation: Anti-Inpainting, DiffusionGuard.
-* Concept Erasure and Biometric Inconsistency: IDProtector, Obliviate, SRIM, PromptFlare, DiffVax, FastProtect & TC-UAP.
-* Frequency and Purification Hardening: BlurGuard, GenPTW & TAG-WM.
-
-### Dual Steganography and Visual Marker Engine (Expected)
-* 2-Bit Cyclic LSB Framing: Embeds cryptographic copyright text and provenance signatures directly into uncompressed RGB bitplanes (`stego/lsb.py`).
-* Resilient Visual Watermarking: Embeds quad-pattern bitplane markers designed to survive lossy social media recompression (JPEG quality degradation) and proportional downscaling (`stego/mark.py`).
-* Stego Verifier: Decodes embedded signatures and bitplane markers in one click directly from the queue ribbon.
-
-### Forensic Inspector (Expected)
-* Multi-View Modes: Single image, Side-by-Side before/after, and interactive Split-Wipe slider.
-* Synchronized Loupe: 1x to 16x pan-and-zoom inspection with sub-pixel alignment.
-* Forensic Analysis Lenses: Real-time LSB bitplane viewer, Error Level Analysis (ELA), Fast Fourier Transform (FFT) frequency spectrum, and Sobel edge derivative masks.
-
-### Batch Queue and Hardware Telemetry (Expected)
-* Drag-and-Drop Batching: Queue multiple photo sets, reorder images, split batches, and adjust perturbation budgets and step counts.
-* Hardware Monitor: Real-time NVML hardware telemetry displaying GPU load, VRAM allocation, GPU temperatures, and power draw.
+* **▲ Anti-I2V:** Opponent-color and spectral frequency disruption against image-to-video generators (pending upstream release).
+* **▲ ChronoLock:** Intra-chunk chaos and cross-chunk boundary disruption across 5-frame video sequences.
+* **▲ DiffVax:** Nested multi-scale skip-connection cloak (requires authors' pretrained UNet++ weights).
+* **▲ FastProtect & TC-UAP:** Pre-computed Universal Adversarial Perturbation basis banks (awaiting upstream cluster tensors).
+* **▲ GenPTW & TAG-WM:** Latent-space provenance watermarking and generation-time tamper localization.
+* **▲ IDProtector:** Multi-encoder biometric identity inconsistency cloak (requires pretrained ViT immunizer checkpoint).
+* **▲ MIRAGE:** 8-model vision ensemble safety-boundary alignment (requires multi-GPU 5,000-step compute budget).
+* **▲ Obliviate:** Generator-side LoRA concept erasure over autoregressive visual token distributions.
 
 ---
 
 ## License and Community Contributions
 
-PORTtralica Lumiya is licensed under the **PolyForm Shield License 1.0.0** (SPDX identifier: `PolyForm-Shield-1.0.0`). See the [LICENSE](LICENSE) file for the full legal text.
+PORTtralica Lumiya is licensed under the **PolyForm Shield License 1.0.0** (`PolyForm-Shield-1.0.0`). See [LICENSE](LICENSE) for the full legal text.
 
-### Summary of Terms
-
-* Commercial Projects Permitted: You are free to run, inspect, modify, and use Lumiya on commercial creative projects, commercial photography, client campaigns, editorial publications, and business visual assets without paying royalties or fees.
-* Software Commercial Exploitation Prohibited: You may not sell, monetize, sub-license, or repackage Lumiya or its core engine as a commercial software product, nor operate it as a competing commercial hosted service (SaaS) or paid API.
-* Open Community Contributions to Algorithms: Collaborative community contributions to the `algos/` directory are actively encouraged. As detailed in [CONTRIBUTING.md](CONTRIBUTING.md), all submitted defense algorithms must be directly sourced from peer-reviewed scientific literature or established preprints with academic citations and reproducible loss formulations.
+* **Commercial Creative Use Permitted:** You may freely use Lumiya to protect your own or your clients' commercial photography, editorial work, campaigns, and visual archives without royalties or fees.
+* **Commercial Software Resale Prohibited:** You may not sell, rebrand, or operate Lumiya itself as a paid commercial SaaS, paid API, or competing software product.
+* **Contributing New Algorithms:** Community implementations in `algos/` are warmly welcomed. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for paper citation and reproducibility guidelines.

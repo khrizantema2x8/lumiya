@@ -44,7 +44,7 @@ def computeLoss(dist, ctx):
     # Eq: L_ID = (1 - cos(E_f(x_adv), E_f(x))) + (1 - cos(E_c(x_adv), E_c(x))) -> maximize L_ID by minimizing cosine sim
     cosFace = F.cosine_similarity(efAdv, efOrig, dim=-1).mean()
     cosClip = F.cosine_similarity(ecAdv, ecOrig, dim=-1).mean()
-    # Adversarial Conceptual Bridge (ACB): maximize discrepancy between perturbed trajectory and identity anchor
-    acbDiff = F.mse_loss(zAdv, -zOrig)
+    # Adversarial Conceptual Bridge (ACB): maximize discrepancy from clean identity trajectory while collapsing toward target
+    acbDiff = F.mse_loss(zAdv, ctx["zTargetMean"]) - 0.25 * F.l1_loss(zAdv, zOrig)
     return cosFace + cosClip + 0.35 * acbDiff
 

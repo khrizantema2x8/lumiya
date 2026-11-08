@@ -3,13 +3,25 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
+CONFIG_SCHEMA_VERSION = "v0.6.073.8820"
 MAX_STEPS = 5000
 VALID_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff")
+
+LEGACY_CONFIG_KEYS: Dict[str, str] = {
+    "backend": "computeBackend",
+    "eps": "epsilon",
+    "budget": "epsilon",
+    "compute": "computeLevel",
+    "dim": "workingDim",
+    "ramSpillover": "allowRamSpillover",
+    "vramHeadroomMb": "reserveVramMb",
+}
 
 DEFAULT_ALGO_IDS = (
     "photoguard",
@@ -79,6 +91,7 @@ def safeInt(val: Any, default: int, minVal: int | None = None, maxVal: int | Non
 
 @dataclass
 class SuiteConfig:
+    configVersion: str = CONFIG_SCHEMA_VERSION
     computeBackend: str = "auto"
     epsilon: float = 8.0
     computeLevel: float = 1.0
@@ -141,8 +154,9 @@ class SuiteConfig:
             "jpegQuality": (60, 100),
             "pollMs": (250, 5000),
         }
-        for key, val in raw.items():
-            if not hasattr(self, key):
+        for rawKey, val in raw.items():
+            key = LEGACY_CONFIG_KEYS.get(rawKey, rawKey)
+            if key == "configVersion" or not hasattr(self, key):
                 continue
             if key in floatBounds:
                 lo, hi = floatBounds[key]
@@ -160,6 +174,12 @@ class SuiteConfig:
                 self.algoLastUsed.update({str(k): str(v) for k, v in val.items()})
             else:
                 setattr(self, key, val)
+        self.configVersion = CONFIG_SCHEMA_VERSION
+
+    @classmethod
+    def defaultInternalDict(cls) -> Dict[str, Any]:
+        """Returns a fresh dictionary of all internal default configuration values."""
+        return cls().snapshotForStream()
 
     def snapshotForStream(self) -> Dict[str, Any]:
         """Returns a shallow-copied snapshot of CFG with mutable collections cloned so SSE serialization never races."""
@@ -176,19 +196,55 @@ class SuiteConfig:
         return out
 
     def save(self, configFile: Path) -> None:
+        self.configVersion = CONFIG_SCHEMA_VERSION
         atomicWrite(configFile, json.dumps(self.__dict__, indent=2))
 
     @classmethod
     def load(cls, configFile: Path) -> "SuiteConfig":
+        """Loads `configFile`, creating internal defaults for first-time users or migrating/repopulating missing keys on update."""
         cfg = cls()
         target = configFile
+        migratedFromRoot = False
         if not target.exists() and (target.parent.parent / target.name).exists():
             target = target.parent.parent / target.name
-        if target.exists():
+            migratedFromRoot = True
+
+        if not target.exists():
+            # First-time user: materialize internal default config to disk
             try:
-                raw = json.loads(target.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    cfg.applyDict(raw)
+                cfg.save(configFile)
+            except Exception:
+                pass
+            return cfg
+
+        needsMigrationSave = migratedFromRoot
+        try:
+            raw = json.loads(target.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                cfg.applyDict(raw)
+                # Check if any new schema keys, new algorithm layer keys, legacy keys, or version stamp need repopulating
+                if raw.get("configVersion") != CONFIG_SCHEMA_VERSION:
+                    needsMigrationSave = True
+                elif any(k in raw for k in LEGACY_CONFIG_KEYS):
+                    needsMigrationSave = True
+                elif any(k not in raw for k in cfg.__dict__):
+                    needsMigrationSave = True
+                elif isinstance(raw.get("layers"), dict) and any(a not in raw["layers"] for a in DEFAULT_ALGO_IDS):
+                    needsMigrationSave = True
+            else:
+                needsMigrationSave = True
+        except Exception:
+            # Back up corrupted config file before repopulating defaults so user file is never lost
+            try:
+                bakPath = configFile.with_suffix(".json.bak")
+                shutil.copy2(target, bakPath)
+            except Exception:
+                pass
+            needsMigrationSave = True
+
+        if needsMigrationSave:
+            try:
+                cfg.save(configFile)
             except Exception:
                 pass
         return cfg
