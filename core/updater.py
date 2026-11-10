@@ -14,8 +14,7 @@ import zlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from core.config import SuiteConfig
-from core.security import verifyBrandAssets
+from core.config import APP_VERSION, DEFAULT_ALGO_IDS, SuiteConfig
 
 INTEGRITY_MAGIC = "LMY_INTEGRITY_V1:"
 
@@ -38,43 +37,19 @@ CORE_SERVICES_FILES: Tuple[str, ...] = (
     "core/requirements.txt",
 )
 
-CORE_FUNCTIONS_FILES: Tuple[str, ...] = (
+STEGO_FILES: Tuple[str, ...] = (
     "stego/__init__.py",
     "stego/lsb.py",
     "stego/mark.py",
-    "algos/anti_i2v/algo.py",
-    "algos/anti_inpainting/algo.py",
-    "algos/antiprompt/algo.py",
-    "algos/antipure/algo.py",
-    "algos/blurguard/algo.py",
-    "algos/chronolock/algo.py",
-    "algos/decontext/algo.py",
-    "algos/decontext_cad/algo.py",
-    "algos/diffusionguard/algo.py",
-    "algos/diffvax/algo.py",
-    "algos/fastprotect/algo.py",
-    "algos/fastprotect_tcuap/algo.py",
-    "algos/genptw/algo.py",
-    "algos/genptw_tagwm/algo.py",
-    "algos/idguardian/algo.py",
-    "algos/idprotector/algo.py",
-    "algos/impress/algo.py",
-    "algos/metacloak/algo.py",
-    "algos/mirage/algo.py",
-    "algos/mist/algo.py",
-    "algos/mistv2/algo.py",
-    "algos/obliviate/algo.py",
-    "algos/photoguard/algo.py",
-    "algos/promptflare/algo.py",
-    "algos/srim/algo.py",
-    "algos/tag_wm/algo.py",
-    "algos/tc_uap/algo.py",
-    "algos/veto/algo.py",
-    "algos/veto/vetoConfig.py",
-    "algos/veto/vetoHook.py",
-    "algos/veto/vetoTrajectory.py",
-    "algos/vid_freeze/algo.py",
 )
+
+
+def coreFunctionFiles(rootDir: Path) -> Tuple[str, ...]:
+    """Stego modules plus every .py inside the built-in algo folders (custom user algos are not program files)."""
+    algoFiles = [p.relative_to(rootDir).as_posix() for aid in DEFAULT_ALGO_IDS for p in (rootDir / "algos" / aid).glob("*.py")]
+    # Sorted: the group checksum depends on order, and the writer and the checker must agree.
+    return tuple(sorted([*STEGO_FILES, *algoFiles]))
+
 
 SCRIPT_PILLAR_FILES: Tuple[str, ...] = (
     "run.bat",
@@ -169,11 +144,11 @@ def _loadIntegrityHashes(manifestPath: Optional[Path]) -> Tuple[str, Dict[str, T
         return "", {}
 
 
-def writeIntegrityFile(rootDir: Path, versionStr: str = "v0.6.073.8820") -> Path:
+def writeIntegrityFile(rootDir: Path, versionStr: str = APP_VERSION) -> Path:
     """Generates and writes `core/integrity.lmy` with embedded version and file checksums."""
-    cleanVer = (versionStr or "v0.6.073.8820").split()[0].strip()
+    cleanVer = (versionStr or APP_VERSION).split()[0].strip()
     serviceEntries = [(rel, *hashFileDigests(rootDir / rel)) for rel in CORE_SERVICES_FILES if (rootDir / rel).is_file()]
-    funcEntries = [(rel, *hashFileDigests(rootDir / rel)) for rel in CORE_FUNCTIONS_FILES if (rootDir / rel).is_file()]
+    funcEntries = [(rel, *hashFileDigests(rootDir / rel)) for rel in coreFunctionFiles(rootDir) if (rootDir / rel).is_file()]
     scriptEntries = [(rel, *hashFileDigests(rootDir / rel)) for rel in SCRIPT_PILLAR_FILES if (rootDir / rel).is_file()]
     serviceSum = _computeLumpSum(serviceEntries)
     funcSum = _computeLumpSum(funcEntries)
@@ -201,9 +176,9 @@ def resolveReleaseNoteFile(rootDir: Path, versionStr: str = "") -> Optional[Path
     return None
 
 
-def computeProgramIntegrity(rootDir: Path, versionStr: str = "v0.6.073.8820") -> Dict[str, Any]:
+def computeProgramIntegrity(rootDir: Path, versionStr: str = APP_VERSION) -> Dict[str, Any]:
     """Computes per-file and group SHA-256 & MD5 hashes and validates them against `core/integrity.lmy`."""
-    cleanVer = (versionStr or "v0.6.073.8820").split()[0].strip()
+    cleanVer = (versionStr or APP_VERSION).split()[0].strip()
     releaseFile = resolveReleaseNoteFile(rootDir, cleanVer)
     manifestVer, expectedMap = _loadIntegrityHashes(releaseFile)
 
@@ -251,7 +226,10 @@ def computeProgramIntegrity(rootDir: Path, versionStr: str = "v0.6.073.8820") ->
             )
 
     processGroup(CORE_SERVICES_FILES, "core-services", False, serviceEntries)
-    processGroup(CORE_FUNCTIONS_FILES, "core-functions", False, funcEntries)
+    # Files the manifest expects are kept in the list, so a deleted algo file still reports MISSING.
+    expectedFunc = (k for k in expectedMap if k.startswith(("algos/", "stego/")))
+    funcFiles = tuple(sorted(set(coreFunctionFiles(rootDir)).union(expectedFunc)))
+    processGroup(funcFiles, "core-functions", False, funcEntries)
     processGroup(SCRIPT_PILLAR_FILES, "executables", False, scriptEntries)
 
     serviceLump = _computeLumpSum(serviceEntries)
@@ -267,7 +245,7 @@ def computeProgramIntegrity(rootDir: Path, versionStr: str = "v0.6.073.8820") ->
         },
         "core": {
             "key": "core-functions",
-            "count": len(CORE_FUNCTIONS_FILES),
+            "count": len(funcFiles),
             **funcLump,
             "status": "VERIFIED",
         },
@@ -357,9 +335,9 @@ def _extractRemoteVersion(rootDir: Path) -> str:
     return ""
 
 
-def checkRemoteUpdate(rootDir: Path, versionStr: str = "v0.6.073.8820", fetchRemote: bool = True) -> Dict[str, Any]:
+def checkRemoteUpdate(rootDir: Path, versionStr: str = APP_VERSION, fetchRemote: bool = True) -> Dict[str, Any]:
     """Inspects local Git state, verifies remote origin against allowlist, and checks for incoming commits on origin/main."""
-    localVersion = (versionStr or "v0.6.073.8820").split()[0].strip()
+    localVersion = (versionStr or APP_VERSION).split()[0].strip()
     integrity = computeProgramIntegrity(rootDir, versionStr)
     if not (rootDir / ".git").exists():
         return {
@@ -440,7 +418,7 @@ def checkRemoteUpdate(rootDir: Path, versionStr: str = "v0.6.073.8820", fetchRem
         }
 
 
-def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: str = "v0.6.073.8820") -> Dict[str, Any]:
+def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: str = APP_VERSION) -> Dict[str, Any]:
     """Executes a protected fast-forward GitHub update with pre-flight remote verification, auto-stash, syntax & asset validation, and rollback on failure."""
     status = checkRemoteUpdate(rootDir, versionStr=versionStr, fetchRemote=True)
     if not status.get("remoteTrusted"):
@@ -525,13 +503,10 @@ def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: s
     except Exception as exc:
         return rollback(f"Post-update syntax verification failed ({exc}).")
 
-    # Post-update gate 2: UI and brand asset check
+    # Post-update gate 2: the UI must exist. Brand files are not compared here: an update may legitimately ship new ones.
     uiPath = (rootDir / "core" / "ui.html") if (rootDir / "core" / "ui.html").is_file() else (rootDir / "ui.html")
     if not uiPath.is_file():
         return rollback("Post-update check failed: core/ui.html is missing.")
-    brandRep = verifyBrandAssets(rootDir)
-    if not brandRep.get("ok", True):
-        return rollback("Brand asset SHA-256 verification failed.")
 
     # Sync non-Torch requirements if core/requirements.txt changed
     depsSynced: List[str] = []

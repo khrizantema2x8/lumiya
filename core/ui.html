@@ -8,14 +8,45 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<script>
+  try {
+    var _initTheme = localStorage.getItem('lumiyaTheme') || 'carbon';
+    document.documentElement.setAttribute('data-theme', _initTheme);
+  } catch(e) {}
+</script>
 <style>
-  :root {
+  /* ======================================================================= */
+  /* THEMES PALETTES                                                         */
+  /* Carbon (Original) + Previous Themes + New Amere Variants                */
+  /* ======================================================================= */
+  :root, :root[data-theme="carbon"], [data-theme="carbon"] {
     color-scheme: dark;
+    --theme-id: "carbon";
     --bg: #161616;
+    --header-bg: #0f0f0f;
+    --brand-bg: #0f0f0f;
     --panel: #262626;
     --panelAlt: #1f1f1f;
+    --panelHover: #2d2d2d;
+    --panelDark: #141414;
     --line: #393939;
     --lineStrong: #525252;
+    --inspect-grid: #1a1a1a;
+    --telemetry-bg: #262626;
+    --telemetry-graph-bg: #181818;
+    --history-row-bg: #262626;
+    --drop-bg: #262626;
+    --drop-hover-bg: #2d2d2d;
+    --dots-bg: #262626;
+    --split-drop-bg: #141414;
+    --input-bg: #141414;
+    --tab-bg: #141414;
+    --tab-hover-bg: #1f1f1f;
+    --scrollbar-track: #141414;
+    --scrollbar-thumb: #3d3d3d;
+    --scrollbar-thumb-hover: #585858;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #393939;
     --fg: #f4f4f4;
     --muted: #c6c6c6;
     --dim: #8d8d8d;
@@ -25,6 +56,176 @@
     --green: #42be65;
     --yellow: #f1c21b;
     --red: #fa4d56;
+    --cyan: #3ddbd9;
+  }
+  :root[data-theme="blue_steel"], [data-theme="blue_steel"] {
+    --theme-id: "blue_steel";
+    --bg: #152326;
+    --header-bg: #0c1113;
+    --brand-bg: #0c1113;
+    --panel: #0e1c1f;
+    --panelAlt: #081214;
+    --panelHover: #16282c;
+    --panelDark: #070e10;
+    --line: #182c30;
+    --lineStrong: #243e44;
+    --inspect-grid: #19272a;
+    --telemetry-bg: #0e1c1f;
+    --telemetry-graph-bg: #060b0c;
+    --history-row-bg: #0e1c1f;
+    --drop-bg: #0e1c1f;
+    --drop-hover-bg: #16282c;
+    --dots-bg: #0e1c1f;
+    --split-drop-bg: #070e10;
+    --input-bg: #070e10;
+    --tab-bg: #0b1416;
+    --tab-hover-bg: #122124;
+    --scrollbar-track: #0a1314;
+    --scrollbar-thumb: #1b3035;
+    --scrollbar-thumb-hover: #28444b;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #233337;
+  }
+  :root[data-theme="tropical"], [data-theme="tropical"] {
+    --theme-id: "tropical";
+    --bg: #2a3227;
+    --header-bg: #101a13;
+    --brand-bg: #101a13;
+    --panel: #1e2f25;
+    --panelAlt: #15221b;
+    --panelHover: #273e31;
+    --panelDark: #0e1814;
+    --line: #243a2d;
+    --lineStrong: #355240;
+    --inspect-grid: #2e362b;
+    --telemetry-bg: #1e2f25;
+    --telemetry-graph-bg: #111a14;
+    --history-row-bg: #1e2f25;
+    --drop-bg: #1e2f25;
+    --drop-hover-bg: #273e31;
+    --dots-bg: #1e2f25;
+    --split-drop-bg: #0e1814;
+    --input-bg: #0e1814;
+    --tab-bg: #0f1915;
+    --tab-hover-bg: #1a2c22;
+    --scrollbar-track: #0e1814;
+    --scrollbar-thumb: #26392c;
+    --scrollbar-thumb-hover: #395240;
+    --theme-active-border: #42be65;
+    --right-divider: #393939;
+  }
+  :root[data-theme="freshen"], [data-theme="freshen"] {
+    --theme-id: "freshen";
+    --bg: #083530;
+    --header-bg: #002118;
+    --brand-bg: #002118;
+    --panel: #02362b;
+    --panelAlt: #00221b;
+    --panelHover: #034839;
+    --panelDark: #001a14;
+    --line: #064336;
+    --lineStrong: #0c5e4c;
+    --inspect-grid: #0c3934;
+    --telemetry-bg: #02362b;
+    --telemetry-graph-bg: #001611;
+    --history-row-bg: #02362b;
+    --drop-bg: #02362b;
+    --drop-hover-bg: #034839;
+    --dots-bg: #02362b;
+    --split-drop-bg: #001a14;
+    --input-bg: #001a14;
+    --tab-bg: #001d16;
+    --tab-hover-bg: #023126;
+    --scrollbar-track: #001a14;
+    --scrollbar-thumb: #044336;
+    --scrollbar-thumb-hover: #0c624f;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #4b5956;
+  }
+  /* --- Amere Variants (Deep Mockup-Calibrated Undertones) --- */
+  :root[data-theme="blue_steel_amere"], [data-theme="blue_steel_amere"] {
+    --theme-id: "blue_steel_amere";
+    --bg: #0d1718;
+    --header-bg: #0d1111;
+    --brand-bg: #0d1111;
+    --panel: #132527;
+    --panelAlt: #0a1719;
+    --panelHover: #182e30;
+    --panelDark: #070e0f;
+    --line: #1b3035;
+    --lineStrong: #28444b;
+    --inspect-grid: #111b1c;
+    --telemetry-bg: #132527;
+    --telemetry-graph-bg: #070d0e;
+    --history-row-bg: #132527;
+    --drop-bg: #132527;
+    --drop-hover-bg: #182e30;
+    --dots-bg: #132527;
+    --split-drop-bg: #070e0f;
+    --input-bg: #070e0f;
+    --tab-bg: #0b1416;
+    --tab-hover-bg: #122124;
+    --scrollbar-track: #0a1314;
+    --scrollbar-thumb: #1b3035;
+    --scrollbar-thumb-hover: #28444b;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #28444b;
+  }
+  :root[data-theme="tropical_amere"], [data-theme="tropical_amere"] {
+    --theme-id: "tropical_amere";
+    --bg: #14221b;
+    --header-bg: #121a16;
+    --brand-bg: #121a16;
+    --panel: #213124;
+    --panelAlt: #16231a;
+    --panelHover: #2a3d2e;
+    --panelDark: #0f1914;
+    --line: #283e30;
+    --lineStrong: #3d5a47;
+    --inspect-grid: #18261f;
+    --telemetry-bg: #213124;
+    --telemetry-graph-bg: #121c15;
+    --history-row-bg: #213124;
+    --drop-bg: #213124;
+    --drop-hover-bg: #2a3d2e;
+    --dots-bg: #213124;
+    --split-drop-bg: #0f1914;
+    --input-bg: #0f1914;
+    --tab-bg: #0f1915;
+    --tab-hover-bg: #1a2c22;
+    --scrollbar-track: #0e1814;
+    --scrollbar-thumb: #26392c;
+    --scrollbar-thumb-hover: #395240;
+    --theme-active-border: #42be65;
+    --right-divider: #364d3c;
+  }
+  :root[data-theme="freshen_amere"], [data-theme="freshen_amere"] {
+    --theme-id: "freshen_amere";
+    --bg: #002921;
+    --header-bg: #002118;
+    --brand-bg: #002118;
+    --panel: #063d37;
+    --panelAlt: #032b26;
+    --panelHover: #094e46;
+    --panelDark: #001f19;
+    --line: #0a4d42;
+    --lineStrong: #126f5f;
+    --inspect-grid: #042d25;
+    --telemetry-bg: #063d37;
+    --telemetry-graph-bg: #001913;
+    --history-row-bg: #063d37;
+    --drop-bg: #063d37;
+    --drop-hover-bg: #094e46;
+    --dots-bg: #063d37;
+    --split-drop-bg: #001f19;
+    --input-bg: #001f19;
+    --tab-bg: #001d16;
+    --tab-hover-bg: #023126;
+    --scrollbar-track: #001a14;
+    --scrollbar-thumb: #044336;
+    --scrollbar-thumb-hover: #0c624f;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #4b5956;
   }
   * {
     box-sizing: border-box;
@@ -32,23 +233,23 @@
     padding: 0;
     border-radius: 0 !important;
     scrollbar-width: thin;
-    scrollbar-color: #3d3d3d #141414;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
   ::-webkit-scrollbar {
     width: 6px;
     height: 0px;
   }
   ::-webkit-scrollbar-track {
-    background: #141414;
+    background: var(--scrollbar-track);
   }
   ::-webkit-scrollbar-thumb {
-    background: #3d3d3d;
+    background: var(--scrollbar-thumb);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #585858;
+    background: var(--scrollbar-thumb-hover);
   }
   ::-webkit-scrollbar-corner {
-    background: #141414;
+    background: var(--scrollbar-track);
   }
   html, body {
     height: 100vh;
@@ -68,7 +269,7 @@
   header {
     height: 50px;
     flex-shrink: 0;
-    background: #0f0f0f;
+    background: var(--header-bg);
     border-bottom: 1px solid var(--line);
     display: flex;
     align-items: stretch;
@@ -83,7 +284,7 @@
     align-items: center;
     gap: 10px;
     border-right: 1px solid var(--line);
-    background: var(--bg);
+    background: var(--header-bg);
     overflow: visible;
   }
   .brand-logo-img {
@@ -103,7 +304,7 @@
   .browser-tabs { display: flex; align-items: stretch; }
   .tab-btn {
     padding: 0 24px;
-    background: #141414;
+    background: var(--tab-bg);
     color: var(--muted);
     border: none;
     border-right: 1px solid var(--line);
@@ -115,7 +316,7 @@
     display: flex;
     align-items: center;
   }
-  .tab-btn:hover { background: #1f1f1f; color: var(--fg); }
+  .tab-btn:hover { background: var(--tab-hover-bg); color: var(--fg); }
   .tab-btn.active { background: var(--bg); color: var(--fg); border-top: 2px solid var(--blue); }
   .header-right { display: flex; align-items: center; gap: 10px; }
   .folder-tag {
@@ -229,6 +430,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: none;
+    contain: paint;
   }
 
   /* Workspace Layout */
@@ -241,6 +443,7 @@
     overflow: hidden;
   }
   .left {
+    background: transparent;
     border-right: 1px solid var(--line);
     padding: 20px 22px;
     display: flex;
@@ -271,6 +474,9 @@
     align-items: center;
     gap: 10px;
   }
+  .right .heading {
+    border-bottom: 1px solid var(--right-divider, var(--line));
+  }
 
   .drop {
     background: var(--panel);
@@ -280,7 +486,7 @@
     cursor: pointer;
     margin-bottom: 18px;
   }
-  .drop:hover, .drop.active { background: #2d2d2d; border-color: var(--blue); }
+  .drop:hover, .drop.active { background: var(--panelHover); border-color: var(--blue); }
   .drop p { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .upload-spinner-box {
     display: none;
@@ -328,7 +534,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--lineStrong);
-    background: #141414;
+    background: var(--panelDark);
     margin-bottom: 4px;
   }
   .layer-list.disabled, .param-group-disabled {
@@ -351,7 +557,7 @@
     text-align: left;
   }
   .layer-opt:last-child { border-bottom: none; }
-  .layer-opt:hover { background: #1f1f1f; color: var(--fg); }
+  .layer-opt:hover { background: var(--panelHover); color: var(--fg); }
   .layer-opt.enabled { background: var(--blue); color: #fff; font-weight: 600; }
   .layer-opt-name {
     flex: 1;
@@ -425,7 +631,7 @@
   }
   .enclosed-text-box {
     width: 100%;
-    background: #141414;
+    background: var(--input-bg, var(--panelDark));
     border: 1px solid var(--lineStrong);
     color: var(--fg);
     padding: 8px 10px;
@@ -501,7 +707,7 @@
   .param-inline-input {
     width: 44px;
     height: 20px;
-    background: #141414;
+    background: var(--input-bg, var(--panelDark));
     border: 1px solid var(--blue);
     border-radius: 0;
     box-shadow: none;
@@ -549,7 +755,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--lineStrong);
-    background: #141414;
+    background: var(--panelDark);
     margin-bottom: 8px;
   }
   .stego-opt {
@@ -568,7 +774,7 @@
     white-space: nowrap;
   }
   .stego-opt:last-child { border-bottom: none; }
-  .stego-opt:hover { background: #1f1f1f; color: var(--fg); }
+  .stego-opt:hover { background: var(--panelHover); color: var(--fg); }
   .stego-opt.active { background: var(--blue); color: #fff; font-weight: 600; }
   .stego-opt .info-tooltip { left: auto; right: 0; bottom: 22px; width: 265px; }
   .hdr-version-badge {
@@ -577,20 +783,21 @@
     color: var(--dim);
     padding: 4px 10px;
     border: 1px solid var(--line);
-    background: #141414;
+    background: var(--panelDark);
     white-space: nowrap;
   }
+  .hdr-version-badge:empty { visibility: hidden; }
 
   .telemetry-box {
     background: var(--panel);
-    border: 1px solid var(--line);
+    border: 1px solid var(--lineStrong);
     padding: 16px 20px;
     margin-bottom: 24px;
     position: relative;
   }
   .telemetry-top { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 13px; margin-bottom: 10px; }
   .dots-btn {
-    background: var(--panelAlt);
+    background: var(--panel);
     border: 1px solid var(--lineStrong);
     color: var(--fg);
     width: 28px;
@@ -608,7 +815,7 @@
     top: 44px;
     right: 20px;
     width: 390px;
-    background: #1a1a1a;
+    background: var(--panel);
     border: 1px solid var(--lineStrong);
     padding: 14px;
     z-index: 250;
@@ -620,13 +827,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 7px 0;
-    border-bottom: 1px solid #2a2a2a;
+    border-bottom: 1px solid var(--line);
     font-size: 12px;
   }
   .sensor-row:last-child { border-bottom: none; }
   .sensor-controls { display: flex; align-items: center; gap: 8px; }
   .style-toggle {
-    background: #262626;
+    background: var(--panelAlt);
     border: 1px solid var(--lineStrong);
     color: var(--muted);
     font-family: 'IBM Plex Mono', monospace;
@@ -649,7 +856,7 @@
   .graph-wrap {
     width: 100%;
     height: 104px;
-    background: #181818;
+    background: var(--telemetry-graph-bg);
     border: 1px solid var(--line);
     margin-bottom: 12px;
     position: relative;
@@ -662,7 +869,7 @@
   .queue-container { margin-bottom: 24px; }
   .batch-node {
     background: var(--panel);
-    border: 1px solid var(--line);
+    border: 1px solid var(--lineStrong);
     margin-bottom: 10px;
   }
   .batch-node.selected { border-color: var(--blue); }
@@ -720,15 +927,15 @@
     line-height: 1;
     vertical-align: middle;
   }
-  .q-btn:hover:not(:disabled) { border-color: var(--blue); background: #2d2d2d; }
+  .q-btn:hover:not(:disabled) { border-color: var(--blue); background: var(--panelHover); }
   .q-btn:disabled {
-    background: #222;
+    background: var(--panelDark);
     border-color: var(--line);
-    color: #666;
+    color: var(--dim);
     cursor: not-allowed;
   }
   .q-btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-  .q-btn.primary:disabled { background: #262626; border-color: var(--line); color: #666; }
+  .q-btn.primary:disabled { background: var(--panel); border-color: var(--line); color: var(--dim); }
   .q-btn.danger:hover:not(:disabled) { border-color: var(--red); background: var(--red); color: #fff; }
 
   .run-lock-wrap { position: relative; display: inline-flex; align-items: center; gap: 5px; }
@@ -780,12 +987,12 @@
     align-items: center;
     justify-content: space-between;
     padding: 6px 16px 6px 28px;
-    border-bottom: 1px solid #2e2e2e;
+    border-bottom: 1px solid var(--line);
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
     cursor: grab;
   }
-  .file-row:hover { background: #2c2c2c; }
+  .file-row:hover { background: var(--panelHover); }
   .file-row.drag-over { border-top: 2px solid var(--blue); background: #192a48; }
   .file-row:last-child { border-bottom: none; }
   .file-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; overflow: hidden; margin-right: 12px; }
@@ -826,7 +1033,7 @@
     padding: 0 8px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    background: #1f1f1f;
+    background: var(--panelAlt);
     border: 1px solid var(--lineStrong);
     color: var(--muted);
     cursor: pointer;
@@ -844,7 +1051,7 @@
     position: absolute;
     right: 0;
     top: 28px;
-    background: #111;
+    background: var(--panelDark);
     border: 1px solid var(--blue);
     padding: 6px;
     z-index: 500;
@@ -856,7 +1063,7 @@
 
   .split-batch-dropzone {
     border: 1px dashed var(--lineStrong);
-    background: #1b1b1b;
+    background: var(--panelDark);
     padding: 10px;
     text-align: center;
     font-family: 'IBM Plex Mono', monospace;
@@ -1033,7 +1240,7 @@
   .algo-list-wrap:not(.grid-mode) .algo-tree-item:hover,
   .algo-list-wrap:not(.grid-mode) .algo-tree-item.active {
     border-color: var(--blue);
-    background: #1f2738;
+    background: var(--panelHover);
   }
   /* Grid mode ONLY: gold outline ONLY on favorited items for easier distinction (no blue reader selection outline) */
   .algo-list-wrap.grid-mode .algo-tree-item,
@@ -1043,15 +1250,15 @@
   }
   .algo-list-wrap.grid-mode .algo-tree-item:hover {
     border-color: var(--lineStrong);
-    background: #2d2d2d;
+    background: var(--panelHover);
   }
   .algo-list-wrap.grid-mode .algo-tree-item.fav-item,
   .algo-list-wrap.grid-mode .algo-tree-item.fav-item.active {
     border: 1px solid var(--gold);
   }
   .algo-list-wrap.grid-mode .algo-tree-item.fav-item:hover {
-    border-color: #ffe8a3;
-    background: #282315;
+    border-color: var(--gold);
+    background: var(--panelHover);
   }
   .algo-subline {
     font-size: 11px;
@@ -1117,7 +1324,7 @@
     background: #282828;
   }
   .fav-star-btn {
-    background: #161616;
+    background: var(--bg);
     border: 1px solid var(--lineStrong);
     color: var(--dim);
     font-family: 'IBM Plex Mono', monospace;
@@ -1133,7 +1340,7 @@
   .view-switch {
     display: inline-flex;
     border: 1px solid var(--lineStrong);
-    background: #141414;
+    background: var(--panelDark);
   }
   .switch-opt {
     padding: 4px 12px;
@@ -1221,10 +1428,10 @@
   table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); }
   th, td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; }
   th { background: var(--panelAlt); color: var(--muted); font-size: 11px; text-transform: uppercase; font-family: 'IBM Plex Mono', monospace; }
-  .hist-batch-row { background: #1e1e1e; cursor: pointer; user-select: none; }
-  .hist-batch-row:hover { background: #292929; }
+  .hist-batch-row { background: var(--history-row-bg); cursor: pointer; user-select: none; }
+  .hist-batch-row:hover { background: var(--panelHover); }
   .hist-file-row { background: var(--panel); }
-  .hist-file-row:hover { background: #2c2c2c; }
+  .hist-file-row:hover { background: var(--panelHover); }
   .tag {
     display: inline-block;
     padding: 2px 8px;
@@ -1269,7 +1476,7 @@
     min-width: 0;
   }
   .cfg-input, select {
-    background: #161616;
+    background: var(--input-bg);
     border: 1px solid var(--lineStrong);
     color: var(--fg);
     padding: 6px 10px;
@@ -1315,6 +1522,97 @@
     line-height: 1.6;
   }
 
+  /* Themes Panel & Cards */
+  .theme-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-top: 14px;
+  }
+  @media (max-width: 1100px) {
+    .theme-selector-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .collapsible-panel .heading {
+    cursor: pointer;
+    user-select: none;
+  }
+  .collapsible-panel.collapsed .collapsible-body {
+    display: none;
+  }
+  .collapsible-panel .lr-chevron {
+    display: inline-block;
+    width: 12px;
+    color: var(--gold);
+    transition: transform 0.15s ease;
+    margin-right: 6px;
+  }
+  .collapsible-panel.collapsed .lr-chevron {
+    transform: rotate(-90deg);
+  }
+  .reload-icon {
+    display: inline-block;
+    font-size: 14px;
+    line-height: 1;
+    margin-right: 4px;
+    transition: transform 0.4s ease;
+  }
+  .reload-icon.spinning {
+    transform: rotate(360deg);
+  }
+  .theme-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .theme-card:hover {
+    opacity: 0.95;
+  }
+  .theme-preview-box {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: var(--panelAlt);
+    border: 2px solid transparent;
+    outline: 1px solid var(--line);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: border-color 0.15s ease, outline-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .theme-card:hover .theme-preview-box {
+    outline-color: var(--lineStrong);
+  }
+  .theme-card.active .theme-preview-box {
+    border: 2px solid var(--theme-active-border, var(--cyan));
+    outline: 1px solid var(--theme-active-border, var(--cyan));
+    box-shadow: 0 0 14px rgba(61, 219, 217, 0.35);
+  }
+  .theme-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    image-rendering: smooth;
+  }
+  .theme-name {
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--fg);
+    text-align: center;
+    transition: color 0.15s ease;
+  }
+  .theme-card.active .theme-name {
+    color: var(--theme-active-border, var(--cyan));
+  }
+
   .modal-backdrop {
     display: none;
     position: fixed;
@@ -1353,7 +1651,7 @@
     min-width: 0;
     min-height: 0;
     height: 100%;
-    background: #1a1a1a;
+    background: var(--bg);
     overflow: hidden;
     user-select: none;
   }
@@ -1367,7 +1665,7 @@
     border-bottom: 1px solid var(--line);
   }
   .insp-left {
-    background: #202020;
+    background: var(--panel);
     border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
@@ -1376,7 +1674,7 @@
     overscroll-behavior: none;
   }
   .insp-panel-hdr {
-    background: #181818;
+    background: var(--panelAlt);
     padding: 9px 14px;
     border-bottom: 1px solid var(--line);
     border-top: 1px solid var(--line);
@@ -1395,7 +1693,7 @@
   .insp-panel-hdr:first-child { border-top: none; }
   .insp-nav-box {
     height: 185px;
-    background: #121212;
+    background: var(--panelDark);
     position: relative;
     display: flex;
     align-items: center;
@@ -1413,14 +1711,14 @@
     border: 1px solid transparent;
     cursor: pointer;
   }
-  .insp-preset-btn:hover, .insp-preset-btn.active { color: var(--gold); border-color: var(--lineStrong); background: #262626; }
+  .insp-preset-btn:hover, .insp-preset-btn.active { color: var(--gold); border-color: var(--lineStrong); background: var(--panelHover); }
   .insp-meta-list { padding: 10px 12px; font-size: 11px; font-family: 'IBM Plex Mono', monospace; line-height: 1.75; color: var(--muted); }
-  .insp-meta-row { display: flex; justify-content: space-between; border-bottom: 1px solid #2b2b2b; padding: 2px 0; }
+  .insp-meta-row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 2px 0; }
   .insp-kbd-list { padding: 10px 12px; font-size: 11px; color: var(--muted); line-height: 1.7; }
   .insp-kbd {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
-    background: #141414;
+    background: var(--panelDark);
     border: 1px solid var(--lineStrong);
     padding: 1px 5px;
     color: var(--gold);
@@ -1428,7 +1726,7 @@
   .insp-center {
     display: flex;
     flex-direction: column;
-    background: #282828;
+    background: var(--bg);
     min-width: 0;
     min-height: 0;
   }
@@ -1440,7 +1738,7 @@
     align-items: center;
     justify-content: center;
     cursor: default;
-    background: #282828;
+    background: var(--bg);
   }
   .insp-stage.over-img { cursor: zoom-in; }
   .insp-stage.over-img.zoomed { cursor: grab; }
@@ -1455,12 +1753,12 @@
     justify-content: center;
     pointer-events: auto;
     cursor: pointer;
-    background: rgba(24, 24, 24, 0.72);
+    background: transparent;
     z-index: 10;
     transition: background 0.15s ease;
   }
   .insp-empty-overlay:hover {
-    background: rgba(30, 38, 52, 0.82);
+    background: rgba(255, 255, 255, 0.02);
   }
   .insp-empty-overlay:hover .sad-face-glyph {
     border-color: var(--blue);
@@ -1514,7 +1812,7 @@
     padding: 10px 10px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10.5px;
-    background: #171717;
+    background: var(--panelDark);
     color: var(--muted);
     border: 1px solid var(--lineStrong);
     cursor: pointer;
@@ -1561,7 +1859,7 @@
   .insp-floating-info.open { display: block; }
   .insp-toolbar {
     height: 38px;
-    background: #1c1c1c;
+    background: var(--panelAlt);
     border-top: 1px solid var(--line);
     padding: 0 14px;
     display: flex;
@@ -1576,7 +1874,7 @@
     padding: 4px 9px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    background: #262626;
+    background: var(--panelDark);
     color: var(--muted);
     border: 1px solid var(--lineStrong);
     cursor: pointer;
@@ -1586,7 +1884,7 @@
   .insp-tool-btn:disabled { opacity: 0.35; cursor: not-allowed; filter: grayscale(1); }
   .lr-panel { border-bottom: 1px solid var(--line); }
   .lr-panel > .insp-panel-hdr { cursor: pointer; user-select: none; border-top: none; }
-  .lr-panel > .insp-panel-hdr:hover { background: #222; color: var(--fg); }
+  .lr-panel > .insp-panel-hdr:hover { background: var(--panelHover); color: var(--fg); }
   .lr-panel.collapsed > .lr-panel-body { display: none; }
   .lr-chevron { display: inline-block; width: 12px; color: var(--gold); transition: transform 0.15s ease; }
   .lr-panel.collapsed .lr-chevron { transform: rotate(-90deg); }
@@ -1602,14 +1900,14 @@
     padding: 8px 10px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    background: #151515;
+    background: var(--panelDark);
     color: var(--muted);
     border: 1px solid var(--lineStrong);
     cursor: pointer;
     text-align: left;
     min-width: 0;
   }
-  .lr-grid-btn:hover { background: #222; color: var(--fg); border-color: var(--muted); }
+  .lr-grid-btn:hover { background: var(--panelHover); color: var(--fg); border-color: var(--muted); }
   .lr-grid-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
   .lr-grid-btn.toggle-on { background: #2c2410; color: var(--gold); border-color: var(--gold); font-weight: 600; }
   .lr-slider-block {
@@ -1640,13 +1938,13 @@
     padding: 7px 10px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
-    background: #151515;
+    background: var(--panelDark);
     color: var(--muted);
     border: 1px solid var(--lineStrong);
     cursor: pointer;
     text-align: left;
   }
-  .stego-chan-btn:hover { background: #222; color: var(--fg); border-color: var(--muted); }
+  .stego-chan-btn:hover { background: var(--panelHover); color: var(--fg); border-color: var(--muted); }
   .stego-chan-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); font-weight: 600; }
   .stego-bit-row {
     display: flex;
@@ -1655,7 +1953,7 @@
     margin-top: 2px;
   }
   .stego-hex-box {
-    background: #101010;
+    background: var(--panelDark);
     border: 1px solid var(--line);
     padding: 8px 10px;
     font-family: 'IBM Plex Mono', monospace;
@@ -1669,7 +1967,7 @@
     margin-top: 8px;
   }
   .insp-right {
-    background: #202020;
+    background: var(--panel);
     border-left: 1px solid var(--line);
     display: flex;
     flex-direction: column;
@@ -1679,10 +1977,10 @@
   }
   .insp-hist-box {
     padding: 14px;
-    background: #141414;
+    background: var(--panelDark);
     border-bottom: 1px solid var(--line);
   }
-  .insp-hist-canvas { width: 100%; height: 110px; background: #101010; border: 1px solid var(--line); display: block; }
+  .insp-hist-canvas { width: 100%; height: 110px; background: var(--panelDark); border: 1px solid var(--line); display: block; }
   .insp-forensic-grid {
     display: flex;
     flex-direction: column;
@@ -1693,7 +1991,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--lineStrong);
-    background: #141414;
+    background: var(--panelDark);
   }
   .insp-lens-btn {
     display: flex;
@@ -1716,7 +2014,7 @@
     flex-shrink: 0;
   }
   .insp-lens-btn:last-child { border-bottom: none; }
-  .insp-lens-btn:hover { background: #1f1f1f; color: var(--fg); }
+  .insp-lens-btn:hover { background: var(--panelHover); color: var(--fg); }
   .insp-lens-btn.active { background: var(--blue); color: #fff; font-weight: 600; }
   .insp-lens-btn.active .lens-right > span:first-child { color: rgba(255,255,255,0.92) !important; }
   .insp-lens-btn.toggle-on { background: #2c2410; color: var(--gold); font-weight: 600; }
@@ -1724,7 +2022,7 @@
   .insp-lens-btn.toggle-on .info-icon { border-color: var(--gold); color: var(--gold); }
   .insp-lens-btn .info-tooltip { left: auto; right: 0; bottom: 22px; width: 265px; }
   .insp-filmstrip-wrap {
-    background: #151515;
+    background: var(--panelDark);
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -1736,7 +2034,7 @@
   .insp-filmstrip-bar {
     height: 26px;
     flex-shrink: 0;
-    background: #1c1c1c;
+    background: var(--panelAlt);
     border-bottom: 1px solid var(--line);
     padding: 0 14px;
     display: flex;
@@ -1763,7 +2061,7 @@
   .insp-thumb-card {
     width: 92px;
     height: 78px;
-    background: #222;
+    background: var(--panel);
     border: 2px solid var(--lineStrong);
     position: relative;
     flex-shrink: 0;
@@ -1775,7 +2073,7 @@
     overflow: hidden;
   }
   .insp-thumb-card:hover { border-color: var(--muted); }
-  .insp-thumb-card.active { border-color: var(--gold); background: #2c281b; }
+  .insp-thumb-card.active { border-color: var(--gold); background: var(--panelHover); }
   .insp-thumb-card img { width: 100%; height: 58px; object-fit: cover; display: block; }
   .insp-thumb-lbl {
     width: 100%;
@@ -1837,7 +2135,7 @@
     </div>
   </div>
   <div class="header-right">
-    <span class="hdr-version-badge" id="hdr-version">v0.6.073.8820 (Pilot)</span>
+    <span class="hdr-version-badge" id="hdr-version"></span>
     <button class="q-btn" onclick="sysMaint('run_cleaner')" title="Clean VRAM, RAM Working Set & Temp Files">Clean Memory &amp; Temps</button>
     <button class="q-btn" onclick="sysMaint('restart_service')" title="Clean memory &amp; restart the PORTtralica Lumiya backend service">Restart Service</button>
     <div class="folder-tag" id="folder" onclick="sysMaint('open_results')" title="Open results root folder in foreground">RESULTS: ...</div>
@@ -2068,7 +2366,7 @@
                 </div>
                 <span class="mono param-val-wrap"><span class="param-num-editable" id="v-eps" title="Click to enter custom value" onclick="startParamEdit(event, 'eps')">8.0</span><span class="param-val-denom"> / 32.0</span></span>
               </div>
-              <input type="range" id="r-eps" min="1.0" max="32.0" step="0.5" value="8.0" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-eps" data-bound="epsilon" step="0.5" value="8.0" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>1.0 (Subtle)</span>
                 <span id="l-budget-paper">8.0 (Paper)</span>
@@ -2083,14 +2381,14 @@
               <input type="range" id="r-compute" min="0" max="3" step="1" value="2" oninput="onUnifiedBoxChange()">
               <div class="scale-labels"><span>0.25x (Fast)</span><span id="l-compute-paper">1.0x (Paper)</span><span>2.0x (Max)</span></div>
               <!-- Legacy batch step field: the engine now derives steps from Compute Level. -->
-              <input type="hidden" id="r-steps" value="200"><span id="v-steps" hidden>200</span>
+              <input type="hidden" id="r-steps" data-bound="steps" value="200"><span id="v-steps" hidden>200</span>
             </div>
 
             <div class="field" data-param="seed">
               <div class="field-top"><div class="label-group"><span>Seed</span>
                 <span class="info-icon">i<span class="info-tooltip">Same seed and settings reproduce the same random choices.</span></span>
               </div><button type="button" class="q-btn" onclick="randomizeSeed()">Random</button></div>
-              <input class="cfg-input" type="number" id="s-seed" style="width:100%;" min="0" step="1" value="0" onchange="onUnifiedBoxChange()">
+              <input class="cfg-input" type="number" id="s-seed" data-bound="seed" style="width:100%;" step="1" value="0" onchange="onUnifiedBoxChange()">
             </div>
 
             <div class="field" data-param="text">
@@ -2116,8 +2414,8 @@
                 <span class="mono" id="v-geo">1.7 &ndash; 7.1</span>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <input type="number" class="cfg-input" id="r-geo-low" style="width:100%;" min="1.0" max="8.0" step="0.1" value="1.7" oninput="onUnifiedBoxChange()">
-                <input type="number" class="cfg-input" id="r-geo-high" style="width:100%;" min="1.5" max="10.0" step="0.1" value="7.1" oninput="onUnifiedBoxChange()">
+                <input type="number" class="cfg-input" id="r-geo-low" data-bound="geoAnchorLow" style="width:100%;" step="0.1" value="1.7" oninput="onUnifiedBoxChange()">
+                <input type="number" class="cfg-input" id="r-geo-high" data-bound="geoAnchorHigh" style="width:100%;" step="0.1" value="7.1" oninput="onUnifiedBoxChange()">
               </div>
             </div>
 
@@ -2131,7 +2429,7 @@
                 </div>
                 <span class="mono param-val-wrap"><span class="param-num-editable" id="v-temp-weight" title="Click to enter custom value" onclick="startParamEdit(event, 'temp-weight')">0.50</span></span>
               </div>
-              <input type="range" id="r-temp-weight" min="0.0" max="1.0" step="0.05" value="0.50" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-temp-weight" data-bound="temporalWeight" step="0.05" value="0.50" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>0.0 (Spatial)</span>
                 <span id="l-temp-paper">0.50 (Paper)</span>
@@ -2149,7 +2447,7 @@
                 </div>
                 <span class="mono param-val-wrap"><span class="param-num-editable" id="v-mask-aug" title="Click to enter custom value" onclick="startParamEdit(event, 'mask-aug')">1.00</span><span class="param-val-denom">&times;</span></span>
               </div>
-              <input type="range" id="r-mask-aug" min="0.2" max="2.0" step="0.1" value="1.0" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-mask-aug" data-bound="maskAugFactor" step="0.1" value="1.0" oninput="onUnifiedBoxChange()">
               <div class="scale-labels">
                 <span>0.2&times; (Tight)</span>
                 <span id="l-mask-paper">1.0&times; (Paper)</span>
@@ -2181,12 +2479,12 @@
             </div>
             <div class="field" id="s-stego-strength-field">
               <div class="field-top"><span>Mark Strength</span><span class="mono" id="v-stego-strength">4</span></div>
-              <input type="range" id="r-stego-strength" min="1" max="16" step="1" value="4" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-stego-strength" data-bound="stegoStrength" step="1" value="4" oninput="onUnifiedBoxChange()">
               <div class="scale-labels"><span>1 (Faint)</span><span>Max change per pixel (0-255)</span><span>16</span></div>
             </div>
             <div class="field" id="s-stego-scale-field">
               <div class="field-top"><span>Mark Scale</span><span class="mono" id="v-stego-scale">40%</span></div>
-              <input type="range" id="r-stego-scale" min="5" max="100" step="5" value="40" oninput="onUnifiedBoxChange()">
+              <input type="range" id="r-stego-scale" data-bound="stegoScale" step="5" value="40" oninput="onUnifiedBoxChange()">
               <div class="scale-labels"><span>5%</span><span>100% is the largest fit</span><span>100%</span></div>
             </div>
             <div class="field" id="s-stego-placement-field">
@@ -2713,7 +3011,7 @@
             <span class="info-tooltip">Controls how frequently system sensors and graphs poll hardware (in milliseconds).</span>
           </span>
         </div>
-        <input class="cfg-input" type="number" id="c-poll" min="250" max="5000" step="250" value="1000">
+        <input class="cfg-input" type="number" id="c-poll" data-bound="pollMs" step="250" value="1000">
       </div>
 
       <div class="cfg-row">
@@ -2750,7 +3048,7 @@
             <span class="info-tooltip">Minimum free GPU memory threshold before terminal emits low-VRAM headroom warnings.</span>
           </span>
         </div>
-        <input class="cfg-input" type="number" id="c-vram" min="200" max="4000" step="100" value="600">
+        <input class="cfg-input" type="number" id="c-vram" data-bound="reserveVramMb" step="100" value="600">
       </div>
 
       <div class="cfg-row">
@@ -2760,7 +3058,7 @@
             <span class="info-tooltip">Triggers a yellow warning triangle when hardware temperature stays above this threshold across consecutive checks.</span>
           </span>
         </div>
-        <input class="cfg-input" type="number" id="c-twarn" min="50" max="80" value="62">
+        <input class="cfg-input" type="number" id="c-twarn" data-bound="tempWarnC" value="62">
       </div>
 
       <div class="cfg-row">
@@ -2770,7 +3068,7 @@
             <span class="info-tooltip">Triggers a red thermal-throttling alert when hardware temperature stays above this critical threshold.</span>
           </span>
         </div>
-        <input class="cfg-input" type="number" id="c-tcrit" min="75" max="100" value="85">
+        <input class="cfg-input" type="number" id="c-tcrit" data-bound="tempCritC" value="85">
       </div>
 
       <div class="cfg-row">
@@ -2780,7 +3078,7 @@
             <span class="info-tooltip">Export compression quality with chroma subsampling disabled (4:4:4) so high-frequency defense perturbations are preserved.</span>
           </span>
         </div>
-        <input class="cfg-input" type="number" id="c-jpeg" min="85" max="100" value="98">
+        <input class="cfg-input" type="number" id="c-jpeg" data-bound="jpegQuality" value="98">
       </div>
 
       <div class="cfg-row">
@@ -2850,6 +3148,23 @@
     </div>
   </div>
 
+  <!-- Themes Section -->
+  <div class="about-panel collapsible-panel" id="themes-panel">
+    <div class="heading" onclick="toggleThemePanel(event)">
+      <span><span class="lr-chevron" id="themes-chevron">&#9662;</span> Themes</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="q-btn" id="btn-reload-themes" onclick="reloadThemes(event)" title="Reload Themes from disk" style="display:inline-flex;align-items:center;padding:4px 10px;font-size:11px;">
+          <span class="reload-icon" id="reload-themes-icon">&#x21bb;</span> Reload
+        </button>
+      </div>
+    </div>
+    <div class="collapsible-body" id="themes-body">
+      <div class="theme-selector-grid" id="theme-selector-grid">
+        <!-- Dynamically populated from /api/themes -->
+      </div>
+    </div>
+  </div>
+
   <!-- Application Well-being Section -->
   <div class="about-panel" id="updates-integrity-panel">
     <div class="heading">
@@ -2902,9 +3217,7 @@
       <img src="/identity/lumiya_t.ico" alt="PORTtralica Lumiya Logo" style="height:64px;width:auto;display:block;">
       <div>
         <div style="font-size:18px;font-weight:600;color:var(--fg);letter-spacing:0.3px;">PORTtralica Lumiya Evaluative Suite</div>
-        <div class="mono" style="font-size:12px;color:var(--gold);margin-top:4px;" id="about-version-line">
-          Version v0.6.073.8820 (Pilot) (64-bit)
-        </div>
+        <div class="mono" style="font-size:12px;color:var(--gold);margin-top:4px;" id="about-version-line"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:6px;">
           &copy; 2026 PORTtralica Media Group. All rights reserved.
         </div>
@@ -2999,6 +3312,131 @@
 <div id="global-floating-tooltip"></div>
 
 <script>
+// --listen mode prints the page link with ?token=; every API call carries it back, including <img>, beacon and stream URLs.
+const API_TOKEN = new URLSearchParams(location.search).get('token') || '';
+function apiUrl(url) {
+  return API_TOKEN ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(API_TOKEN)}` : url;
+}
+
+// All server calls go through here so a refused or unreachable request is shown instead of silently doing nothing.
+async function api(url, opts) {
+  let r;
+  try {
+    r = await fetch(apiUrl(url), opts);
+  } catch (e) {
+    showBanner('<strong>&#9650; Server unreachable:</strong> the Lumiya service did not answer. Check the terminal window.', true);
+    throw e;
+  }
+  if (!r.ok) showBanner(`<strong>&#9650; Request refused:</strong> ${url.split('?')[0]} answered ${r.status}${r.status === 403 ? ' (open the page with the link printed in the terminal)' : ''}.`, true);
+  return r;
+}
+
+let currentTheme = localStorage.getItem('lumiyaTheme') || 'carbon';
+let loadedThemes = [];
+let themesMap = {};
+document.documentElement.setAttribute('data-theme', currentTheme);
+
+function applyThemeVariables(colors) {
+  if (!colors || typeof colors !== 'object') return;
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(colors)) {
+    if (k.startsWith('--')) {
+      root.style.setProperty(k, v);
+    }
+  }
+}
+
+function selectTheme(themeId, shouldSave = true) {
+  currentTheme = themeId;
+  document.documentElement.setAttribute('data-theme', themeId);
+  localStorage.setItem('lumiyaTheme', themeId);
+
+  if (themesMap[themeId] && themesMap[themeId].colors) {
+    applyThemeVariables(themesMap[themeId].colors);
+  }
+
+  loadedThemes.forEach(t => {
+    const el = document.getElementById('theme-card-' + t.id);
+    if (el) el.classList.toggle('active', t.id === themeId);
+  });
+
+  if (shouldSave) {
+    api('/api/save_config', {
+      method: 'POST',
+      body: JSON.stringify({ theme: themeId })
+    }).catch(() => {});
+  }
+
+  if (typeof renderInspectStage === 'function') {
+    const inspPage = document.getElementById('page-insp');
+    if (inspPage && inspPage.classList.contains('active')) {
+      renderInspectStage();
+    }
+  }
+}
+
+function renderThemeCards() {
+  const grid = document.getElementById('theme-selector-grid');
+  if (!grid) return;
+  grid.innerHTML = loadedThemes.map(t => {
+    const isActive = t.id === currentTheme;
+    const thumbUrl = t.thumbnail || `/identity/theme/${t.id}.jpg`;
+    return `
+      <div class="theme-card ${isActive ? 'active' : ''}" id="theme-card-${escapeHtml(t.id)}" onclick="selectTheme('${escapeHtml(t.id)}')">
+        <div class="theme-preview-box">
+          <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(t.name)} Theme Preview" onerror="this.onerror=null; this.src='/identity/media/workspace.png'">
+        </div>
+        <div class="theme-name">${escapeHtml(t.name)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function fetchThemes(forceRefresh = false) {
+  try {
+    const url = forceRefresh ? `/api/themes?_t=${Date.now()}` : '/api/themes';
+    const res = await api(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.themes) && data.themes.length > 0) {
+      loadedThemes = data.themes;
+      themesMap = {};
+      loadedThemes.forEach(t => { themesMap[t.id] = t; });
+      renderThemeCards();
+
+      if (themesMap[currentTheme]) {
+        selectTheme(currentTheme, false);
+      } else if (loadedThemes[0]) {
+        selectTheme(loadedThemes[0].id, false);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load dynamic themes:', err);
+  }
+}
+
+function toggleThemePanel(e) {
+  if (e.target.closest('#btn-reload-themes')) return;
+  const panel = document.getElementById('themes-panel');
+  if (panel) panel.classList.toggle('collapsed');
+}
+
+function reloadThemes(e) {
+  if (e) e.stopPropagation();
+  const icon = document.getElementById('reload-themes-icon');
+  if (icon) {
+    icon.classList.add('spinning');
+    setTimeout(() => icon.classList.remove('spinning'), 500);
+  }
+  fetchThemes(true);
+}
+
+window.addEventListener('storage', (e) => {
+  if (e.key === 'lumiyaTheme' && e.newValue && e.newValue !== currentTheme) {
+    selectTheme(e.newValue, false);
+  }
+});
+
 const PALETTE = ['#0f62fe', '#42be65', '#be95ff', '#3ddbd9', '#ff7eb6', '#f1c21b', '#ff832b'];
 const DEP_INFO = {
   torch: "PyTorch (Recommended: 2.15.0, build matched to driver): Core tensor & autograd engine used to backpropagate PGD perturbations through the VAE.",
@@ -3116,7 +3554,7 @@ document.addEventListener('click', () => {
 });
 
 async function debugCmd(cmd, extra = {}) {
-  await fetch('/api/debug_action', {
+  await api('/api/debug_action', {
     method: 'POST',
     body: JSON.stringify({ cmd, ...extra })
   });
@@ -3170,14 +3608,14 @@ async function ingestFiles(fileList) {
   const statusTxt = document.getElementById('upload-status-text');
   spinner.classList.add('active');
 
-  const res = await fetch('/api/create_batch', { method: 'POST' });
+  const res = await api('/api/create_batch', { method: 'POST' });
   const { batchId } = await res.json();
   const issues = [];
 
   for (let i = 0; i < fileList.length; i++) {
     const f = fileList[i];
     statusTxt.innerText = `Uploading (${i + 1}/${fileList.length}): ${f.name}`;
-    const r = await fetch(`/api/upload?batch=${encodeURIComponent(batchId)}&name=${encodeURIComponent(f.name)}`, {
+    const r = await api(`/api/upload?batch=${encodeURIComponent(batchId)}&name=${encodeURIComponent(f.name)}`, {
       method: 'POST',
       body: f
     });
@@ -3257,12 +3695,26 @@ function jumpToAlgoReadme(e, algoId) {
 let paramEditing = {};
 let hasParamError = false;
 
+// Limits come from the input's min/max, which applyServerBounds() sets from core/config.py BOUNDS.
 const PARAM_BOUNDS = {
-  'eps': { min: 1.0, max: 32.0, sliderId: 'r-eps', formatVal: v => v.toFixed(1) },
-  'steps': { min: 15, max: 200, sliderId: 'r-steps', formatVal: v => `${v}` },
-  'temp-weight': { min: 0.0, max: 1.0, sliderId: 'r-temp-weight', formatVal: v => v.toFixed(2) },
-  'mask-aug': { min: 0.2, max: 2.0, sliderId: 'r-mask-aug', formatVal: v => v.toFixed(1) }
+  'eps': { sliderId: 'r-eps', formatVal: v => v.toFixed(1) },
+  'steps': { sliderId: 'r-steps', formatVal: v => `${v}` },
+  'temp-weight': { sliderId: 'r-temp-weight', formatVal: v => v.toFixed(2) },
+  'mask-aug': { sliderId: 'r-mask-aug', formatVal: v => v.toFixed(1) }
 };
+
+let serverBoundsApplied = false;
+function applyServerBounds(bounds, computeLevels) {
+  document.querySelectorAll('[data-bound]').forEach(el => {
+    const b = bounds[el.dataset.bound];
+    if (b) { el.min = b[0]; el.max = b[1]; }
+  });
+  if (computeLevels) {
+    COMPUTE_LEVELS = computeLevels;
+    document.getElementById('r-compute').max = computeLevels.length - 1;
+  }
+  serverBoundsApplied = true;
+}
 
 function closeAllParamEdits(revertInvalid = true) {
   Object.keys(paramEditing).forEach(key => {
@@ -3310,7 +3762,7 @@ function startParamEdit(e, paramKey) {
     const raw = inp.value.trim();
     const val = parseFloat(raw);
     const errPop = document.getElementById(`err-${paramKey}`);
-    if (isNaN(val) || val < def.min || val > def.max) {
+    if (isNaN(val) || val < parseFloat(slider.min) || val > parseFloat(slider.max)) {
       if (forceRevert) {
         delete paramEditing[paramKey];
         hasParamError = false;
@@ -3378,7 +3830,23 @@ function updateNoAlgoBanner(layers, stegoMode) {
 }
 
 let stegoMark = '';
-const COMPUTE_LEVELS = [0.25, 0.5, 1, 2];
+// The stream only carries an id for each batch's mark; the image itself is fetched when it changes, and sent back only after an import.
+let stegoMarkId = null;
+let stegoMarkDirty = false;
+
+async function loadBatchMark(target) {
+  stegoMarkId = target.markId || '';
+  let mark = '';
+  if (stegoMarkId) {
+    const r = await api(`/api/batch_mark?batch=${encodeURIComponent(target.batchId)}`);
+    mark = (await r.json()).mark || '';
+  }
+  if (stegoMarkDirty || (target.markId || '') !== stegoMarkId) return;
+  stegoMark = mark;
+  renderStegoControls();
+}
+// Replaced by the server list (core/config.py CHOICES) on the first stream message.
+let COMPUTE_LEVELS = [0.25, 0.5, 1, 2];
 let lastParamEditAt = 0;
 
 function randomizeSeed() {
@@ -3387,7 +3855,7 @@ function randomizeSeed() {
 }
 
 async function openResultFolder(batch) {
-  const r = await fetch(`/api/open_result?batch=${encodeURIComponent(batch)}`, { method: 'POST' });
+  const r = await api(`/api/open_result?batch=${encodeURIComponent(batch)}`, { method: 'POST' });
   const d = await r.json();
   if (!d.ok) showBanner(`<strong>&#9650; Export Missing:</strong> The folder for ${escapeHtml(batch)} no longer exists.`, true);
 }
@@ -3433,6 +3901,7 @@ function renderStegoControls() {
 
 function setStegoMark(mark) {
   stegoMark = mark;
+  stegoMarkDirty = true;
   document.getElementById('s-stego-msg').innerText = '';
   onUnifiedBoxChange();
 }
@@ -3451,7 +3920,7 @@ function onStegoImageDropped(e) {
 }
 
 async function importStegoImage(file) {
-  const r = await fetch('/api/stego_prepare', { method: 'POST', body: file });
+  const r = await api('/api/stego_prepare', { method: 'POST', body: file });
   const d = await r.json();
   const msg = document.getElementById('s-stego-msg');
   if (d.ok) setStegoMark(d.mark);
@@ -3513,7 +3982,7 @@ function syncUnifiedBoxUI() {
     document.getElementById('r-stego-strength').value = target.stegoStrength ?? 4;
     document.getElementById('r-stego-scale').value = target.stegoScale ?? 40;
     document.getElementById('s-stego-placement').value = target.stegoPlacement || 'center';
-    stegoMark = target.stegoMark || '';
+    if (!stegoMarkDirty && (target.markId || '') !== stegoMarkId) loadBatchMark(target);
     if (promptEl && document.activeElement !== promptEl) {
       promptEl.value = target.guidancePrompt ?? '';
     }
@@ -3561,7 +4030,7 @@ function syncUnifiedBoxUI() {
     if (hiddenOn.length > 0) {
       hiddenOn.forEach(k => { curLayers[k] = false; });
       if (target) batchAction('update_params', target.batchId, { layers: curLayers });
-      else fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: curLayers }) });
+      else api('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: curLayers }) });
     }
     const enabledOrder = Object.keys(curLayers).filter(k => curLayers[k]);
     favList = favList.slice(0, 10);
@@ -3734,7 +4203,7 @@ function applyAlgoSelection(algoId, choice) {
     batchAction('update_params', target.batchId, { layers: layersObj, ...paperUpdates });
   } else {
     defaultLayers = layersObj;
-    fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: defaultLayers, ...paperUpdates }) });
+    api('/api/save_config', { method: 'POST', body: JSON.stringify({ layers: defaultLayers, ...paperUpdates }) });
   }
   lastBatchesSig = '';
   syncUnifiedBoxUI();
@@ -3783,7 +4252,7 @@ function onUnifiedBoxChange() {
     stegoStrength: parseFloat(document.getElementById('r-stego-strength').value),
     stegoScale: parseFloat(document.getElementById('r-stego-scale').value),
     stegoPlacement: document.getElementById('s-stego-placement').value,
-    stegoMark
+    ...(stegoMarkDirty ? { stegoMark } : {})
   };
   renderStegoControls();
 
@@ -3795,11 +4264,13 @@ function onUnifiedBoxChange() {
   if (saveParamsTimer) clearTimeout(saveParamsTimer);
   saveParamsTimer = setTimeout(() => {
     saveParamsTimer = null;
+    stegoMarkDirty = false;
+    stegoMarkId = null;
     const curTarget = getActiveTargetBatch();
     if (curTarget) {
       batchAction('update_params', curTarget.batchId, { ...paramsPayload, layers: curTarget.layers });
     } else {
-      fetch('/api/save_config', { method: 'POST', body: JSON.stringify(paramsPayload) });
+      api('/api/save_config', { method: 'POST', body: JSON.stringify(paramsPayload) });
     }
     lastBatchesSig = '';
   }, 220);
@@ -3988,7 +4459,7 @@ function drawMainGraph() {
 function openLightbox(batchId, fileId, fileName) {
   const modal = document.getElementById('lightbox-modal');
   document.getElementById('lightbox-title').innerText = `Preview: ${fileName}`;
-  document.getElementById('lightbox-img').src = `/api/preview_image?batch=${encodeURIComponent(batchId)}&file=${encodeURIComponent(fileId)}`;
+  document.getElementById('lightbox-img').src = apiUrl(`/api/preview_image?batch=${encodeURIComponent(batchId)}&file=${encodeURIComponent(fileId)}`);
   modal.classList.add('open');
 }
 
@@ -3999,7 +4470,7 @@ function closeLightbox() {
 
 async function checkStegoMessage(e, batchId, fileId, fileName) {
   if (e) e.stopPropagation();
-  const r = await fetch(`/api/check_stego?batch=${encodeURIComponent(batchId)}&file=${encodeURIComponent(fileId)}`);
+  const r = await api(`/api/check_stego?batch=${encodeURIComponent(batchId)}&file=${encodeURIComponent(fileId)}`);
   const d = await r.json();
   const bodyEl = document.getElementById('stego-modal-body');
   const inspBtn = document.getElementById('stego-modal-insp-btn');
@@ -4055,7 +4526,7 @@ function inspectStegoRegionFromPopup(batchId, fileId) {
 }
 
 async function batchAction(action, batchId, extra = {}) {
-  const r = await fetch('/api/batch_action', {
+  const r = await api('/api/batch_action', {
     method: 'POST',
     body: JSON.stringify({ action, batchId, ...extra })
   });
@@ -4161,7 +4632,7 @@ function requestDeleteBatch(e, batchId, isLastFileRemoval = false, fileId = null
 function requestClearHistory() {
   const muteUntil = parseInt(localStorage.getItem('lumiyaMuteHistoryUntil') || '0', 10);
   if (Date.now() < muteUntil) {
-    fetch('/api/clear_history', { method: 'POST' });
+    api('/api/clear_history', { method: 'POST' });
     return;
   }
   const modal = document.getElementById('del-modal');
@@ -4177,7 +4648,7 @@ function requestClearHistory() {
       localStorage.setItem('lumiyaMuteHistoryUntil', (Date.now() + 30 * 60 * 1000).toString());
     }
     closeDelModal();
-    fetch('/api/clear_history', { method: 'POST' });
+    api('/api/clear_history', { method: 'POST' });
   };
 }
 
@@ -4220,7 +4691,7 @@ function renderQueueTree(batches, systemBusy, activeBatchId, majorReady) {
     const isThisRunning = systemBusy && activeBatchId === b.batchId;
     const isLockedByOther = systemBusy && activeBatchId !== b.batchId;
     const hasActiveAlgo = b.layers && Object.values(b.layers).some(Boolean);
-    const hasStegoText = b.stegoPayload === 'image' ? !!b.stegoMark : !!(b.stegoText && b.stegoText.trim().length > 0);
+    const hasStegoText = b.stegoPayload === 'image' ? !!(b.markId || b.stegoMark) : !!(b.stegoText && b.stegoText.trim().length > 0);
     const paramInvalid = hasParamError || (b.stegoMode !== 'only' && !hasActiveAlgo) || ((b.stegoMode === 'combined' || b.stegoMode === 'only') && !hasStegoText);
     const canRunThis = isSelected && (majorReady || b.stegoMode === 'only') && !systemBusy && !paramInvalid;
     const isFinished = b.state === 'COMPLETED' || b.state === 'STOPPED';
@@ -4484,7 +4955,7 @@ async function ingestStandaloneInspectFiles(fileList) {
 
       let stegoRes = { found: false, method: 'None', message: '' };
       try {
-        const r = await fetch(`/api/check_stego_raw?name=${encodeURIComponent(f.name)}`, {
+        const r = await api(`/api/check_stego_raw?name=${encodeURIComponent(f.name)}`, {
           method: 'POST',
           body: f
         });
@@ -4626,7 +5097,7 @@ async function ensureInspectPairLoaded(item) {
         beforeImg = await loadImgPromise(item.standaloneUrl);
         afterImg = beforeImg;
       } else {
-        const baseUrl = `/api/preview_image?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`;
+        const baseUrl = apiUrl(`/api/preview_image?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`);
         beforeImg = await loadImgPromise(baseUrl + '&export=0');
         afterImg = item.hasExport
           ? await loadImgPromise(`${baseUrl}&export=1&rev=${item.exportRev || 0}`).catch(() => beforeImg)
@@ -5169,8 +5640,9 @@ function renderInspectStage() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  // Batched darkroom grid background (single draw call)
-  ctx.strokeStyle = '#222';
+  // Batched darkroom grid background (single draw call, coordinated with theme lookup table)
+  const computedStyle = getComputedStyle(document.documentElement);
+  ctx.strokeStyle = computedStyle.getPropertyValue('--inspect-grid').trim() || '#1a1a1a';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 0; x < W; x += 32) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
@@ -5415,7 +5887,7 @@ async function runInspectStegoScan() {
   if (item.isStandalone && item.standaloneStego) {
     d = item.standaloneStego;
   } else {
-    const r = await fetch(`/api/check_stego?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`);
+    const r = await api(`/api/check_stego?batch=${encodeURIComponent(item.batchId)}&file=${encodeURIComponent(item.fileId)}`);
     d = await r.json();
   }
   const curItem = inspectItems[activeInspectIdx];
@@ -6069,7 +6541,7 @@ let hwSyncHoldUntil = 0;
 
 function toggleHardwareOverride() {
   overrideHardware = !overrideHardware;
-  const save = () => fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ overrideHardware }) });
+  const save = () => api('/api/save_config', { method: 'POST', body: JSON.stringify({ overrideHardware }) });
   const listEl = document.getElementById('org-algo-list');
   clearTimeout(hwCheckTimer);
   // Stream frames still carry the old value until the save lands.
@@ -6134,7 +6606,7 @@ function toggleFavoriteAlgo(e, algoId) {
     }
     favoriteAlgos.push(algoId);
   }
-  fetch('/api/save_config', { method: 'POST', body: JSON.stringify({ favoriteAlgos }) });
+  api('/api/save_config', { method: 'POST', body: JSON.stringify({ favoriteAlgos }) });
   lastBatchesSig = '';
   syncUnifiedBoxUI();
   renderOrganizeTab();
@@ -6275,7 +6747,7 @@ function selectOrgAlgo(id) {
 async function deleteCustomAlgo(e, algoId) {
   e.stopPropagation();
   if (!confirm(`Delete custom algorithm folder 'algos/${algoId}' from disk?`)) return;
-  const r = await fetch('/api/algo_action', {
+  const r = await api('/api/algo_action', {
     method: 'POST',
     body: JSON.stringify({ action: 'delete', algoId })
   });
@@ -6288,7 +6760,7 @@ async function deleteCustomAlgo(e, algoId) {
 }
 
 async function rescanAlgos() {
-  const r = await fetch('/api/rescan_algos', { method: 'POST' });
+  const r = await api('/api/rescan_algos', { method: 'POST' });
   const d = await r.json();
   if (d.algos) {
     discoveredAlgos = d.algos;
@@ -6303,7 +6775,7 @@ function onBackendSelectChange() {
 }
 
 async function loadManifest() {
-  const r = await fetch('/api/manifest');
+  const r = await api('/api/manifest');
   const d = await r.json();
   document.getElementById('manifest-box').innerText = d.manifest;
 }
@@ -6312,12 +6784,12 @@ async function sysMaint(cmd) {
   if (cmd === 'restart_service') {
     showBanner('<strong>&#9650; Restarting Service:</strong> Purging caches and restarting PORTtralica Lumiya backend...', false);
     try {
-      await fetch('/api/system_maint?cmd=restart_service', { method: 'POST' });
+      await api('/api/system_maint?cmd=restart_service', { method: 'POST' });
     } catch (e) {}
     setTimeout(() => window.location.reload(), 1400);
     return;
   }
-  const r = await fetch('/api/system_maint?cmd=' + cmd, { method: 'POST' });
+  const r = await api('/api/system_maint?cmd=' + cmd, { method: 'POST' });
   const d = await r.json();
   if (d.report) {
     showBanner(`<strong>Cleaner Completed:</strong> Freed ${d.report.vramFreedMb} MB cached VRAM, cleared ${d.report.ramBuffersCleared} RAM buffers, removed ${d.report.tempFilesRemoved} temporary files.`, false);
@@ -6339,18 +6811,19 @@ async function executeUninstall(type) {
   if (!confirm(confMsg)) return;
   showBanner(`<strong>&#9650; ${isPurge ? 'Purging Runtime Pillars' : 'Uninstalling Environment'}:</strong> Initiating uninstaller in detached window and shutting down service...`, true);
   try {
-    await fetch(`/api/system_maint?cmd=${type}`, { method: 'POST' });
+    await api(`/api/system_maint?cmd=${type}`, { method: 'POST' });
   } catch (e) {}
 }
 
 window.addEventListener('pagehide', () => {
   try {
-    navigator.sendBeacon('/api/system_maint?cmd=tab_closed');
+    navigator.sendBeacon(apiUrl('/api/system_maint?cmd=tab_closed'));
   } catch (e) {}
 });
 
 function saveGlobalConfig() {
   const payload = {
+    theme: currentTheme,
     computeBackend: document.getElementById('c-backend').value,
     pollMs: parseInt(document.getElementById('c-poll').value, 10),
     workingDim: parseInt(document.getElementById('c-dim').value, 10),
@@ -6365,7 +6838,7 @@ function saveGlobalConfig() {
     autoPaperDefaults: !!document.getElementById('c-auto-paper').checked,
     allowRamSpillover: !!document.getElementById('c-ram-spill').checked
   };
-  fetch('/api/save_config', { method: 'POST', body: JSON.stringify(payload) });
+  api('/api/save_config', { method: 'POST', body: JSON.stringify(payload) });
   showBanner('<strong>Configuration Saved:</strong> Engine and telemetry settings updated.', false);
 }
 
@@ -6578,7 +7051,7 @@ function renderIntegrityReport(rep) {
 async function verifyProgramIntegrity() {
   const msgEl = document.getElementById('upd-state-msg');
   if (msgEl) msgEl.innerText = 'Checking files...';
-  const r = await fetch('/api/system_maint?cmd=verify_integrity', { method: 'POST' });
+  const r = await api('/api/system_maint?cmd=verify_integrity', { method: 'POST' });
   const d = await r.json();
   if (d.integrity) renderIntegrityReport(d.integrity);
   else if (d.error) showBanner(`<strong>&#9650; Integrity Check:</strong> ${escapeHtml(d.error)}`, true);
@@ -6592,7 +7065,7 @@ async function checkForUpdates() {
     updBtn.title = "Checking for updates...";
   }
   if (msgEl) msgEl.innerText = 'Checking GitHub...';
-  const r = await fetch('/api/system_maint?cmd=check_update', { method: 'POST' });
+  const r = await api('/api/system_maint?cmd=check_update', { method: 'POST' });
   const d = await r.json();
   if (d.integrity) renderIntegrityReport(d.integrity);
   if (!d.ok) {
@@ -6627,7 +7100,7 @@ async function triggerSelfUpdate() {
   if (updBtn) updBtn.disabled = true;
   const msgEl = document.getElementById('upd-state-msg');
   if (msgEl) msgEl.innerText = 'Updating from GitHub...';
-  const r = await fetch('/api/system_maint?cmd=self_update', { method: 'POST' });
+  const r = await api('/api/system_maint?cmd=self_update', { method: 'POST' });
   const d = await r.json();
   if (d.integrity) renderIntegrityReport(d.integrity);
   if (!d.ok) {
@@ -6643,9 +7116,10 @@ async function triggerSelfUpdate() {
   }
 }
 
-const sse = new EventSource('/api/stream');
+const sse = new EventSource(apiUrl('/api/stream'));
 sse.onmessage = (e) => {
   const d = JSON.parse(e.data);
+  if (d.bounds && !serverBoundsApplied) applyServerBounds(d.bounds, d.computeLevels);
   if (d.appVersion) {
     document.getElementById('hdr-version').innerText = d.appVersion;
     const aboutVer = document.getElementById('about-version-line');
@@ -6679,6 +7153,9 @@ sse.onmessage = (e) => {
 
   let favOrLastChanged = false;
   if (d.cfg) {
+    if (!localStorage.getItem('lumiyaTheme') && d.cfg.theme && d.cfg.theme !== currentTheme) {
+      selectTheme(d.cfg.theme, false);
+    }
     if (d.cfg.convertPng !== undefined) {
       defaultConvertPng = !!d.cfg.convertPng;
     }
@@ -6833,6 +7310,10 @@ sse.onmessage = (e) => {
     }).join('');
   }
 };
+
+// Initial Theme Card UI Sync & Dynamic Themes Loader
+selectTheme(currentTheme, false);
+fetchThemes();
 </script>
 </body>
 </html>

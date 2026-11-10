@@ -4,7 +4,7 @@
 
 # PORTtralica Lumiya
 
-[![Version v0.6.073.8820](https://img.shields.io/badge/Release-v0.6.073.8820%20(Pilot)-E5B869.svg)](#)
+[![Version v0.6.076.2530](https://img.shields.io/badge/Release-v0.6.076.2530%20(Pilot)-E5B869.svg)](#)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![PyTorch CUDA 12.6–13.2](https://img.shields.io/badge/PyTorch-CUDA%2012.6%E2%80%9313.2-EE4C2C.svg)](https://pytorch.org/)
 [![Platform: Windows & Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6.svg)](#system-requirements)
@@ -124,7 +124,7 @@ Lumiya includes a 3-mode steganographic engine (`2-Bit Cyclic LSB Text`, `LMY1 B
 
 Located in the **Configuration** tab, the **Application Well-being** panel lets you verify program integrity and pull updates without touching the terminal:
 
-* **Built-In Integrity Validator (`core/integrity.lmy`):** Verifies SHA-256 and MD5 checksums across all **49 tracked program files** grouped into `core-services` (10 files), `core-functions` (35 algorithm and steganography modules), and `executables` (4 launchers).
+* **Built-In Integrity Validator (`core/integrity.lmy`):** Verifies SHA-256 and MD5 checksums across all **44 tracked program files** grouped into `core-services` (10 files), `core-functions` (30 algorithm and steganography modules), and `executables` (4 launchers).
 * **Protected GitHub Self-Update:** Enforces strict repository origin allowlisting, disables Git hooks and local file protocols during fetch, requires fast-forward merges with automatic rollback on syntax or asset verification failure, and migrates your existing `user/config.json` in place without overwriting your saved settings.
 
 ---
@@ -141,7 +141,7 @@ lumiya/
 │   ├── anti_inpainting/     # Anti-Inpainting (arXiv 2025) contour-shrunk composite mask defense
 │   ├── idguardian/          # IDGuardian (arXiv 2026) Adversarial Conceptual Bridge identity cloak
 │   ├── veto/                # VETO (arXiv 2026) MMDiT / FLUX joint-attention entropy defense
-│   └── ...                  # Mist v2, MetaCloak, DiffusionGuard, SRIM, IMPRESS, AntiPrompt, etc.
+│   └── ...                  # Mist, MetaCloak, DiffusionGuard, SRIM, PromptFlare, AntiPrompt, etc.
 ├── core/                    # Core backend services, WebUI, and self-updater
 │   ├── cleaner.py           # VRAM/RAM working-set reclamation and temp cleanup
 │   ├── config.py            # Default config provisioning, bounds checking, and schema migration
@@ -187,12 +187,11 @@ All defense modules in `algos/` are adapted from peer-reviewed papers and prepri
 | **7** | **DeContext** | arXiv 2025 | Scales spatial token masks ($\alpha$) and detaches target queries from both current and clean context keys (`kOrigContext`). | [Shen et al., arXiv:2512.16625](https://arxiv.org/abs/2512.16625) |
 | **8** | **IDGuardian** | arXiv 2026 | Adversarial Conceptual Bridge (`acbDiff`) minimizing target distance while maximizing $L_1$ divergence from clean facial posteriors. | [Xiong et al., arXiv:2610.19717](https://arxiv.org/abs/2610.19717) |
 | **9** | **MetaCloak** | CVPR 2024 | Meta-learning surrogate transformations crafting perturbations resilient against DreamBooth/LoRA fine-tuning filters. | [Liu et al., arXiv:2311.13127](https://arxiv.org/abs/2311.13127) |
-| **10** | **Mist v2 / AdvDM** | ICML 2023 | Injects directed semantic and textural gradient errors into latent representations to break style mimicry. | [Liang et al., arXiv:2302.04578](https://arxiv.org/abs/2302.04578) |
-| **11** | **IMPRESS** | NeurIPS 2023 | Concentrates perturbation energy into high-frequency structural bands that low-pass purifiers fail to strip. | [Cao et al., arXiv:2310.19248](https://arxiv.org/abs/2310.19248) |
-| **12** | **PromptFlare** | arXiv 2025 | Redirects cross-attention weights onto invariant Beginning-of-Sequence (`BOS`) tokens to neutralize text prompts. | [PromptFlare Cross-Attention](https://arxiv.org/search/?query=PromptFlare+cross+attention&searchtype=all) |
-| **13** | **SRIM** | CVPR 2025 | Minimax optimization across continuous geometric scaling anchors (`1.7x` – `7.1x`) to survive web downscaling and cropping. | [Scale-Robust Immunization](https://arxiv.org/search/?query=scale+robust+image+protection+diffusion&searchtype=all) |
-| **14** | **AntiPrompt** | arXiv 2026 | Decouples conditioned text embeddings from image latents to block prompt-driven instruction editing. | [arXiv:2607.01499](https://arxiv.org/abs/2607.01499) |
-| **15** | **Vid-Freeze** | arXiv 2025 | Suppresses temporal motion vectors so image-to-video diffusion samplers collapse into static frames. | [Video Motion Freezing](https://arxiv.org/search/?query=video+diffusion+adversarial+motion+freezing&searchtype=all) |
+| **10** | **Mist / AdvDM** | ICML 2023 | Injects directed semantic and textural gradient errors into latent representations to break style mimicry. | [Liang et al., arXiv:2302.04578](https://arxiv.org/abs/2302.04578) |
+| **11** | **PromptFlare** | arXiv 2025 | Redirects cross-attention weights onto invariant Beginning-of-Sequence (`BOS`) tokens to neutralize text prompts. | [PromptFlare Cross-Attention](https://arxiv.org/search/?query=PromptFlare+cross+attention&searchtype=all) |
+| **12** | **SRIM** | CVPR 2025 | Minimax optimization across continuous geometric scaling anchors (`1.7x` – `7.1x`) to survive web downscaling and cropping. | [Scale-Robust Immunization](https://arxiv.org/search/?query=scale+robust+image+protection+diffusion&searchtype=all) |
+| **13** | **AntiPrompt** | arXiv 2026 | Decouples conditioned text embeddings from image latents to block prompt-driven instruction editing. | [arXiv:2607.01499](https://arxiv.org/abs/2607.01499) |
+| **14** | **Vid-Freeze** | arXiv 2025 | Suppresses temporal motion vectors so image-to-video diffusion samplers collapse into static frames. | [Video Motion Freezing](https://arxiv.org/search/?query=video+diffusion+adversarial+motion+freezing&searchtype=all) |
 
 ### Pending & Hardware/Weight-Gated Modules (`▲`)
 

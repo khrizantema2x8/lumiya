@@ -3,15 +3,20 @@ from __future__ import annotations
 
 from core.cleaner import cleanMemoryAndStorage
 from core.config import (
+    APP_VERSION,
+    BOUNDS,
+    CHOICES,
     DEFAULT_ALGO_IDS,
     MAX_STEPS,
+    THEME_ID_RE,
     VALID_EXTS,
     SuiteConfig,
     atomicWrite,
+    clampSetting,
     safeFloat,
     safeInt,
 )
-from core.loader import LEGACY_SKIP_DIRS, AlgoPluginManager, hardwareBlockReason
+from core.loader import AlgoPluginManager, hardwareBlockReason
 from core.security import (
     WINDOWS_RESERVED_NAMES,
     isLoopbackClient,
@@ -31,9 +36,12 @@ from core.updater import (
 )
 
 __all__ = [
+    "APP_VERSION",
+    "BOUNDS",
+    "CHOICES",
     "DEFAULT_ALGO_IDS",
-    "LEGACY_SKIP_DIRS",
     "MAX_STEPS",
+    "THEME_ID_RE",
     "VALID_EXTS",
     "WINDOWS_RESERVED_NAMES",
     "AlgoPluginManager",
@@ -41,6 +49,7 @@ __all__ = [
     "SuiteConfig",
     "TelemetryMonitor",
     "atomicWrite",
+    "clampSetting",
     "checkRemoteUpdate",
     "cleanMemoryAndStorage",
     "computeProgramIntegrity",

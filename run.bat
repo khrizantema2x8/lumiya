@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.073.8820 (Pilot)
+rem Version is written once, in core\config.py.
+for /f tokens^=2^ delims^=^" %%v in ('findstr /b /c:"APP_VERSION = " "%~dp0core\config.py"') do set "LMY_VER=%%v"
+if not defined LMY_VER set "LMY_VER=unknown version"
+title PORTtralica Lumiya !LMY_VER!
 cd /d "%~dp0"
 
 if /I "%~1"=="-h" goto show_help
@@ -130,7 +133,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya - v0.6.073.8820 (Pilot) - CLI REFERENCE%RESET%
+echo   %DIM%PORTtralica Lumiya - !LMY_VER! - CLI REFERENCE%RESET%
 echo   ====================================================================================================
 echo.
 echo Usage: run.bat [SUBCOMMAND ^| OPTIONS]
@@ -247,7 +250,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya - v0.6.073.8820 (Pilot) - (c) 2026 PORTtralica Media Group%RESET%
+echo   %DIM%PORTtralica Lumiya - !LMY_VER! - (c) 2026 PORTtralica Media Group%RESET%
 echo   ====================================================================================================
 
 :: 1. Check Git

@@ -3,13 +3,18 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
-CONFIG_SCHEMA_VERSION = "v0.6.073.8820"
+from stego.mark import PLACEMENTS
+
+# The one place the version is written; Python, the UI stream and the .bat/.sh launchers all read it from here.
+APP_VERSION = "v0.6.076.2530 (Pilot)"
+CONFIG_SCHEMA_VERSION = APP_VERSION.split()[0]
 MAX_STEPS = 5000
 VALID_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff")
 
@@ -21,6 +26,56 @@ LEGACY_CONFIG_KEYS: Dict[str, str] = {
     "dim": "workingDim",
     "ramSpillover": "allowRamSpillover",
     "vramHeadroomMb": "reserveVramMb",
+}
+
+THEME_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+LEGACY_THEME_ALIASES: Dict[str, str] = {
+    "1": "carbon",
+    "2": "blue_steel",
+    "bluesteel": "blue_steel",
+    "3": "tropical",
+    "4": "freshen",
+    "5": "blue_steel_amere",
+    "bluesteel_amere": "blue_steel_amere",
+    "amere_blue_steel": "blue_steel_amere",
+    "6": "tropical_amere",
+    "amere_tropical": "tropical_amere",
+    "7": "freshen_amere",
+    "amere_freshen": "freshen_amere",
+}
+
+# Settings with a fixed set of values; anything else from a request is ignored.
+CHOICES: Dict[str, tuple] = {
+    "computeBackend": ("auto", "cuda", "opengl", "cpu"),
+    "precision": ("fp16", "fp32"),
+    "protectionMode": ("photo_only", "all"),
+    "resolutionPolicy": ("native_tiled", "strict_native"),
+    "eotPreset": ("off", "standard", "aggressive"),
+    "stegoMode": ("off", "combined", "only"),
+    "stegoPayload": ("text", "binary", "image"),
+    "stegoPlacement": PLACEMENTS,
+    "computeLevel": (0.25, 0.5, 1.0, 2.0),
+}
+
+# (min, max) of every numeric setting: the server clamps with it and the UI sets its inputs' min/max from it.
+BOUNDS: Dict[str, tuple] = {
+    "epsilon": (1.0, 32.0),
+    "geoAnchorLow": (1.0, 8.0),
+    "geoAnchorHigh": (1.1, 10.0),
+    "temporalWeight": (0.0, 1.0),
+    "maskAugFactor": (0.2, 2.0),
+    "tempWarnC": (50.0, 80.0),
+    "tempCritC": (75.0, 100.0),
+    "tempErraticDelta": (3.0, 40.0),
+    "loadWarnPct": (40.0, 99.0),
+    "stegoStrength": (1.0, 16.0),
+    "stegoScale": (5.0, 100.0),
+    "seed": (0, 2_147_483_647),
+    "steps": (10, MAX_STEPS),
+    "workingDim": (256, 2048),
+    "reserveVramMb": (200, 4000),
+    "jpegQuality": (85, 100),
+    "pollMs": (250, 5000),
 }
 
 DEFAULT_ALGO_IDS = (
@@ -89,9 +144,18 @@ def safeInt(val: Any, default: int, minVal: int | None = None, maxVal: int | Non
     return out
 
 
+def clampSetting(key: str, val: Any, default: Any) -> Any:
+    """Coerces `val` to the type of `default` and clamps it to BOUNDS[key]; unreadable input keeps `default`."""
+    lo, hi = BOUNDS[key]
+    if isinstance(default, int) and not isinstance(default, bool):
+        return safeInt(val, default, lo, hi)
+    return safeFloat(val, default, lo, hi)
+
+
 @dataclass
 class SuiteConfig:
     configVersion: str = CONFIG_SCHEMA_VERSION
+    theme: str = "carbon"
     computeBackend: str = "auto"
     epsilon: float = 8.0
     computeLevel: float = 1.0
@@ -132,38 +196,20 @@ class SuiteConfig:
     layers: Dict[str, bool] = field(default_factory=lambda: {k: k == "photoguard" for k in DEFAULT_ALGO_IDS})
 
     def applyDict(self, raw: Dict[str, Any]) -> None:
-        floatBounds = {
-            "epsilon": (1.0, 32.0),
-            "computeLevel": (0.25, 2.0),
-            "geoAnchorLow": (1.0, 8.0),
-            "geoAnchorHigh": (1.1, 10.0),
-            "temporalWeight": (0.0, 1.0),
-            "maskAugFactor": (0.2, 2.0),
-            "tempWarnC": (35.0, 95.0),
-            "tempCritC": (50.0, 105.0),
-            "tempErraticDelta": (3.0, 40.0),
-            "loadWarnPct": (40.0, 99.0),
-            "stegoStrength": (1.0, 16.0),
-            "stegoScale": (5.0, 100.0),
-        }
-        intBounds = {
-            "seed": (0, 2_147_483_647),
-            "steps": (10, MAX_STEPS),
-            "workingDim": (256, 2048),
-            "reserveVramMb": (0, 8192),
-            "jpegQuality": (60, 100),
-            "pollMs": (250, 5000),
-        }
         for rawKey, val in raw.items():
             key = LEGACY_CONFIG_KEYS.get(rawKey, rawKey)
             if key == "configVersion" or not hasattr(self, key):
                 continue
-            if key in floatBounds:
-                lo, hi = floatBounds[key]
-                setattr(self, key, safeFloat(val, getattr(self, key), lo, hi))
-            elif key in intBounds:
-                lo, hi = intBounds[key]
-                setattr(self, key, safeInt(val, getattr(self, key), lo, hi))
+            if key == "theme":
+                themeRaw = str(val).strip()
+                vStr = themeRaw.lower().replace("-", "_").replace(" ", "_").replace("è", "e").replace("é", "e")
+                # Any .ltheme id is valid; the aliases only translate spellings older configs saved.
+                self.theme = LEGACY_THEME_ALIASES.get(vStr) or (themeRaw if THEME_ID_RE.match(themeRaw) else self.theme)
+            elif key in CHOICES:
+                if val in CHOICES[key]:
+                    setattr(self, key, val)
+            elif key in BOUNDS:
+                setattr(self, key, clampSetting(key, val, getattr(self, key)))
             elif isinstance(getattr(self, key), bool):
                 setattr(self, key, bool(val))
             elif key == "favoriteAlgos" and isinstance(val, list):
@@ -172,7 +218,7 @@ class SuiteConfig:
                 self.layers.update({str(k): bool(v) for k, v in val.items()})
             elif key == "algoLastUsed" and isinstance(val, dict):
                 self.algoLastUsed.update({str(k): str(v) for k, v in val.items()})
-            else:
+            elif isinstance(val, str) and isinstance(getattr(self, key), str):
                 setattr(self, key, val)
         self.configVersion = CONFIG_SCHEMA_VERSION
 

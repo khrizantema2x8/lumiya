@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# PORTtralica Lumiya v0.6.073.8820 (Pilot) - All-in-One Linux Launcher & Setup
+# PORTtralica Lumiya - All-in-One Linux Launcher & Setup
 # ==============================================================================
 set -e
 cd "$(dirname "$0")"
+# Version is written once, in core/config.py.
+LMY_VER="$(sed -n 's/^APP_VERSION = "\(.*\)"/\1/p' core/config.py)"
+LMY_VER="${LMY_VER:-unknown version}"
 
 # Ensure CUDA and NVML runtime libraries are discoverable across Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, NixOS, and WSL2
 for p in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib64/nvidia /usr/lib /opt/cuda/lib64 /usr/local/cuda/lib64 /usr/local/cuda/targets/x86_64-linux/lib /run/opengl-driver/lib /usr/lib/wsl/lib; do
@@ -76,7 +79,7 @@ log_err() {
 }
 
 print_banner() {
-    local sub_title="${1:-PORTtralica Lumiya - v0.6.073.8820 (Pilot) - (c) 2026 PORTtralica Media Group}"
+    local sub_title="${1:-PORTtralica Lumiya - ${LMY_VER} - (c) 2026 PORTtralica Media Group}"
     echo ""
     echo -e "  ${LOGO_GOLD}              :::::::::::::                                                                         ${RESET}"
     echo -e "  ${LOGO_GOLD}              :   :::::::::                                                                         ${RESET}"
@@ -246,13 +249,13 @@ select_env_python() {
 }
 
 do_install() {
-    print_banner "PORTtralica Lumiya v0.6.073.8820 (Pilot) - SYSTEM AUDIT & INSTALLER"
+    print_banner "PORTtralica Lumiya ${LMY_VER} - SYSTEM AUDIT & INSTALLER"
     PRE_LIST="$(mktemp "${TMPDIR:-/tmp}/lumiya_pre.XXXXXX.txt")"
     POST_LIST="$(mktemp "${TMPDIR:-/tmp}/lumiya_post.XXXXXX.txt")"
     trap 'rm -f "$PRE_LIST" "$POST_LIST"' EXIT
 
     echo "========================================================================" > "$MANIFEST"
-    echo "  PORTtralica Lumiya v0.6.073.8820 (Pilot) - INSTALLATION MANIFEST" >> "$MANIFEST"
+    echo "  PORTtralica Lumiya ${LMY_VER} - INSTALLATION MANIFEST" >> "$MANIFEST"
     echo "  Timestamp : $(date '+%Y-%m-%d %H:%M:%S')" >> "$MANIFEST"
     echo "  Username  : $(whoami 2>/dev/null || echo "$USER")" >> "$MANIFEST"
     echo "========================================================================" >> "$MANIFEST"
@@ -490,7 +493,7 @@ do_install() {
 }
 
 do_uninstall() {
-    print_banner "PORTtralica Lumiya v0.6.073.8820 (Pilot) - UNINSTALLER"
+    print_banner "PORTtralica Lumiya ${LMY_VER} - UNINSTALLER"
     UNINSTALL_MODE="MANIFEST"
     CONFIRM_FLAG=0
 

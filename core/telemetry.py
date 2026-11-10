@@ -10,6 +10,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
+SMI_RETRY_S = 60.0
+
 
 class _NvmlUtilization(ctypes.Structure):
     _fields_ = [("gpu", ctypes.c_uint), ("memory", ctypes.c_uint)]
@@ -82,7 +84,7 @@ class TelemetryMonitor:
         )
         self._nvmlLib: Any = None
         self._nvmlHandle: Any = None
-        self._smiFallbackDisabled: bool = False
+        self._smiRetryAt: float = 0.0
         self._lastSmiTime: float = 0.0
         self._cachedHw: Tuple[float, float, float, float, str, float, str] = (
             0.0,
@@ -163,9 +165,9 @@ class TelemetryMonitor:
             except Exception:
                 pass
 
-        # Avoid spawning nvidia-smi subprocess if CUDA is absent or if it previously failed
-        if self.hasCuda and not self._smiFallbackDisabled:
-            now = time.time()
+        # Skip nvidia-smi without CUDA, and during the cooldown after a failed call
+        now = time.time()
+        if self.hasCuda and now >= self._smiRetryAt:
             if now - self._lastSmiTime < 5.0:
                 return self._cachedHw
             self._lastSmiTime = now
@@ -195,7 +197,8 @@ class TelemetryMonitor:
                 self._cachedHw = (gpuUtil, tempC, memU, memT, "GPU TEMP", gpuPower, pwrLbl)
                 return self._cachedHw
             except Exception:
-                self._smiFallbackDisabled = True
+                # One slow call must not cost GPU readings for the whole session.
+                self._smiRetryAt = now + SMI_RETRY_S
 
         cpuTemp = 0.0
         if self.depsStatus.get("psutil") and self.psutil is not None and hasattr(self.psutil, "sensors_temperatures"):
@@ -219,7 +222,7 @@ class TelemetryMonitor:
                 cpuTemp,
                 vramU,
                 float(self.depsStatus.get("vramGb", 0.0)),
-                "GPU TEMP",
+                "CPU TEMP",
                 0.0,
                 "SYS POWER (EST)",
             )

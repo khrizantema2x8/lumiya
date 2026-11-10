@@ -11,6 +11,8 @@ import io
 import json
 import math
 import os
+import re
+import secrets
 import shutil
 import socket
 import subprocess
@@ -30,10 +32,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from core.cleaner import cleanMemoryAndStorage
 from core.init import (
+    APP_VERSION,
+    BOUNDS,
+    CHOICES,
     DEFAULT_ALGO_IDS,
-    MAX_STEPS,
+    THEME_ID_RE,
     VALID_EXTS,
     AlgoPluginManager,
+    clampSetting,
     SuiteConfig,
     TelemetryMonitor,
     atomicWrite,
@@ -49,14 +55,13 @@ from core.init import (
     sanitizeFilename,
     verifyBrandAssets,
 )
-from stego.mark import PLACEMENTS, MarkError, embedMark, inspectStego, prepareMark
+from stego.mark import MarkError, embedMark, inspectStego, prepareMark
 
 # The progress bar uses block characters a legacy console codepage cannot encode.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 warnings.filterwarnings("ignore", message=".*pynvml.*deprecated.*", category=UserWarning)
 
 APP_NAME = "PORTtralica Lumiya"
-APP_VERSION = "v0.6.073.8820 (Pilot)"
 
 if sys.platform == "win32":
     kernel32 = ctypes.windll.kernel32
@@ -183,14 +188,10 @@ DEPS_STATUS: Dict[str, Any] = {
         if (shutil.which("conda") or Path(os.path.expanduser("~/miniconda3")).exists() or Path(os.path.expanduser("~/anaconda3")).exists())
         else "Missing",
     },
+    # Package rows are filled from the pins in core/requirements.txt once REQ_FILE is known.
     "recommended": {
         "python": "3.12.x - 3.13.x",
-        "torch": "2.6.0+ (build matched to driver)",
-        "cuda": "Matched to driver (12.4+)",
-        "diffusers": "0.32.2+",
-        "transformers": "4.48.0+",
-        "pil": ">= 10.4.0",
-        "psutil": ">= 6.0.0",
+        "cuda": "Matched to driver",
         "git": ">= 2.45.0",
         "conda": "Miniconda3 24.x+",
     },
@@ -358,29 +359,14 @@ def probeStartupDeps() -> None:
                 [sys.executable, "-c", probeScript],
                 startupinfo=startupInfo,
                 stderr=subprocess.DEVNULL,
-                timeout=12.0,
+                # Generous: a cold torch import on Windows can take well over 12 s, and a timeout here means "no CUDA" for the session.
+                timeout=60.0,
             ).decode("utf-8", errors="replace").strip()
             probeInfo = json.loads(probeJson.splitlines()[-1])
             cudaProbeOk = bool(probeInfo.get("cuda"))
             probeErr = str(probeInfo.get("err") or "")
         except Exception as exc:
             probeErr = str(exc)
-
-        # Fallback: if subprocess probe failed for any reason, test torch.cuda directly
-        if not cudaProbeOk and not probeInfo.get("cuda"):
-            try:
-                import torch as _directTorch
-                if _directTorch.cuda.is_available():
-                    cudaProbeOk = True
-                    probeInfo = {
-                        "cuda": True,
-                        "ver": str(getattr(_directTorch.version, "cuda", None) or "Unknown"),
-                        "name": _directTorch.cuda.get_device_name(0),
-                        "vram": round(_directTorch.cuda.get_device_properties(0).total_memory / (1024**3), 2),
-                        "err": "",
-                    }
-            except Exception:
-                pass
 
         # 2. Inspect physical GPU hardware via nvidia-smi
         smiGpuName = ""
@@ -447,10 +433,101 @@ ROOT_DIR = Path(__file__).resolve().parent
 ALGOS_DIR = ROOT_DIR / "algos"
 RESULTS_ROOT = ROOT_DIR / "results"
 IDENTITY_DIR = ROOT_DIR / "identity"
+THEMES_DIR = IDENTITY_DIR / "theme"
 USER_DIR = ROOT_DIR / "user"
+
+
+_COLOR_VALUE_REGEX = re.compile(
+    r"^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$|^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$"
+)
+_ALLOWED_THEME_KEYS = {
+    "--bg", "--header-bg", "--brand-bg", "--panel", "--panelAlt", "--panelHover",
+    "--panelDark", "--line", "--lineStrong", "--telemetry-bg", "--telemetry-graph-bg",
+    "--history-row-bg", "--drop-bg", "--drop-hover-bg", "--dots-bg", "--split-drop-bg",
+    "--input-bg", "--tab-bg", "--tab-hover-bg", "--scrollbar-track", "--scrollbar-thumb",
+    "--scrollbar-thumb-hover", "--theme-active-border", "--right-divider",
+    "--fg", "--muted", "--dim", "--gold", "--blue", "--blueHover", "--green",
+    "--yellow", "--red", "--cyan",
+    "--inspect-grid",
+}
+
+
+def loadThemesFromDisk() -> List[Dict[str, Any]]:
+    """Dynamically loads and validates .ltheme lookup tables from identity/theme."""
+    if not THEMES_DIR.exists():
+        return []
+    themes: List[Dict[str, Any]] = []
+    priority = ["carbon", "blue_steel", "tropical", "freshen", "blue_steel_amere", "tropical_amere", "freshen_amere"]
+
+    for themeFile in THEMES_DIR.glob("*.ltheme"):
+        try:
+            resolved = themeFile.resolve()
+            if THEMES_DIR not in resolved.parents:
+                continue
+            themeId = themeFile.stem
+            if not THEME_ID_RE.match(themeId):
+                continue
+            raw = json.loads(themeFile.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                continue
+
+            safeId = str(raw.get("id") or themeId).strip()
+            if not THEME_ID_RE.match(safeId):
+                safeId = themeId
+            safeName = str(raw.get("name") or safeId.replace("_", " ").title()).strip()
+            safeAuthor = str(raw.get("author") or "Lumiya").strip()
+            safeVersion = str(raw.get("version") or "1.0").strip()
+
+            thumbName = str(raw.get("thumbnail") or f"{safeId}.jpg").strip()
+            if ".." in thumbName or "/" in thumbName or "\\" in thumbName:
+                thumbName = f"{safeId}.jpg"
+            thumbPath = THEMES_DIR / thumbName
+            if thumbPath.is_file():
+                thumbMtime = int(thumbPath.stat().st_mtime)
+                thumbUrl = f"/identity/theme/{thumbName}?t={thumbMtime}"
+            else:
+                thumbUrl = "/identity/media/workspace.png"
+
+            rawColors = raw.get("colors")
+            if not isinstance(rawColors, dict):
+                continue
+            safeColors: Dict[str, str] = {}
+            for k, v in rawColors.items():
+                k_str = str(k).strip()
+                v_str = str(v).strip()
+                if k_str in _ALLOWED_THEME_KEYS and _COLOR_VALUE_REGEX.match(v_str):
+                    safeColors[k_str] = v_str
+
+            if not safeColors:
+                continue
+
+            themeMtime = int(themeFile.stat().st_mtime)
+            themes.append({
+                "id": safeId,
+                "name": safeName,
+                "author": safeAuthor,
+                "version": safeVersion,
+                "thumbnail": thumbUrl,
+                "mtime": themeMtime,
+                "colors": safeColors,
+            })
+        except Exception:
+            continue
+
+    def sortKey(t: Dict[str, Any]) -> int:
+        tid = t.get("id", "")
+        return priority.index(tid) if tid in priority else 100
+
+    themes.sort(key=lambda t: (sortKey(t), t.get("name", "")))
+    return themes
 UI_FILE = (ROOT_DIR / "core" / "ui.html") if (ROOT_DIR / "core" / "ui.html").exists() else (ROOT_DIR / "ui.html")
 REQ_FILE = (ROOT_DIR / "core" / "requirements.txt") if (ROOT_DIR / "core" / "requirements.txt").exists() else (ROOT_DIR / "requirements.txt")
 CONFIG_FILE = USER_DIR / "config.json"
+_REQ_KEYS = {"torch": "torch", "diffusers": "diffusers", "transformers": "transformers", "pillow": "pil", "psutil": "psutil"}
+for _pin in REQ_FILE.read_text(encoding="utf-8").splitlines() if REQ_FILE.is_file() else []:
+    _name, _, _ver = (part.strip() for part in _pin.partition("=="))
+    if _name.lower() in _REQ_KEYS and _ver:
+        DEPS_STATUS["recommended"][_REQ_KEYS[_name.lower()]] = _ver + (" (build matched to driver)" if _name.lower() == "torch" else "")
 HISTORY_FILE = USER_DIR / "history.json"
 MANIFEST_FILE = USER_DIR / "install_manifest.log"
 
@@ -549,14 +626,6 @@ def validateBatchConfig(batch: BatchQueue, algoMgr: Optional[AlgoPluginManager] 
         validFiles = [f for f in batch.files if f.valid]
         if not validFiles:
             return False, "This batch contains no valid readable images to process."
-    if not (1.0 <= float(batch.epsilon) <= 32.0):
-        return False, "Budget must be between 1 and 32."
-    if not (0.0 <= float(batch.temporalWeight) <= 1.0):
-        return False, "Temporal weight must be between 0.0 and 1.0."
-    if not (0.2 <= float(batch.maskAugFactor) <= 2.0):
-        return False, "Mask augmentation factor must be between 0.2 and 2.0."
-    if batch.stegoMode not in ("off", "combined", "only"):
-        return False, f"Invalid defense mode '{batch.stegoMode}'."
     if batch.stegoMode != "only":
         enabledIds = [k for k, v in (batch.layers or {}).items() if bool(v)]
         if not enabledIds:
@@ -779,7 +848,8 @@ class QueueManager:
                         "stegoScale": b.stegoScale,
                         "stegoPlacement": b.stegoPlacement,
                         "stegoPayload": b.stegoPayload,
-                        "stegoMark": b.stegoMark,
+                        # Id only: the mark can be a large image, and this tree is resent on every status change.
+                        "markId": hashlib.sha1(b.stegoMark.encode("ascii", "ignore")).hexdigest()[:12] if b.stegoMark else "",
                         "steps": b.steps,
                         "guidancePrompt": b.guidancePrompt,
                         "geoAnchorLow": b.geoAnchorLow,
@@ -1045,14 +1115,15 @@ class ModularDefenseEngine:
 
         if emulateDebug or stegoMode == "only":
             tStart = time.time()
-            totalSteps = 5 if stegoMode == "only" else steps
-            for step in range(1, totalSteps + 1):
-                if controlCb() == "STOP":
-                    raise InterruptedError("Stopped")
-                time.sleep(0.05)
-                el = max(time.time() - tStart, 1e-4)
-                TermLog.progress(step, totalSteps, el)
-                stepCb(step, totalSteps, el)
+            if emulateDebug and stegoMode != "only":
+                # Debug emulation stands in for a real run, so it walks the step count; stego-only has no steps to show.
+                for step in range(1, steps + 1):
+                    if controlCb() == "STOP":
+                        raise InterruptedError("Stopped")
+                    time.sleep(0.05)
+                    el = max(time.time() - tStart, 1e-4)
+                    TermLog.progress(step, steps, el)
+                    stepCb(step, steps, el)
 
             if DEPS_STATUS["pil"]:
                 rawIm = Image.open(io.BytesIO(rawBytes))
@@ -1064,6 +1135,8 @@ class ModularDefenseEngine:
                 hasStego = stegoMode in ("only", "combined") and hasStegoPayload
                 alpha = transposedIm.getchannel("A") if "A" in transposedIm.getbands() else None
                 outBytes = self.encodeOutputImage(im, fileExt, hasStego, stegoText, exifBytes, iccProfile, opts, alpha)
+                if stegoMode == "only":
+                    stepCb(1, 1, max(time.time() - tStart, 1e-4))
                 import numpy as np
                 before = np.asarray(im, dtype=np.float32)
                 del im, transposedIm, rawIm
@@ -1105,16 +1178,11 @@ class ModularDefenseEngine:
 
         nowStamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         activePlugins = []
-        for k, enabled in layers.items():
-            plugin = self.algoMgr.plugins.get(k)
-            if enabled and plugin and plugin["notRebuilt"]:
-                reason = plugin.get("blockerReason") or f"{plugin['name']} is not rebuilt yet, so it cannot run."
-                raise RuntimeError(reason)
-            if enabled and plugin and not self.algoMgr.blockReason(plugin):
-                CFG.algoLastUsed[k] = nowStamp
-                mod = self.algoMgr.getPluginModule(k)
-                if mod is not None:
-                    activePlugins.append((mod, plugin["paper"] or {"budget": epsilon255, "steps": steps}))
+        for plugin in self.algoMgr.selectRunnable(layers):
+            CFG.algoLastUsed[plugin["id"]] = nowStamp
+            mod = self.algoMgr.getPluginModule(plugin["id"])
+            if mod is not None:
+                activePlugins.append((mod, plugin["paper"] or {"budget": epsilon255, "steps": steps}))
         if not activePlugins:
             raise RuntimeError("None of the selected algorithms can run on this system.")
 
@@ -1273,17 +1341,8 @@ class ModularDefenseEngine:
         if not self.majorDepsReady:
             raise RuntimeError("Missing required dependencies. Open Configuration tab to install.")
         nowStamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        hasRunnable = False
-        for k, enabled in layers.items():
-            plugin = self.algoMgr.plugins.get(k)
-            if enabled and plugin and plugin["notRebuilt"]:
-                reason = plugin.get("blockerReason") or f"{plugin['name']} is not rebuilt yet, so it cannot run."
-                raise RuntimeError(reason)
-            if enabled and plugin and not self.algoMgr.blockReason(plugin):
-                CFG.algoLastUsed[k] = nowStamp
-                hasRunnable = True
-        if not hasRunnable:
-            raise RuntimeError("None of the selected algorithms can run on this system.")
+        for plugin in self.algoMgr.selectRunnable(layers):
+            CFG.algoLastUsed[plugin["id"]] = nowStamp
 
         RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
         ipcDir = RESULTS_ROOT
@@ -1583,19 +1642,13 @@ def runServer(
                         temporalWeight=snap["temporalWeight"],
                         maskAugFactor=snap["maskAugFactor"],
                     )
+                    # A redo gets a new file name, so earlier exports and their History rows stay intact.
                     stem = Path(sanitizeFilename(qfile.name)).stem
-                    if qfile.outPath:
-                        oldOut = Path(qfile.outPath)
-                        if oldOut.suffix.lower() == outExt.lower():
-                            outPath = oldOut
-                        else:
-                            outPath = batch.exportDir / f"{stem}_lumiya{outExt}"
-                    else:
-                        outPath = batch.exportDir / f"{stem}_lumiya{outExt}"
-                        counter = 1
-                        while outPath.exists():
-                            outPath = batch.exportDir / f"{stem}_lumiya_{counter}{outExt}"
-                            counter += 1
+                    outPath = batch.exportDir / f"{stem}_lumiya{outExt}"
+                    counter = 1
+                    while outPath.exists():
+                        outPath = batch.exportDir / f"{stem}_lumiya_{counter}{outExt}"
+                        counter += 1
                     outPath.write_bytes(outBytes)
                     qfile.outPath = str(outPath)
                     qfile.hasStego = snap["stegoMode"] in ("combined", "only") and bool(
@@ -1708,27 +1761,54 @@ def runServer(
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-            elif parsed.path in (
-                "/lumiya_blk.ico",
-                "/lumiya_t.ico",
-                "/logo.png",
-                "/identity/lumiya_blk.ico",
-                "/identity/lumiya_t.ico",
-                "/identity/logo.png",
+            elif (
+                parsed.path.startswith("/identity/")
+                or parsed.path in (
+                    "/lumiya_blk.ico",
+                    "/lumiya_t.ico",
+                    "/logo.png",
+                )
             ):
-                assetName = Path(parsed.path).name
-                assetPath = IDENTITY_DIR / assetName
-                if not assetPath.exists() and (ROOT_DIR / assetName).exists():
-                    assetPath = ROOT_DIR / assetName
-                if not assetPath.exists() and (ROOT_DIR / "assets" / assetName).exists():
-                    assetPath = ROOT_DIR / "assets" / assetName
-                if assetPath.exists():
-                    verifyBrandAssets(ROOT_DIR)
+                rel = parsed.path.lstrip("/")
+                if rel.startswith("identity/"):
+                    sub = rel[len("identity/"):]
+                    assetPath = (IDENTITY_DIR / sub).resolve()
+                else:
+                    assetPath = IDENTITY_DIR / rel
+                if not assetPath.exists() and (ROOT_DIR / rel).exists():
+                    assetPath = ROOT_DIR / rel
+                if not assetPath.exists() and (ROOT_DIR / "assets" / rel).exists():
+                    assetPath = ROOT_DIR / "assets" / rel
+                if (
+                    assetPath.is_file()
+                    and (
+                        IDENTITY_DIR in assetPath.parents
+                        or (ROOT_DIR / "assets") in assetPath.parents
+                        or assetPath.parent == ROOT_DIR
+                    )
+                ):
+                    if assetPath.name in ("logo.png", "lumiya_blk.ico", "lumiya_t.ico"):
+                        verifyBrandAssets(ROOT_DIR)
                     data = assetPath.read_bytes()
-                    mime = "image/png" if assetName.endswith(".png") else "image/x-icon"
+                    ext = assetPath.suffix.lower()
+                    mimeMap = {
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".ico": "image/x-icon",
+                        ".gif": "image/gif",
+                        ".webp": "image/webp",
+                    }
+                    mime = mimeMap.get(ext, "application/octet-stream")
                     self.send_response(HTTPStatus.OK)
+                    self._sendSecurityHeaders()
                     self.send_header("Content-Type", mime)
                     self.send_header("Content-Length", str(len(data)))
+                    if parsed.path.startswith("/identity/theme/") or parsed.path.startswith("/identity/media/"):
+                        self.send_header("Cache-Control", "no-cache, must-revalidate")
+                        self.send_header("ETag", f'"{int(assetPath.stat().st_mtime)}"')
+                    else:
+                        self.send_header("Cache-Control", "public, max-age=86400")
                     self.end_headers()
                     self.wfile.write(data)
                 else:
@@ -1757,6 +1837,8 @@ def runServer(
                             "hw": mon.read().__dict__,
                             "cfg": CFG.snapshotForStream(),
                             "deps": DEPS_STATUS,
+                            "bounds": BOUNDS,
+                            "computeLevels": CHOICES["computeLevel"],
                             "majorReady": majorReady,
                             "ui": {
                                 "busy": rt.busy,
@@ -1806,6 +1888,9 @@ def runServer(
                 self.send_header("Content-Length", str(len(imgBytes)))
                 self.end_headers()
                 self.wfile.write(imgBytes)
+            elif parsed.path == "/api/batch_mark":
+                b = qMgr.batches.get(qs.get("batch", [""])[0])
+                self.sendJson({"ok": bool(b), "mark": b.stegoMark if b else ""})
             elif parsed.path == "/api/check_stego":
                 bid = qs.get("batch", [""])[0]
                 fid = qs.get("file", [""])[0]
@@ -1820,6 +1905,9 @@ def runServer(
                 manifestPath = MANIFEST_FILE if MANIFEST_FILE.exists() else (ROOT_DIR / "install_manifest.log")
                 text = manifestPath.read_text(encoding="utf-8") if manifestPath.exists() else "No user/install_manifest.log found."
                 self.sendJson({"manifest": text})
+            elif parsed.path == "/api/themes":
+                themes = loadThemesFromDisk()
+                self.sendJson({"ok": True, "themes": themes})
             else:
                 self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -1910,40 +1998,17 @@ def runServer(
                     threading.Thread(target=executeBatch, args=(bid,), daemon=True).start()
                     self.sendJson({"ok": True})
                 elif act == "update_params" and b and b.state != "RUNNING":
-                    if "epsilon" in info:
-                        b.epsilon = safeFloat(info["epsilon"], b.epsilon, 1.0, 32.0)
-                    if "steps" in info:
-                        b.steps = safeInt(info["steps"], b.steps, 10, MAX_STEPS)
-                    if safeFloat(info.get("computeLevel", 0), 0.0) in (0.25, 0.5, 1.0, 2.0):
-                        b.computeLevel = float(info["computeLevel"])
-                    if "seed" in info:
-                        b.seed = safeInt(info["seed"], b.seed, 0, 2_147_483_647)
+                    # Same limits and allowed values as the saved config (core/config.py BOUNDS / CHOICES).
+                    for key, val in info.items():
+                        if key in BOUNDS and hasattr(b, key):
+                            setattr(b, key, clampSetting(key, val, getattr(b, key)))
+                        elif key in CHOICES and hasattr(b, key):
+                            if val in CHOICES[key]:
+                                setattr(b, key, val)
+                        elif key in ("stegoMark", "guidancePrompt", "stegoText") and isinstance(val, str):
+                            setattr(b, key, val)
                     if "convertPng" in info:
                         b.convertPng = bool(info["convertPng"])
-                    if "stegoStrength" in info:
-                        b.stegoStrength = safeFloat(info["stegoStrength"], b.stegoStrength, 1.0, 16.0)
-                    if "stegoScale" in info:
-                        b.stegoScale = safeFloat(info["stegoScale"], b.stegoScale, 5.0, 100.0)
-                    if info.get("stegoPlacement") in PLACEMENTS:
-                        b.stegoPlacement = str(info["stegoPlacement"])
-                    if info.get("stegoPayload") in ("text", "binary", "image"):
-                        b.stegoPayload = str(info["stegoPayload"])
-                    if "stegoMark" in info:
-                        b.stegoMark = str(info["stegoMark"])
-                    if "guidancePrompt" in info:
-                        b.guidancePrompt = str(info["guidancePrompt"])
-                    if "geoAnchorLow" in info:
-                        b.geoAnchorLow = safeFloat(info["geoAnchorLow"], b.geoAnchorLow, 1.0, 8.0)
-                    if "geoAnchorHigh" in info:
-                        b.geoAnchorHigh = safeFloat(info["geoAnchorHigh"], b.geoAnchorHigh, 1.1, 10.0)
-                    if "temporalWeight" in info:
-                        b.temporalWeight = safeFloat(info["temporalWeight"], b.temporalWeight, 0.0, 1.0)
-                    if "maskAugFactor" in info:
-                        b.maskAugFactor = safeFloat(info["maskAugFactor"], b.maskAugFactor, 0.2, 2.0)
-                    if "stegoMode" in info and str(info["stegoMode"]) in ("off", "combined", "only"):
-                        b.stegoMode = str(info["stegoMode"])
-                    if "stegoText" in info:
-                        b.stegoText = str(info["stegoText"])
                     if "layers" in info and isinstance(info["layers"], dict):
                         b.layers = {str(k): bool(v) for k, v in info["layers"].items()}
                     qMgr.rev += 1
@@ -2201,7 +2266,7 @@ def runServer(
         )
 
     displayHost = "127.0.0.1" if host in ("0.0.0.0", "") else host
-    url = f"http://{displayHost}:{actualPort}"
+    url = f"http://{displayHost}:{actualPort}" + (f"/?token={authToken}" if authToken else "")
     gpuTarget = DEPS_STATUS.get("gpuName") or "CPU Only"
     cudaVer = DEPS_STATUS.get("versions", {}).get("cuda") or "Not Available"
     hwStatus = f"{gpuTarget} (CUDA: {cudaVer})" if DEPS_STATUS.get("cuda") else f"{gpuTarget} [CUDA: {cudaVer}]"
@@ -2360,8 +2425,8 @@ def runHeadlessCli(args: argparse.Namespace) -> None:
 
     stegoText = (args.stego_text or "").strip()
     stegoMode = "combined" if stegoText else "off"
-    budget = safeFloat(args.budget, CFG.epsilon, 1.0, 32.0)
-    steps = safeInt(args.steps, CFG.steps, 1, MAX_STEPS)
+    budget = clampSetting("epsilon", args.budget, CFG.epsilon)
+    steps = clampSetting("steps", args.steps, CFG.steps)
 
     for idx, fPath in enumerate(files, start=1):
         TermLog.emit(f"[{idx}/{len(files)}] Protecting {fPath.name} (budget={budget}/255, steps={steps})...", "cli.py", "INFO")
@@ -2383,7 +2448,7 @@ def runHeadlessCli(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PORTtralica Lumiya v0.6.073.8820 (Pilot) - Evaluative Suite")
+    parser = argparse.ArgumentParser(description=f"{APP_NAME} {APP_VERSION} - Evaluative Suite")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="WebUI HTTP listening interface (default: 127.0.0.1)")
     parser.add_argument("--listen", action="store_true", help="Bind to 0.0.0.0 to allow access from local network or remote machines")
     parser.add_argument("-p", "--port", type=int, default=7860, help="WebUI HTTP listening port (default: 7860)")
@@ -2469,6 +2534,9 @@ if __name__ == "__main__":
     bindHost = "0.0.0.0" if args.listen else args.host
     allowRemote = bool(args.listen or bindHost in ("0.0.0.0", "::"))
     authToken = args.auth_token or os.environ.get("LUMIYA_AUTH_TOKEN", "")
+    if allowRemote and not authToken and not args.compute_worker:
+        # Without a token, any machine on the network could drive the app; the launcher passes this one to the worker.
+        authToken = secrets.token_urlsafe(24)
     if args.compute_worker:
         runComputeWorker()
     elif args.worker:

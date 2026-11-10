@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.073.8820 (Pilot) - Uninstaller
+rem Version is written once, in core\config.py.
+for /f tokens^=2^ delims^=^" %%v in ('findstr /b /c:"APP_VERSION = " "%~dp0core\config.py"') do set "LMY_VER=%%v"
+if not defined LMY_VER set "LMY_VER=unknown version"
+title PORTtralica Lumiya !LMY_VER! - Uninstaller
 cd /d "%~dp0"
 
 set "MODE=MANIFEST"
@@ -27,7 +30,7 @@ goto parse_args
 
 :show_help
 echo ========================================================================
-echo   PORTtralica Lumiya v0.6.073.8820 (Pilot) - UNINSTALLER REFERENCE
+echo   PORTtralica Lumiya !LMY_VER! - UNINSTALLER REFERENCE
 echo ========================================================================
 echo.
 echo Usage: uninstall.bat [OPTIONS]
@@ -78,7 +81,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya v0.6.073.8820 (Pilot) - UNINSTALLER%RESET%
+echo   %DIM%PORTtralica Lumiya !LMY_VER! - UNINSTALLER%RESET%
 echo   ====================================================================================================
 echo.
 

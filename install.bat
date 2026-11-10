@@ -1,6 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PORTtralica Lumiya v0.6.073.8820 (Pilot) - Environment Installer
+rem Version is written once, in core\config.py.
+for /f tokens^=2^ delims^=^" %%v in ('findstr /b /c:"APP_VERSION = " "%~dp0core\config.py"') do set "LMY_VER=%%v"
+if not defined LMY_VER set "LMY_VER=unknown version"
+title PORTtralica Lumiya !LMY_VER! - Environment Installer
 cd /d "%~dp0"
 
 if /I "%~1"=="-h" goto show_help
@@ -17,7 +20,7 @@ goto proceed_installer
 
 :show_help
 echo ========================================================================
-echo   PORTtralica Lumiya v0.6.073.8820 (Pilot) - INSTALLER REFERENCE
+echo   PORTtralica Lumiya !LMY_VER! - INSTALLER REFERENCE
 echo ========================================================================
 echo.
 echo Usage: install.bat [OPTIONS]
@@ -53,7 +56,7 @@ set "PRE_LIST=%TEMP%\lumiya_pre.txt"
 set "POST_LIST=%TEMP%\lumiya_post.txt"
 
 echo ======================================================================== > "%MANIFEST%"
-echo   PORTtralica Lumiya v0.6.073.8820 (Pilot) - INSTALLATION MANIFEST >> "%MANIFEST%"
+echo   PORTtralica Lumiya !LMY_VER! - INSTALLATION MANIFEST >> "%MANIFEST%"
 echo   Timestamp : %DATE% %TIME% >> "%MANIFEST%"
 echo   Username  : %USERNAME% >> "%MANIFEST%"
 echo ======================================================================== >> "%MANIFEST%"
@@ -77,7 +80,7 @@ echo   %LOGO_GOLD%                                                              
 echo   %LOGO_GOLD%                                                             ::: ::::                               %RESET%
 echo   %LOGO_GOLD%                                                             ::::::                                 %RESET%
 echo.
-echo   %DIM%PORTtralica Lumiya v0.6.073.8820 (Pilot) - SYSTEM AUDIT ^& INSTALLER%RESET%
+echo   %DIM%PORTtralica Lumiya !LMY_VER! - SYSTEM AUDIT ^& INSTALLER%RESET%
 echo   ====================================================================================================
 
 set "MISSING_CORE=0"

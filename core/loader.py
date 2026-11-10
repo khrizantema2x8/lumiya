@@ -9,8 +9,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.config import DEFAULT_ALGO_IDS
 
-LEGACY_SKIP_DIRS = frozenset({"impress", "fastprotect_tcuap", "genptw_tagwm", "decontext_cad", "mistv2"})
-
 
 def hardwareBlockReason(meta: Dict[str, Any], depsStatus: Dict[str, Any], allowRamSpillover: bool = False) -> str:
     """Compares the ALGO_META hardware block with the startup hardware scan."""
@@ -94,7 +92,6 @@ class AlgoPluginManager:
                 not subDir.is_dir()
                 or subDir.name.startswith("_")
                 or subDir.name.startswith(".")
-                or subDir.name in LEGACY_SKIP_DIRS
             ):
                 continue
             pyPath = subDir / "algo.py"
@@ -175,6 +172,21 @@ class AlgoPluginManager:
         if self.cfg.overrideHardware:
             return plugin.get("blockerReason", "") if plugin.get("notRebuilt") else ""
         return self.limitReason(plugin)
+
+    def selectRunnable(self, layers: Dict[str, bool]) -> List[Dict[str, Any]]:
+        """The enabled plugins that can run now; raises if one is not rebuilt or none can run."""
+        chosen = []
+        for algoId, enabled in layers.items():
+            plugin = self.plugins.get(algoId)
+            if not (enabled and plugin):
+                continue
+            if plugin["notRebuilt"]:
+                raise RuntimeError(plugin.get("blockerReason") or f"{plugin['name']} is not rebuilt yet, so it cannot run.")
+            if not self.blockReason(plugin):
+                chosen.append(plugin)
+        if not chosen:
+            raise RuntimeError("None of the selected algorithms can run on this system.")
+        return chosen
 
     @staticmethod
     def limitReason(plugin: Dict[str, Any]) -> str:

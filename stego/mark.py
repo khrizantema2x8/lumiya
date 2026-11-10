@@ -281,8 +281,8 @@ def readBitPlane(arr: np.ndarray) -> Optional[np.ndarray]:
 
 
 def analyzeMark(rawBytes: bytes, pilImg: Optional[Any] = None) -> Dict[str, Any]:
-    """Blind read. Checks native full-resolution (H x W) lossless bit-0 plane first for crisp vector recovery,
-    then falls back to multi-grid QIM cell extraction for JPEG-compressed or resized images."""
+    """Blind read. Finds the QIM cell mark (survives JPEG/resizing), then upgrades to the crisp native bit-0 plane
+    when the file is lossless."""
     if pilImg is not None:
         rgb = pilImg.convert("RGB")
     else:
@@ -294,8 +294,26 @@ def analyzeMark(rawBytes: bytes, pilImg: Optional[Any] = None) -> Dict[str, Any]
     binRes = extractSteganographyPil(rawBytes)
     binFound = bool(binRes.get("found"))
 
-    # 1. Direct full-resolution (H x W) bit-plane check first (prevents coarse QIM low-poly fallback on PNGs)
-    native = readBitPlane(rgbArr)
+    # 1. Multi-grid QIM cell recovery; survives JPEG and resizing, and every Lumiya mark carries it
+    gray = rgb.convert("L")
+    best, bestBits = 0.5, np.zeros((GRID_CHOICES[0], GRID_CHOICES[0]), dtype=np.int64)
+    for gridShort in GRID_CHOICES:
+        gridH, gridW = gridShape(*gray.size, gridShort)
+        sign, dither = cellKeys(gridH, gridW)
+        cells = readCells(gray, gridH, gridW, sign)
+        for step in range(1, MAX_STRENGTH + 1):
+            bits = cellBits(cells, dither, float(step))
+            agreement = (float((bits[1:] == bits[:-1]).mean()) + float((bits[:, 1:] == bits[:, :-1]).mean())) / 2.0
+            if agreement > best:
+                best, bestBits = agreement, bits
+
+    shape = bestBits > 0 if best >= 0.9 else boxBlur(bestBits.astype(np.float64)) > 0.5
+    coverage = float(shape.mean())
+    found = best >= MIN_AGREEMENT and 0.0005 < coverage < 0.98
+
+    # 2. Native full-resolution bit-0 plane: crisp recovery for lossless files. A two-tone flat graphic (40/41 grey)
+    # has the same kind of plane, so it only counts when the QIM layer or the LMY1 frame proves Lumiya wrote the file.
+    native = readBitPlane(rgbArr) if (found or binFound) else None
     if native is not None:
         agreement = (float((native[1:] == native[:-1]).mean()) + float((native[:, 1:] == native[:, :-1]).mean())) / 2.0
         bbox = computeMaskBBox(native)
@@ -316,22 +334,6 @@ def analyzeMark(rawBytes: bytes, pilImg: Optional[Any] = None) -> Dict[str, Any]
             "method": "Native Bit-0 + QIM Mark" + (f" + {binRes.get('method')}" if binFound else ""),
         }
 
-    # 2. Multi-grid QIM cell recovery for lossy JPEGs / resized images
-    gray = rgb.convert("L")
-    best, bestBits = 0.5, np.zeros((GRID_CHOICES[0], GRID_CHOICES[0]), dtype=np.int64)
-    for gridShort in GRID_CHOICES:
-        gridH, gridW = gridShape(*gray.size, gridShort)
-        sign, dither = cellKeys(gridH, gridW)
-        cells = readCells(gray, gridH, gridW, sign)
-        for step in range(1, MAX_STRENGTH + 1):
-            bits = cellBits(cells, dither, float(step))
-            agreement = (float((bits[1:] == bits[:-1]).mean()) + float((bits[:, 1:] == bits[:, :-1]).mean())) / 2.0
-            if agreement > best:
-                best, bestBits = agreement, bits
-
-    shape = bestBits > 0 if best >= 0.9 else boxBlur(bestBits.astype(np.float64)) > 0.5
-    coverage = float(shape.mean())
-    found = best >= MIN_AGREEMENT and 0.0005 < coverage < 0.98
     res: Dict[str, Any] = {
         "found": bool(found or binFound),
         "markFound": found,
