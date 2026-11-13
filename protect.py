@@ -3,145 +3,47 @@ from __future__ import annotations
 import argparse
 import base64
 import copy
-import ctypes
-import hashlib
 import importlib.metadata
 import importlib.util
 import io
 import json
 import math
 import os
-import re
 import secrets
 import shutil
-import socket
 import subprocess
 import sys
 import threading
 import time
-import urllib.parse
 import uuid
 import warnings
-import webbrowser
-from dataclasses import dataclass, field
 from datetime import datetime
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.cleaner import cleanMemoryAndStorage
 from core.init import (
+    APP_NAME,
     APP_VERSION,
-    BOUNDS,
-    CHOICES,
-    DEFAULT_ALGO_IDS,
-    THEME_ID_RE,
     VALID_EXTS,
     AlgoPluginManager,
-    clampSetting,
     SuiteConfig,
     TelemetryMonitor,
-    atomicWrite,
-    checkRemoteUpdate,
+    clampSetting,
     computeProgramIntegrity,
-    isLoopbackClient,
-    isTrustedRequest,
-    openPathForeground,
-    parseJsonBody,
     runProtectedUpdate,
-    safeFloat,
     safeInt,
     sanitizeFilename,
     verifyBrandAssets,
 )
-from stego.mark import MarkError, embedMark, inspectStego, prepareMark
+from core.queue import QueueManager, RuntimeState
+from core.server import ServerApp, findAvailablePort, serve
+from core.termlog import TermLog
+from stego.mark import embedMark
 
 # The progress bar uses block characters a legacy console codepage cannot encode.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 warnings.filterwarnings("ignore", message=".*pynvml.*deprecated.*", category=UserWarning)
-
-APP_NAME = "PORTtralica Lumiya"
-
-if sys.platform == "win32":
-    kernel32 = ctypes.windll.kernel32
-    stdOutHandle = kernel32.GetStdHandle(-11)
-    consoleMode = ctypes.c_ulong()
-    if kernel32.GetConsoleMode(stdOutHandle, ctypes.byref(consoleMode)):
-        kernel32.SetConsoleMode(stdOutHandle, consoleMode.value | 0x0004)
-
-
-class TermLog:
-    RESET = "\x1b[0m"
-    DIM = "\x1b[90m"
-    CYAN = "\x1b[96m"
-    GREEN = "\x1b[92m"
-    YELLOW = "\x1b[93m"
-    RED = "\x1b[91m"
-    MAGENTA = "\x1b[95m"
-    WHITE = "\x1b[97m"
-    WIDTH = 102
-    ERROR_LOG_PATH = Path(__file__).resolve().parent / "user" / "error.log"
-
-    @classmethod
-    def writeErrorLog(cls, context: str, detail: str, module: str = "lumiyaCore.py") -> None:
-        try:
-            cls.ERROR_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            entry = (
-                f"[{ts}] [{module}] {context}\n"
-                f"  Python : {sys.version.split()[0]} ({sys.executable})\n"
-                f"  OS     : {sys.platform}\n"
-                f"  Detail : {detail.strip()}\n"
-                + ("-" * 88)
-                + "\n"
-            )
-            with cls.ERROR_LOG_PATH.open("a", encoding="utf-8", errors="replace") as fh:
-                fh.write(entry)
-        except Exception:
-            pass
-
-    @classmethod
-    def emit(cls, msg: str, module: str = "lumiyaCore.py", level: str = "INFO") -> None:
-        lvlColor = {
-            "INFO": cls.CYAN,
-            "WARNING": cls.YELLOW,
-            "ERROR": cls.RED,
-            "OK": cls.GREEN,
-        }.get(level, cls.CYAN)
-
-        cleanText = msg
-        for code in (cls.RESET, cls.DIM, cls.CYAN, cls.GREEN, cls.YELLOW, cls.RED, cls.MAGENTA, cls.WHITE):
-            cleanText = cleanText.replace(code, "")
-
-        if level == "ERROR":
-            cls.writeErrorLog("Runtime Error", cleanText, module=module)
-
-        rightTag = f"{cls.DIM}{module} :: {lvlColor}{level}{cls.RESET}"
-        rightLen = len(f"{module} :: {level}")
-        padCount = max(2, cls.WIDTH - 2 - len(cleanText) - rightLen)
-        sys.stdout.write(f"\r\x1b[2K  {msg}{' ' * padCount}{rightTag}\n")
-        sys.stdout.flush()
-
-    @classmethod
-    def progress(cls, step: int, total: int, elapsed: float) -> None:
-        pct = int(round((step / max(total, 1)) * 100))
-        barWidth = 42
-        filled = int(round(barWidth * (step / max(total, 1))))
-        barStr = "\u2588" * filled + " " * (barWidth - filled)
-        rate = step / max(elapsed, 1e-4)
-        rem = (total - step) / max(rate, 1e-4)
-        minEl, secEl = divmod(int(elapsed), 60)
-        minRem, secRem = divmod(int(rem), 60)
-        rateStr = f"{rate:5.2f}it/s" if rate >= 1.0 else f"{1.0 / max(rate, 1e-4):5.2f}s/it"
-        line = (
-            f"  {pct:3d}%|{cls.WHITE}{barStr}{cls.RESET}| "
-            f"{step}/{total} [{minEl:02d}:{secEl:02d}<{minRem:02d}:{secRem:02d}, {rateStr}]"
-        )
-        sys.stdout.write(f"\r\x1b[2K{line}")
-        if step >= total:
-            sys.stdout.write("\n")
-        sys.stdout.flush()
 
 
 def _installGlobalExceptionHook() -> None:
@@ -437,89 +339,6 @@ THEMES_DIR = IDENTITY_DIR / "theme"
 USER_DIR = ROOT_DIR / "user"
 
 
-_COLOR_VALUE_REGEX = re.compile(
-    r"^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$|^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(?:,\s*[\d.]+\s*)?\)$"
-)
-_ALLOWED_THEME_KEYS = {
-    "--bg", "--header-bg", "--brand-bg", "--panel", "--panelAlt", "--panelHover",
-    "--panelDark", "--line", "--lineStrong", "--telemetry-bg", "--telemetry-graph-bg",
-    "--history-row-bg", "--drop-bg", "--drop-hover-bg", "--dots-bg", "--split-drop-bg",
-    "--input-bg", "--tab-bg", "--tab-hover-bg", "--scrollbar-track", "--scrollbar-thumb",
-    "--scrollbar-thumb-hover", "--theme-active-border", "--right-divider",
-    "--fg", "--muted", "--dim", "--gold", "--blue", "--blueHover", "--green",
-    "--yellow", "--red", "--cyan",
-    "--inspect-grid",
-}
-
-
-def loadThemesFromDisk() -> List[Dict[str, Any]]:
-    """Dynamically loads and validates .ltheme lookup tables from identity/theme."""
-    if not THEMES_DIR.exists():
-        return []
-    themes: List[Dict[str, Any]] = []
-    priority = ["carbon", "blue_steel", "tropical", "freshen", "blue_steel_amere", "tropical_amere", "freshen_amere"]
-
-    for themeFile in THEMES_DIR.glob("*.ltheme"):
-        try:
-            resolved = themeFile.resolve()
-            if THEMES_DIR not in resolved.parents:
-                continue
-            themeId = themeFile.stem
-            if not THEME_ID_RE.match(themeId):
-                continue
-            raw = json.loads(themeFile.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict):
-                continue
-
-            safeId = str(raw.get("id") or themeId).strip()
-            if not THEME_ID_RE.match(safeId):
-                safeId = themeId
-            safeName = str(raw.get("name") or safeId.replace("_", " ").title()).strip()
-            safeAuthor = str(raw.get("author") or "Lumiya").strip()
-            safeVersion = str(raw.get("version") or "1.0").strip()
-
-            thumbName = str(raw.get("thumbnail") or f"{safeId}.jpg").strip()
-            if ".." in thumbName or "/" in thumbName or "\\" in thumbName:
-                thumbName = f"{safeId}.jpg"
-            thumbPath = THEMES_DIR / thumbName
-            if thumbPath.is_file():
-                thumbMtime = int(thumbPath.stat().st_mtime)
-                thumbUrl = f"/identity/theme/{thumbName}?t={thumbMtime}"
-            else:
-                thumbUrl = "/identity/media/workspace.png"
-
-            rawColors = raw.get("colors")
-            if not isinstance(rawColors, dict):
-                continue
-            safeColors: Dict[str, str] = {}
-            for k, v in rawColors.items():
-                k_str = str(k).strip()
-                v_str = str(v).strip()
-                if k_str in _ALLOWED_THEME_KEYS and _COLOR_VALUE_REGEX.match(v_str):
-                    safeColors[k_str] = v_str
-
-            if not safeColors:
-                continue
-
-            themeMtime = int(themeFile.stat().st_mtime)
-            themes.append({
-                "id": safeId,
-                "name": safeName,
-                "author": safeAuthor,
-                "version": safeVersion,
-                "thumbnail": thumbUrl,
-                "mtime": themeMtime,
-                "colors": safeColors,
-            })
-        except Exception:
-            continue
-
-    def sortKey(t: Dict[str, Any]) -> int:
-        tid = t.get("id", "")
-        return priority.index(tid) if tid in priority else 100
-
-    themes.sort(key=lambda t: (sortKey(t), t.get("name", "")))
-    return themes
 UI_FILE = (ROOT_DIR / "core" / "ui.html") if (ROOT_DIR / "core" / "ui.html").exists() else (ROOT_DIR / "ui.html")
 REQ_FILE = (ROOT_DIR / "core" / "requirements.txt") if (ROOT_DIR / "core" / "requirements.txt").exists() else (ROOT_DIR / "requirements.txt")
 CONFIG_FILE = USER_DIR / "config.json"
@@ -555,334 +374,6 @@ def nativeTiles(width: int, height: int, workingDim: int = 768, allowRamSpillove
     ys = axisStops(height, tileH)
     xs = axisStops(width, tileW)
     return [(y0, y0 + tileH, x0, x0 + tileW) for y0 in ys for x0 in xs]
-
-
-@dataclass
-class QueuedFile:
-    fileId: str
-    name: str
-    ext: str
-    sha256: str
-    sizeBytes: int
-    width: int = 0
-    height: int = 0
-    valid: bool = True
-    errorMsg: str = ""
-    status: str = "STAGED"
-    rawBytes: bytes = b""
-    thumbB64: str = ""
-    outPath: str = ""
-    hasStego: bool = False
-    psnr: float = 0.0
-    shift: float = 0.0
-    exportRev: int = 0
-
-
-@dataclass
-class BatchQueue:
-    batchId: str
-    createdAt: str
-    state: str = "STAGED"
-    epsilon: float = field(default_factory=lambda: CFG.epsilon)
-    computeLevel: float = field(default_factory=lambda: CFG.computeLevel)
-    seed: int = field(default_factory=lambda: CFG.seed)
-    steps: int = field(default_factory=lambda: CFG.steps)
-    guidancePrompt: str = field(default_factory=lambda: CFG.guidancePrompt)
-    geoAnchorLow: float = field(default_factory=lambda: CFG.geoAnchorLow)
-    geoAnchorHigh: float = field(default_factory=lambda: CFG.geoAnchorHigh)
-    temporalWeight: float = field(default_factory=lambda: CFG.temporalWeight)
-    maskAugFactor: float = field(default_factory=lambda: CFG.maskAugFactor)
-    convertPng: bool = field(default_factory=lambda: CFG.convertPng)
-    stegoMode: str = field(default_factory=lambda: CFG.stegoMode)
-    stegoText: str = field(default_factory=lambda: CFG.stegoText)
-    stegoStrength: float = field(default_factory=lambda: CFG.stegoStrength)
-    stegoScale: float = field(default_factory=lambda: CFG.stegoScale)
-    stegoPlacement: str = field(default_factory=lambda: CFG.stegoPlacement)
-    stegoPayload: str = field(default_factory=lambda: CFG.stegoPayload)
-    stegoMark: str = field(default_factory=lambda: CFG.stegoMark)
-    layers: Dict[str, bool] = field(default_factory=lambda: dict(CFG.layers))
-    files: List[QueuedFile] = field(default_factory=list)
-
-    @property
-    def stegoTextActive(self) -> str:
-        return self.stegoText if self.stegoPayload in ("text", "binary") else ""
-
-    @property
-    def stegoMarkActive(self) -> str:
-        return self.stegoMark if self.stegoPayload == "image" else ""
-
-    @property
-    def exportDir(self) -> Path:
-        return RESULTS_ROOT / self.batchId
-
-    @property
-    def hasExported(self) -> bool:
-        return any(bool(f.outPath) for f in self.files)
-
-
-def validateBatchConfig(batch: BatchQueue, algoMgr: Optional[AlgoPluginManager] = None, requireFiles: bool = False) -> Tuple[bool, str]:
-    """Ensures batch parameters, hardware constraints, and algorithm selections are valid before execution or save."""
-    if requireFiles:
-        validFiles = [f for f in batch.files if f.valid]
-        if not validFiles:
-            return False, "This batch contains no valid readable images to process."
-    if batch.stegoMode != "only":
-        enabledIds = [k for k, v in (batch.layers or {}).items() if bool(v)]
-        if not enabledIds:
-            return False, "At least one AI-Defense Layers algorithm must be enabled when AI-blocking is active."
-        if algoMgr is not None:
-            runnableCount = 0
-            lastBlockReason = ""
-            for aid in enabledIds:
-                p = algoMgr.plugins.get(aid)
-                if not p:
-                    continue
-                bReason = algoMgr.blockReason(p)
-                if bReason:
-                    lastBlockReason = f"{p.get('name', aid)}: {bReason}"
-                else:
-                    runnableCount += 1
-            if runnableCount == 0 and lastBlockReason:
-                return False, lastBlockReason
-    if batch.stegoMode in ("combined", "only"):
-        if batch.stegoPayload in ("text", "binary") and not str(batch.stegoTextActive or "").strip():
-            return False, "Enter a watermark text payload when text steganography is enabled."
-        if batch.stegoPayload == "image" and not batch.stegoMarkActive:
-            return False, "Import a transparent PNG mark when Visible Image Mark steganography is enabled."
-    return True, ""
-
-
-class QueueManager:
-    def __init__(self) -> None:
-        RESULTS_ROOT.mkdir(parents=True, exist_ok=True)
-        self.lock = threading.RLock()
-        self.batches: Dict[str, BatchQueue] = {}
-        self.batchOrder: List[str] = []
-        self.rev: int = 1
-        self._cachedTreeRev: int = -1
-        self._cachedTree: List[Dict[str, Any]] = []
-
-    def createNewBatch(self) -> BatchQueue:
-        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        bid = stamp
-        idx = 1
-        while bid in self.batches or (RESULTS_ROOT / bid).exists():
-            bid = f"{stamp}_{idx}"
-            idx += 1
-        batch = BatchQueue(batchId=bid, createdAt=datetime.now().strftime("%H:%M:%S"))
-        self.batches[bid] = batch
-        self.batchOrder.append(bid)
-        self.rev += 1
-        TermLog.emit(f"Created staging batch {TermLog.CYAN}{bid}{TermLog.RESET}", "queueManager.py", "INFO")
-        return batch
-
-    def createOrGetStagingBatch(self) -> BatchQueue:
-        with self.lock:
-            for bid in reversed(self.batchOrder):
-                b = self.batches[bid]
-                if b.state == "STAGED":
-                    return b
-            return self.createNewBatch()
-
-    def addFile(self, batchId: str, filename: str, data: bytes) -> Dict[str, Any]:
-        safeName = sanitizeFilename(filename)
-        ext = Path(safeName).suffix.lower()
-
-        if ext not in VALID_EXTS:
-            return {
-                "accepted": False,
-                "duplicate": False,
-                "reason": f"Illegal format '{ext}' for '{safeName}'. Allowed: {', '.join(VALID_EXTS)}",
-            }
-
-        fileHash = hashlib.sha256(data).hexdigest()
-
-        with self.lock:
-            batch = self.batches.get(batchId)
-            if batch is None or batch.state not in ("STAGED", "PAUSED", "STOPPED"):
-                batch = self.createOrGetStagingBatch()
-
-            for existing in batch.files:
-                if existing.sha256 == fileHash:
-                    return {
-                        "accepted": False,
-                        "duplicate": True,
-                        "reason": f"Duplicate skipped: '{safeName}' is already in batch {batch.batchId}.",
-                    }
-
-        validContent = True
-        errMsg = ""
-        width, height = 0, 0
-        thumbStr = ""
-        if DEPS_STATUS["pil"]:
-            try:
-                with Image.open(io.BytesIO(data)) as verifyIm:
-                    verifyIm.verify()
-                with Image.open(io.BytesIO(data)) as im:
-                    im = ImageOps.exif_transpose(im)
-                    width, height = im.size
-                    if width < 16 or height < 16:
-                        raise ValueError(f"Dimensions too small ({width}x{height})")
-                    thumb = im.convert("RGB")
-                    thumb.thumbnail((220, 220))
-                    buf = io.BytesIO()
-                    thumb.save(buf, format="JPEG", quality=82)
-                    thumbStr = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-            except Exception as exc:
-                validContent = False
-                errMsg = f"Corrupted image content: {exc}"
-        else:
-            width, height = 512, 512
-
-        qfile = QueuedFile(
-            fileId=uuid.uuid4().hex[:10],
-            name=safeName,
-            ext=ext,
-            sha256=fileHash,
-            sizeBytes=len(data),
-            width=width,
-            height=height,
-            valid=validContent,
-            errorMsg=errMsg,
-            status="STAGED" if validContent else "CORRUPT",
-            rawBytes=data if validContent else b"",
-            thumbB64=thumbStr,
-        )
-
-        with self.lock:
-            batch.files.append(qfile)
-            self.rev += 1
-
-        return {"accepted": True, "duplicate": False, "valid": validContent, "name": safeName, "batchId": batch.batchId}
-
-    def reorderOrSplitFile(self, srcBatchId: str, fileId: str, targetBatchId: str, targetIndex: int) -> Dict[str, Any]:
-        with self.lock:
-            srcBatch = self.batches.get(srcBatchId)
-            if not srcBatch:
-                return {"ok": False}
-            movedFile = None
-            for idx, f in enumerate(srcBatch.files):
-                if f.fileId == fileId:
-                    movedFile = srcBatch.files.pop(idx)
-                    break
-            if not movedFile:
-                return {"ok": False}
-
-            if targetBatchId == "NEW_BATCH":
-                destBatch = self.createNewBatch()
-                destBatch.files.append(movedFile)
-            else:
-                destBatch = self.batches.get(targetBatchId, srcBatch)
-                clampedIdx = max(0, min(targetIndex, len(destBatch.files)))
-                destBatch.files.insert(clampedIdx, movedFile)
-
-            if len(srcBatch.files) == 0:
-                self.deleteBatchUnlocked(srcBatchId)
-
-            self.rev += 1
-            return {"ok": True}
-
-    def getFileBytes(self, batchId: str, fileId: str, preferExport: bool = False) -> Optional[Tuple[bytes, str]]:
-        mimeMap = {".png": "image/png", ".webp": "image/webp", ".bmp": "image/bmp", ".tiff": "image/tiff"}
-        with self.lock:
-            b = self.batches.get(batchId)
-            if not b:
-                return None
-            for f in b.files:
-                if f.fileId == fileId:
-                    hasDisk = bool(f.outPath and Path(f.outPath).exists())
-                    if (preferExport or not f.rawBytes) and hasDisk:
-                        outPath = Path(f.outPath)
-                        return outPath.read_bytes(), mimeMap.get(outPath.suffix.lower(), "image/jpeg")
-                    if f.rawBytes:
-                        return f.rawBytes, mimeMap.get(f.ext.lower(), "image/jpeg")
-            return None
-
-    def removeFile(self, batchId: str, fileId: str) -> Dict[str, Any]:
-        with self.lock:
-            batch = self.batches.get(batchId)
-            if not batch:
-                return {"ok": False}
-            batch.files = [f for f in batch.files if f.fileId != fileId]
-            emptyNow = len(batch.files) == 0
-            if emptyNow:
-                self.deleteBatchUnlocked(batchId)
-            self.rev += 1
-            return {"ok": True, "batchDeleted": emptyNow}
-
-    def deleteBatchUnlocked(self, batchId: str, deleteExports: bool = False) -> None:
-        batch = self.batches.pop(batchId, None)
-        if batchId in self.batchOrder:
-            self.batchOrder.remove(batchId)
-        if deleteExports and batch and batch.exportDir.exists():
-            shutil.rmtree(batch.exportDir, ignore_errors=True)
-        self.rev += 1
-
-    def deleteBatch(self, batchId: str, keepExports: bool = False) -> bool:
-        with self.lock:
-            if batchId not in self.batches:
-                return False
-            self.deleteBatchUnlocked(batchId, deleteExports=not keepExports)
-            return True
-
-    def serializeTree(self) -> List[Dict[str, Any]]:
-        with self.lock:
-            if self._cachedTreeRev == self.rev:
-                return self._cachedTree
-            out = []
-            for bid in reversed(self.batchOrder):
-                b = self.batches[bid]
-                allPng = len(b.files) > 0 and all(f.ext.lower() == ".png" for f in b.files)
-                out.append(
-                    {
-                        "batchId": b.batchId,
-                        "createdAt": b.createdAt,
-                        "state": b.state,
-                        "hasExported": b.hasExported,
-                        "allPng": allPng,
-                        "convertPng": b.convertPng,
-                        "epsilon": b.epsilon,
-                        "computeLevel": b.computeLevel,
-                        "seed": b.seed,
-                        "stegoStrength": b.stegoStrength,
-                        "stegoScale": b.stegoScale,
-                        "stegoPlacement": b.stegoPlacement,
-                        "stegoPayload": b.stegoPayload,
-                        # Id only: the mark can be a large image, and this tree is resent on every status change.
-                        "markId": hashlib.sha1(b.stegoMark.encode("ascii", "ignore")).hexdigest()[:12] if b.stegoMark else "",
-                        "steps": b.steps,
-                        "guidancePrompt": b.guidancePrompt,
-                        "geoAnchorLow": b.geoAnchorLow,
-                        "geoAnchorHigh": b.geoAnchorHigh,
-                        "temporalWeight": b.temporalWeight,
-                        "maskAugFactor": b.maskAugFactor,
-                        "stegoMode": b.stegoMode,
-                        "stegoText": b.stegoText,
-                        "layers": dict(b.layers),
-                        "files": [
-                            {
-                                "fileId": f.fileId,
-                                "name": f.name,
-                                "ext": f.ext,
-                                "dims": f"{f.width}x{f.height}" if f.width else "Invalid",
-                                "sizeKb": round(f.sizeBytes / 1024.0, 1),
-                                "valid": f.valid,
-                                "errorMsg": f.errorMsg,
-                                "status": f.status,
-                                "hasStego": f.hasStego,
-                                "hasExport": bool(f.outPath and Path(f.outPath).exists()),
-                                "exportRev": f.exportRev,
-                                "psnr": round(f.psnr, 1),
-                                "shift": round(f.shift, 1),
-                                "thumb": f.thumbB64,
-                            }
-                            for f in b.files
-                        ],
-                    }
-                )
-            self._cachedTree = out
-            self._cachedTreeRev = self.rev
-            return out
 
 
 class ModularDefenseEngine:
@@ -1447,58 +938,6 @@ class ModularDefenseEngine:
                     pass
 
 
-@dataclass
-class RuntimeState:
-    busy: bool = False
-    paused: bool = False
-    stopRequested: bool = False
-    debugMode: bool = False
-    emulateExecution: bool = False
-    activeBatch: str = "-"
-    currentFile: str = "Idle"
-    idx: int = 0
-    total: int = 0
-    step: int = 0
-    steps: int = CFG.steps
-    eta: float = 0.0
-    stepRate: float = 0.0
-    history: List[Dict[str, Any]] = field(default_factory=list)
-
-    def loadHistory(self) -> None:
-        target = HISTORY_FILE if HISTORY_FILE.exists() else (ROOT_DIR / "history.json")
-        if target.exists():
-            try:
-                self.history = json.loads(target.read_text(encoding="utf-8"))
-            except Exception:
-                self.history = []
-
-    def saveHistory(self) -> None:
-        try:
-            atomicWrite(HISTORY_FILE, json.dumps(self.history[:100], indent=2))
-        except Exception:
-            pass
-
-    def removeBatchHistory(self, batchId: str) -> None:
-        beforeLen = len(self.history)
-        self.history = [h for h in self.history if h.get("batch") != batchId]
-        if len(self.history) != beforeLen:
-            self.saveHistory()
-
-
-def findAvailablePort(startPort: int = 7860, maxAttempts: int = 50, host: str = "127.0.0.1") -> int:
-    """Automatic Port Selection (APS): probes local sockets to find an available port."""
-    probeHost = "127.0.0.1" if host in ("0.0.0.0", "") else host
-    for candidate in range(startPort, startPort + maxAttempts):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                s.bind((probeHost, candidate))
-                return candidate
-            except OSError:
-                continue
-    return startPort
-
-
 def runServer(
     host: str = "127.0.0.1",
     port: int = 7860,
@@ -1507,7 +946,6 @@ def runServer(
     allowRemote: bool = False,
     authToken: str = "",
 ) -> None:
-    actualPort = port
     if not os.environ.get("LUMIYA_BANNER_PRINTED"):
         print("  " + "=" * 100)
     TermLog.emit(
@@ -1520,790 +958,212 @@ def runServer(
     rebuilt = [k for k, item in algoMgr.plugins.items() if not item["notRebuilt"]]
     if not CFG.overrideHardware:
         CFG.favoriteAlgos = [k for k in CFG.favoriteAlgos if k in rebuilt] or rebuilt[:10]
-    mon = TelemetryMonitor(DEPS_STATUS, CFG, psutil, NVIDIA_SMI_BIN)
-    qMgr = QueueManager()
-    engine = ModularDefenseEngine(algoMgr)
-    rt = RuntimeState(debugMode=debugMode, emulateExecution=debugMode)
+    rt = RuntimeState(HISTORY_FILE, debugMode=debugMode, emulateExecution=debugMode)
     rt.loadHistory()
-    workerLock = threading.Lock()
-    sseLock = threading.Lock()
-    activeSseCount = 0
+    app = ServerApp(
+        cfg=CFG,
+        configFile=CONFIG_FILE,
+        deps=DEPS_STATUS,
+        algoMgr=algoMgr,
+        mon=TelemetryMonitor(DEPS_STATUS, CFG, psutil, NVIDIA_SMI_BIN),
+        qMgr=QueueManager(RESULTS_ROOT, CFG),
+        engine=ModularDefenseEngine(algoMgr),
+        rt=rt,
+        rootDir=ROOT_DIR,
+        resultsRoot=RESULTS_ROOT,
+        algosDir=ALGOS_DIR,
+        identityDir=IDENTITY_DIR,
+        themesDir=THEMES_DIR,
+        uiFile=UI_FILE,
+        manifestFile=MANIFEST_FILE,
+        brandStatus=BRAND_STATUS,
+        allowRemote=allowRemote,
+        authToken=authToken,
+        port=port,
+    )
+    app.executeBatch = lambda batchId: executeBatch(app, batchId)
+    serve(app, host, port, noBrowser)
 
-    def triggerLastTabPurge() -> None:
-        time.sleep(1.5)
-        with sseLock:
-            stillZero = activeSseCount == 0
-        if stillZero and not rt.busy:
-            rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
-            TermLog.emit(
-                f"No active browser tabs — purged caches (VRAM freed: {rep['vramFreedMb']} MB, buffers: {rep['ramBuffersCleared']})",
-                "core/cleaner.py",
-                "INFO",
-            )
 
-    def executeBatch(batchId: str) -> None:
-        if not workerLock.acquire(blocking=False):
-            return
-        try:
-            batch = qMgr.batches.get(batchId)
-            if not batch:
-                return
-            validFiles = [f for f in batch.files if f.valid and f.status in ("STAGED", "STOPPED", "FAILED")]
-            if not validFiles:
-                return
+# One batch at a time: the GPU worker holds a single model and job.
+_workerLock = threading.Lock()
 
-            # Snapshot batch parameters at launch so mid-run UI edits do not mutate an active batch
-            snap = {
-                "epsilon": float(batch.epsilon),
-                "steps": int(batch.steps),
-                "computeLevel": float(batch.computeLevel),
-                "seed": int(batch.seed),
-                "convertPng": bool(batch.convertPng),
-                "stegoMode": str(batch.stegoMode),
-                "stegoPayload": str(batch.stegoPayload),
-                "stegoText": str(batch.stegoTextActive),
-                "stegoMark": str(batch.stegoMarkActive),
-                "stegoStrength": float(batch.stegoStrength),
-                "stegoScale": float(batch.stegoScale),
-                "stegoPlacement": str(batch.stegoPlacement),
-                "layers": copy.deepcopy(batch.layers),
-                "guidancePrompt": str(batch.guidancePrompt),
-                "geoAnchorLow": float(batch.geoAnchorLow),
-                "geoAnchorHigh": float(batch.geoAnchorHigh),
-                "temporalWeight": float(batch.temporalWeight),
-                "maskAugFactor": float(batch.maskAugFactor),
-            }
 
-            batch.state = "RUNNING"
-            batch.exportDir.mkdir(parents=True, exist_ok=True)
-            rt.busy = True
-            rt.paused = False
-            rt.stopRequested = False
-            rt.activeBatch = batch.batchId
-            rt.total = len(validFiles)
-            qMgr.rev += 1
-            doneCount = 0
-            errCount = 0
-
-            for idx, qfile in enumerate(validFiles, start=1):
-                if rt.stopRequested:
-                    qfile.status = "STOPPED"
-                    qMgr.rev += 1
-                    continue
-
-                qfile.status = "RUNNING"
-                qMgr.rev += 1
-                rt.idx = idx
-                rt.currentFile = qfile.name
-                rt.step = 0
-                rt.steps = snap["steps"]
-
-                def stepCb(s: int, tot: int, el: float) -> None:
-                    rt.step = s
-                    rt.steps = tot
-                    rt.stepRate = s / max(el, 1e-4)
-                    pct = s / max(tot, 1)
-                    rt.eta = (el / pct - el) if pct > 0 else 0.0
-
-                def ctrlCb() -> str:
-                    if rt.stopRequested:
-                        return "STOP"
-                    if batch.state != "RUNNING":
-                        batch.state = "RUNNING"
-                        qMgr.rev += 1
-                    return "RUN"
-
-                try:
-                    tFile = time.time()
-                    outExt = ".png" if snap["convertPng"] else qfile.ext
-                    outBytes, w, h, psnr, shift = engine.processImage(
-                        qfile.rawBytes,
-                        fileExt=outExt,
-                        epsilon255=snap["epsilon"],
-                        steps=snap["steps"],
-                        computeLevel=snap["computeLevel"],
-                        seed=snap["seed"],
-                        stegoOpts={
-                            "payload": snap["stegoPayload"],
-                            "mark": snap["stegoMark"],
-                            "strength": snap["stegoStrength"],
-                            "scale": snap["stegoScale"],
-                            "placement": snap["stegoPlacement"],
-                        },
-                        stegoMode=snap["stegoMode"],
-                        stegoText=snap["stegoText"],
-                        layers=snap["layers"],
-                        stepCb=stepCb,
-                        controlCb=ctrlCb,
-                        emulateDebug=rt.emulateExecution,
-                        guidancePrompt=snap["guidancePrompt"],
-                        geoAnchorLow=snap["geoAnchorLow"],
-                        geoAnchorHigh=snap["geoAnchorHigh"],
-                        temporalWeight=snap["temporalWeight"],
-                        maskAugFactor=snap["maskAugFactor"],
-                    )
-                    # A redo gets a new file name, so earlier exports and their History rows stay intact.
-                    stem = Path(sanitizeFilename(qfile.name)).stem
-                    outPath = batch.exportDir / f"{stem}_lumiya{outExt}"
-                    counter = 1
-                    while outPath.exists():
-                        outPath = batch.exportDir / f"{stem}_lumiya_{counter}{outExt}"
-                        counter += 1
-                    outPath.write_bytes(outBytes)
-                    qfile.outPath = str(outPath)
-                    qfile.hasStego = snap["stegoMode"] in ("combined", "only") and bool(
-                        snap["stegoText"].strip() or snap["stegoMark"]
-                    )
-                    qfile.psnr = psnr
-                    qfile.shift = shift
-                    qfile.exportRev += 1
-                    qfile.status = "DONE"
-                    doneCount += 1
-                    qMgr.rev += 1
-
-                    dtFile = time.time() - tFile
-                    TermLog.emit(
-                        f"Exported {TermLog.GREEN}\"{outPath.name}\"{TermLog.RESET} ({w}x{h}, {psnr:.1f}dB) in {dtFile:.2f}s",
-                        "ioHandler.py",
-                        "OK",
-                    )
-
-                    rt.history.insert(
-                        0,
-                        {
-                            "name": outPath.name,
-                            "batch": batch.batchId,
-                            "size": f"{w}x{h}",
-                            "psnr": f"{psnr:.1f}",
-                            "shift": f"{shift:.1f}",
-                            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        },
-                    )
-                    rt.saveHistory()
-                except InterruptedError:
-                    qfile.status = "STOPPED"
-                    batch.state = "STOPPED"
-                    qMgr.rev += 1
-                    break
-                except Exception as exc:
-                    qfile.status = "FAILED"
-                    qfile.errorMsg = str(exc)
-                    errCount += 1
-                    qMgr.rev += 1
-                    TermLog.emit(f"Error processing {qfile.name}: {exc}", "worker.py", "ERROR")
-
-            if rt.stopRequested or batch.state == "STOPPED":
-                batch.state = "STOPPED"
-            elif doneCount == 0 and errCount > 0:
-                batch.state = "FAILED"
-            else:
-                batch.state = "COMPLETED"
-            qMgr.rev += 1
-
-            algoMgr.rev += 1
-            CFG.save(CONFIG_FILE)
-        finally:
-            try:
-                cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=False)
-            except Exception:
-                pass
-            rt.busy = False
-            rt.paused = False
-            rt.stopRequested = False
-            rt.activeBatch = "-"
-            rt.currentFile = "Idle"
-            rt.step = 0
-            rt.eta = 0.0
-            rt.stepRate = 0.0
-            workerLock.release()
-
-    class RequestHandler(BaseHTTPRequestHandler):
-        def handle(self) -> None:
-            try:
-                super().handle()
-            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
-                pass
-
-        def log_message(self, fmt: str, *args: Any) -> None:
-            return
-
-        def _sendSecurityHeaders(self) -> None:
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "no-referrer")
-
-        def _extractReqToken(self, qs: Dict[str, List[str]]) -> str:
-            hdr = self.headers.get("X-Lumiya-Token") or self.headers.get("Authorization") or ""
-            if hdr.lower().startswith("bearer "):
-                hdr = hdr[7:].strip()
-            return hdr or (qs.get("token", [""])[0] if "token" in qs else "")
-
-        def do_GET(self) -> None:
-            parsed = urllib.parse.urlparse(self.path)
-            qs = urllib.parse.parse_qs(parsed.query)
-
-            if parsed.path.startswith("/api/") and not isTrustedRequest(
-                self.headers.get("Host"),
-                self.headers.get("Origin"),
-                actualPort,
-                allowRemote=allowRemote,
-                authToken=authToken,
-                reqToken=self._extractReqToken(qs),
-            ):
-                self.send_error(HTTPStatus.FORBIDDEN)
-                return
-
-            if parsed.path == "/":
-                body = UI_FILE.read_bytes()
-                self.send_response(HTTPStatus.OK)
-                self._sendSecurityHeaders()
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            elif (
-                parsed.path.startswith("/identity/")
-                or parsed.path in (
-                    "/lumiya_blk.ico",
-                    "/lumiya_t.ico",
-                    "/logo.png",
-                )
-            ):
-                rel = parsed.path.lstrip("/")
-                if rel.startswith("identity/"):
-                    sub = rel[len("identity/"):]
-                    assetPath = (IDENTITY_DIR / sub).resolve()
-                else:
-                    assetPath = IDENTITY_DIR / rel
-                if not assetPath.exists() and (ROOT_DIR / rel).exists():
-                    assetPath = ROOT_DIR / rel
-                if not assetPath.exists() and (ROOT_DIR / "assets" / rel).exists():
-                    assetPath = ROOT_DIR / "assets" / rel
-                if (
-                    assetPath.is_file()
-                    and (
-                        IDENTITY_DIR in assetPath.parents
-                        or (ROOT_DIR / "assets") in assetPath.parents
-                        or assetPath.parent == ROOT_DIR
-                    )
-                ):
-                    if assetPath.name in ("logo.png", "lumiya_blk.ico", "lumiya_t.ico"):
-                        verifyBrandAssets(ROOT_DIR)
-                    data = assetPath.read_bytes()
-                    ext = assetPath.suffix.lower()
-                    mimeMap = {
-                        ".png": "image/png",
-                        ".jpg": "image/jpeg",
-                        ".jpeg": "image/jpeg",
-                        ".ico": "image/x-icon",
-                        ".gif": "image/gif",
-                        ".webp": "image/webp",
-                    }
-                    mime = mimeMap.get(ext, "application/octet-stream")
-                    self.send_response(HTTPStatus.OK)
-                    self._sendSecurityHeaders()
-                    self.send_header("Content-Type", mime)
-                    self.send_header("Content-Length", str(len(data)))
-                    if parsed.path.startswith("/identity/theme/") or parsed.path.startswith("/identity/media/"):
-                        self.send_header("Cache-Control", "no-cache, must-revalidate")
-                        self.send_header("ETag", f'"{int(assetPath.stat().st_mtime)}"')
-                    else:
-                        self.send_header("Cache-Control", "public, max-age=86400")
-                    self.end_headers()
-                    self.wfile.write(data)
-                else:
-                    self.send_error(HTTPStatus.NOT_FOUND)
-            elif parsed.path == "/api/stream":
-                nonlocal activeSseCount
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Connection", "keep-alive")
-                self.end_headers()
-                with sseLock:
-                    activeSseCount += 1
-                sentAlgoRev = -1
-                sentBatchRev = -1
-                try:
-                    while True:
-                        majorReady = engine.majorDepsReady or rt.emulateExecution
-                        curAlgoRev = algoMgr.rev
-                        curBatchRev = qMgr.rev
-                        payload: Dict[str, Any] = {
-                            "appName": APP_NAME,
-                            "appVersion": APP_VERSION,
-                            "resultsRoot": str(RESULTS_ROOT),
-                            "brandIntegrity": BRAND_STATUS,
-                            "hw": mon.read().__dict__,
-                            "cfg": CFG.snapshotForStream(),
-                            "deps": DEPS_STATUS,
-                            "bounds": BOUNDS,
-                            "computeLevels": CHOICES["computeLevel"],
-                            "majorReady": majorReady,
-                            "ui": {
-                                "busy": rt.busy,
-                                "paused": rt.paused,
-                                "debugMode": rt.debugMode,
-                                "emulateExecution": rt.emulateExecution,
-                                "activeBatch": rt.activeBatch,
-                                "file": rt.currentFile,
-                                "idx": rt.idx,
-                                "total": rt.total,
-                                "step": rt.step,
-                                "steps": rt.steps,
-                                "eta": rt.eta,
-                                "stepRate": rt.stepRate,
-                                "history": list(rt.history[:40]),
-                            },
-                        }
-                        if curAlgoRev != sentAlgoRev:
-                            payload["algos"] = algoMgr.listMetadata()
-                            sentAlgoRev = curAlgoRev
-                        if curBatchRev != sentBatchRev:
-                            payload["batches"] = qMgr.serializeTree()
-                            sentBatchRev = curBatchRev
-                        self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode("utf-8"))
-                        self.wfile.flush()
-                        time.sleep(max(0.25, CFG.pollMs / 1000.0))
-                except (BrokenPipeError, ConnectionResetError, OSError):
-                    pass
-                finally:
-                    with sseLock:
-                        activeSseCount = max(0, activeSseCount - 1)
-                        nowZero = activeSseCount == 0
-                    if nowZero:
-                        threading.Thread(target=triggerLastTabPurge, daemon=True).start()
-            elif parsed.path == "/api/preview_image":
-                bid = qs.get("batch", [""])[0]
-                fid = qs.get("file", [""])[0]
-                preferExport = qs.get("export", ["0"])[0] == "1"
-                found = qMgr.getFileBytes(bid, fid, preferExport=preferExport)
-                if not found:
-                    self.send_error(HTTPStatus.NOT_FOUND)
-                    return
-                imgBytes, mime = found
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", mime)
-                self.send_header("Cache-Control", "no-store, max-age=0")
-                self.send_header("Content-Length", str(len(imgBytes)))
-                self.end_headers()
-                self.wfile.write(imgBytes)
-            elif parsed.path == "/api/batch_mark":
-                b = qMgr.batches.get(qs.get("batch", [""])[0])
-                self.sendJson({"ok": bool(b), "mark": b.stegoMark if b else ""})
-            elif parsed.path == "/api/check_stego":
-                bid = qs.get("batch", [""])[0]
-                fid = qs.get("file", [""])[0]
-                found = qMgr.getFileBytes(bid, fid, preferExport=True)
-                if not found:
-                    self.sendJson({"ok": False, "found": False, "error": "Processed file not found on disk or memory."})
-                    return
-                imgBytes, _ = found
-                res = inspectStego(imgBytes)
-                self.sendJson({"ok": True, **res})
-            elif parsed.path == "/api/manifest":
-                manifestPath = MANIFEST_FILE if MANIFEST_FILE.exists() else (ROOT_DIR / "install_manifest.log")
-                text = manifestPath.read_text(encoding="utf-8") if manifestPath.exists() else "No user/install_manifest.log found."
-                self.sendJson({"manifest": text})
-            elif parsed.path == "/api/themes":
-                themes = loadThemesFromDisk()
-                self.sendJson({"ok": True, "themes": themes})
-            else:
-                self.send_error(HTTPStatus.NOT_FOUND)
-
-        def do_POST(self) -> None:
-            parsed = urllib.parse.urlparse(self.path)
-            qs = urllib.parse.parse_qs(parsed.query)
-            if not isTrustedRequest(
-                self.headers.get("Host"),
-                self.headers.get("Origin"),
-                actualPort,
-                allowRemote=allowRemote,
-                authToken=authToken,
-                reqToken=self._extractReqToken(qs),
-            ):
-                self.send_error(HTTPStatus.FORBIDDEN)
-                return
-            length = safeInt(self.headers.get("Content-Length", "0"), 0, 0, 200_000_000)
-            rawBody = self.rfile.read(length) if length > 0 else b""
-            clientIp = self.client_address[0] if self.client_address else ""
-
-            if parsed.path == "/api/create_batch":
-                b = qMgr.createOrGetStagingBatch()
-                self.sendJson({"batchId": b.batchId})
-
-            elif parsed.path == "/api/upload":
-                bid = qs.get("batch", [""])[0]
-                fname = qs.get("name", ["upload.jpg"])[0]
-                res = qMgr.addFile(bid, fname, rawBody)
-                self.sendJson(res)
-
-            elif parsed.path == "/api/check_stego_raw":
-                res = inspectStego(rawBody)
-                self.sendJson({"ok": True, **res})
-
-            elif parsed.path == "/api/stego_prepare":
-                try:
-                    mark, compressed = prepareMark(rawBody)
-                    self.sendJson({"ok": True, "mark": mark, "compressed": compressed})
-                except MarkError as exc:
-                    self.sendJson({"ok": False, "error": str(exc)})
-                except (OSError, ValueError):
-                    self.sendJson({"ok": False, "error": "This file could not be read as an image."})
-
-            elif parsed.path == "/api/open_result":
-                if not isLoopbackClient(clientIp):
-                    self.sendJson({"ok": False, "error": "Opening local OS folders is restricted to localhost."})
-                    return
-                name = qs.get("batch", [""])[0]
-                folder = RESULTS_ROOT / name
-                if not name or folder.resolve().parent != RESULTS_ROOT.resolve() or not folder.is_dir():
-                    self.sendJson({"ok": False})
-                    return
-                openPathForeground(folder)
-                self.sendJson({"ok": True})
-
-            elif parsed.path == "/api/batch_action":
-                info = parseJsonBody(rawBody)
-                act = info.get("action", "")
-                bid = info.get("batchId", "")
-                b = qMgr.batches.get(bid)
-
-                if act == "run" and not rt.busy and b and (engine.majorDepsReady or rt.emulateExecution or b.stegoMode == "only"):
-                    okCfg, errCfg = validateBatchConfig(b, algoMgr, requireFiles=True)
-                    if not okCfg:
-                        self.sendJson({"ok": False, "error": errCfg})
-                        return
-                    threading.Thread(target=executeBatch, args=(bid,), daemon=True).start()
-                    self.sendJson({"ok": True})
-                elif act == "stop" and rt.busy and rt.activeBatch == bid:
-                    rt.stopRequested = True
-                    self.sendJson({"ok": True})
-                elif act == "restart" and not rt.busy and b:
-                    okCfg, errCfg = validateBatchConfig(b, algoMgr, requireFiles=True)
-                    if not okCfg:
-                        self.sendJson({"ok": False, "error": errCfg})
-                        return
-                    if any(f.valid and not f.rawBytes for f in b.files):
-                        self.sendJson(
-                            {"ok": False, "error": "Originals were released from memory. Add the photos again to redo this batch."}
-                        )
-                        return
-                    for f in b.files:
-                        if f.valid:
-                            f.status = "STAGED"
-                            f.hasStego = False
-                    b.state = "STAGED"
-                    qMgr.rev += 1
-                    threading.Thread(target=executeBatch, args=(bid,), daemon=True).start()
-                    self.sendJson({"ok": True})
-                elif act == "update_params" and b and b.state != "RUNNING":
-                    # Same limits and allowed values as the saved config (core/config.py BOUNDS / CHOICES).
-                    for key, val in info.items():
-                        if key in BOUNDS and hasattr(b, key):
-                            setattr(b, key, clampSetting(key, val, getattr(b, key)))
-                        elif key in CHOICES and hasattr(b, key):
-                            if val in CHOICES[key]:
-                                setattr(b, key, val)
-                        elif key in ("stegoMark", "guidancePrompt", "stegoText") and isinstance(val, str):
-                            setattr(b, key, val)
-                    if "convertPng" in info:
-                        b.convertPng = bool(info["convertPng"])
-                    if "layers" in info and isinstance(info["layers"], dict):
-                        b.layers = {str(k): bool(v) for k, v in info["layers"].items()}
-                    qMgr.rev += 1
-                    okCfg, errCfg = validateBatchConfig(b, algoMgr, requireFiles=False)
-                    self.sendJson({"ok": okCfg, "error": errCfg})
-                elif act == "reorder_file":
-                    res = qMgr.reorderOrSplitFile(
-                        srcBatchId=bid,
-                        fileId=str(info.get("fileId", "")),
-                        targetBatchId=str(info.get("targetBatchId", bid)),
-                        targetIndex=safeInt(info.get("targetIndex", 0), 0),
-                    )
-                    self.sendJson(res)
-                elif act == "open_batch_export" and b:
-                    if isLoopbackClient(clientIp) and b.exportDir.exists():
-                        openPathForeground(b.exportDir)
-                    self.sendJson({"ok": True})
-                elif act == "delete_batch":
-                    if rt.busy and rt.activeBatch == bid:
-                        rt.stopRequested = True
-                        time.sleep(0.4)
-                    keepExp = bool(info.get("keepExports"))
-                    qMgr.deleteBatch(bid, keepExports=keepExp)
-                    if not keepExp:
-                        rt.removeBatchHistory(bid)
-                    self.sendJson({"ok": True})
-                elif act == "remove_file":
-                    fid = str(info.get("fileId", ""))
-                    res = qMgr.removeFile(bid, fid)
-                    self.sendJson(res)
-                else:
-                    self.sendJson({"ok": False})
-
-            elif parsed.path == "/api/clear_history":
-                rt.history.clear()
-                rt.saveHistory()
-                self.sendJson({"ok": True})
-
-            elif parsed.path == "/api/debug_action":
-                if not rt.debugMode:
-                    self.sendJson({"ok": False, "error": "Debug mode is only available via debug.bat (--debug)."})
-                    return
-                info = parseJsonBody(rawBody)
-                cmd = info.get("cmd", "")
-                if cmd == "toggle_emulate":
-                    rt.emulateExecution = not rt.emulateExecution
-                elif cmd == "mock_deps":
-                    stateVal = bool(info.get("state", True))
-                    for k in ("torch", "cuda", "diffusers", "transformers", "pil", "psutil"):
-                        DEPS_STATUS[k] = stateVal
-                    DEPS_STATUS["psutil"] = stateVal and psutil is not None
-                    DEPS_STATUS["pil"] = stateVal and Image is not None
-                elif cmd == "sim_thermal":
-                    mon.debugOverride["tempState"] = info.get("state", "normal")
-                    mon.debugOverride["tempC"] = safeFloat(info.get("tempC", 50.0), 50.0)
-                elif cmd == "inject_sample":
-                    b = qMgr.createOrGetStagingBatch()
-                    if DEPS_STATUS["pil"]:
-                        im = Image.new("RGB", (640, 480), color=(32, 64, 128))
-                        buf = io.BytesIO()
-                        im.save(buf, format="JPEG", quality=92)
-                        sampleBytes = buf.getvalue()
-                    else:
-                        sampleBytes = b"\xff\xd8\xff\xe0" + os.urandom(2048)
-                    qMgr.addFile(b.batchId, f"DebugSample_{int(time.time()) % 10000}.jpg", sampleBytes)
-                self.sendJson({"ok": True})
-
-            elif parsed.path == "/api/algo_action":
-                info = parseJsonBody(rawBody)
-                if info.get("action") == "delete":
-                    res = algoMgr.deleteCustomAlgo(str(info.get("algoId", "")))
-                    self.sendJson({**res, "algos": algoMgr.listMetadata()})
-                else:
-                    self.sendJson({"ok": False})
-
-            elif parsed.path == "/api/save_config":
-                newCfg = parseJsonBody(rawBody)
-                CFG.applyDict(newCfg)
-                CFG.save(CONFIG_FILE)
-                if "overrideHardware" in newCfg or "protectionMode" in newCfg:
-                    algoMgr.rev += 1
-                self.sendJson({"ok": True})
-
-            elif parsed.path == "/api/rescan_algos":
-                algos = algoMgr.scanAlgos()
-                self.sendJson({"ok": True, "algos": algos})
-
-            elif parsed.path == "/api/system_maint":
-                cmdType = qs.get("cmd", [""])[0]
-                if cmdType in (
-                    "install",
-                    "uninstall",
-                    "purge",
-                    "open_results",
-                    "open_algos",
-                    "verify_integrity",
-                    "check_update",
-                    "self_update",
-                ) and not isLoopbackClient(clientIp):
-                    self.sendJson({"ok": False, "error": "Local system maintenance is restricted to localhost."})
-                    return
-
-                def launchDetachedTerminal(winTitle: str, winCmd: List[str], shArgs: List[str]) -> None:
-                    if sys.platform == "win32":
-                        subprocess.Popen(["cmd.exe", "/c", "start", winTitle, "cmd.exe", *winCmd])
-                    else:
-                        shPath = str(ROOT_DIR / "run.sh")
-                        hasDisplay = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
-                        term = None
-                        if hasDisplay:
-                            for tName in (
-                                "x-terminal-emulator",
-                                "ptyxis",
-                                "gnome-terminal",
-                                "konsole",
-                                "xfce4-terminal",
-                                "kitty",
-                                "alacritty",
-                                "wezterm",
-                                "foot",
-                                "tilix",
-                                "mate-terminal",
-                                "xterm",
-                            ):
-                                foundTerm = shutil.which(tName)
-                                if foundTerm:
-                                    term = foundTerm
-                                    break
-                        cmd = ["bash", "-c", 'bash "$1" "${@:2}"; echo; read -n 1 -s -r -p "Press any key to close...";', "_", shPath, *shArgs]
-                        tBase = Path(term).name if term else ""
-                        if term and tBase in ("gnome-terminal", "ptyxis"):
-                            subprocess.Popen([term, "--", *cmd])
-                        elif term and tBase == "wezterm":
-                            subprocess.Popen([term, "start", "--", *cmd])
-                        elif term and tBase == "foot":
-                            subprocess.Popen([term, *cmd])
-                        elif term:
-                            subprocess.Popen([term, "-e", *cmd])
-                        else:
-                            subprocess.Popen(["bash", shPath, *shArgs])
-
-                if cmdType == "install":
-                    launchDetachedTerminal("PORTtralica Installer", ["/k", str(ROOT_DIR / "install.bat")], ["--install"])
-                    self.sendJson({"ok": True})
-                elif cmdType == "run_cleaner":
-                    rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine)
-                    self.sendJson({"ok": True, "report": rep})
-                elif cmdType == "tab_closed":
-                    with sseLock:
-                        noTabs = activeSseCount <= 1
-                    if noTabs and not rt.busy:
-                        rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
-                        self.sendJson({"ok": True, "report": rep})
-                    else:
-                        self.sendJson({"ok": True})
-                elif cmdType == "restart_service":
-                    if rt.busy:
-                        rt.stopRequested = True
-                        time.sleep(0.3)
-                    cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
-                    self.sendJson({"ok": True, "restarting": True})
-
-                    def performRestart() -> None:
-                        time.sleep(0.35)
-                        TermLog.emit("Restarting PORTtralica Lumiya service...", "bootstrap.py", "INFO")
-                        os._exit(42)
-
-                    threading.Thread(target=performRestart, daemon=True).start()
-                elif cmdType == "open_results":
-                    openPathForeground(RESULTS_ROOT)
-                    self.sendJson({"ok": True})
-                elif cmdType == "open_algos":
-                    openPathForeground(ALGOS_DIR)
-                    self.sendJson({"ok": True})
-                elif cmdType == "verify_integrity":
-                    self.sendJson({"ok": True, "integrity": computeProgramIntegrity(ROOT_DIR, APP_VERSION)})
-                elif cmdType == "check_update":
-                    self.sendJson(checkRemoteUpdate(ROOT_DIR, APP_VERSION, fetchRemote=True))
-                elif cmdType == "self_update":
-                    if rt.busy:
-                        self.sendJson({"ok": False, "error": "Cannot self-update while a protection batch is actively running."})
-                        return
-                    res = runProtectedUpdate(ROOT_DIR, sys.executable, APP_VERSION)
-                    self.sendJson(res)
-                    if res.get("ok") and res.get("updated"):
-                        def _restartAfterUpdate() -> None:
-                            time.sleep(0.5)
-                            TermLog.emit("Applying self-update and restarting PORTtralica Lumiya service...", "updater.py", "OK")
-                            os._exit(42)
-
-                        threading.Thread(target=_restartAfterUpdate, daemon=True).start()
-                elif cmdType in ("uninstall", "purge"):
-                    modeFlag = "--purge" if cmdType == "purge" else "--manifest"
-                    if rt.busy:
-                        rt.stopRequested = True
-                        time.sleep(0.3)
-                    cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
-                    launchDetachedTerminal(f"PORTtralica Lumiya ({cmdType.upper()})", ["/c", str(ROOT_DIR / "uninstall.bat"), modeFlag, "-y"], ["uninstall", modeFlag, "-y"])
-                    self.sendJson({"ok": True, "action": cmdType, "msg": f"{cmdType.capitalize()} initiated in detached window. Service shutting down."})
-
-                    def performShutdown() -> None:
-                        time.sleep(0.6)
-                        os._exit(0)
-
-                    threading.Thread(target=performShutdown, daemon=True).start()
-                else:
-                    self.sendJson({"ok": False})
-            else:
-                self.send_error(HTTPStatus.NOT_FOUND)
-
-        def sendJson(self, obj: Dict[str, Any]) -> None:
-            try:
-                raw = json.dumps(obj).encode("utf-8")
-                self.send_response(HTTPStatus.OK)
-                self._sendSecurityHeaders()
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(raw)))
-                self.end_headers()
-                self.wfile.write(raw)
-            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
-                pass
-
-    class QuietThreadingHTTPServer(ThreadingHTTPServer):
-        allow_reuse_address = True
-        daemon_threads = True
-
-        def handle_error(self, request: Any, client_address: Any) -> None:
-            _, exc, _ = sys.exc_info()
-            if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError)):
-                return
-            super().handle_error(request, client_address)
-
-    server: Optional[QuietThreadingHTTPServer] = None
-    maxAttempts = 50
-    for offset in range(maxAttempts):
-        candidatePort = port + offset
-        try:
-            server = QuietThreadingHTTPServer((host, candidatePort), RequestHandler)
-            actualPort = candidatePort
-            break
-        except OSError:
-            if offset == 0:
-                TermLog.emit(f"Port {port} is occupied. Engaging Automatic Port Selection (APS)...", "server.py", "WARNING")
-            continue
-
-    if server is None:
-        TermLog.emit(f"Fatal: Could not acquire any socket in range {port}-{port + maxAttempts - 1}", "server.py", "ERROR")
-        raise RuntimeError(f"All ports from {port} to {port + maxAttempts - 1} are occupied.")
-
-    if actualPort != port:
-        TermLog.emit(
-            f"APS Socket Fallback: Listening on port {TermLog.CYAN}{actualPort}{TermLog.RESET} (preferred {port} was busy)",
-            "server.py",
-            "INFO",
-        )
-
-    displayHost = "127.0.0.1" if host in ("0.0.0.0", "") else host
-    url = f"http://{displayHost}:{actualPort}" + (f"/?token={authToken}" if authToken else "")
-    gpuTarget = DEPS_STATUS.get("gpuName") or "CPU Only"
-    cudaVer = DEPS_STATUS.get("versions", {}).get("cuda") or "Not Available"
-    hwStatus = f"{gpuTarget} (CUDA: {cudaVer})" if DEPS_STATUS.get("cuda") else f"{gpuTarget} [CUDA: {cudaVer}]"
-    TermLog.emit(f"Hardware Compute Target: {TermLog.CYAN}{hwStatus}{TermLog.RESET}", "engine.py", "INFO")
-    TermLog.emit(f"WebUI listening on {TermLog.GREEN}\"{url}\"{TermLog.RESET}", "server.py", "OK")
-    print("  " + "=" * 100, flush=True)
-    if not noBrowser:
-        canOpen = True
-        if sys.platform != "win32":
-            if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-                canOpen = False
-            elif os.environ.get("SSH_CLIENT") or os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"):
-                canOpen = False
-        if canOpen:
-            def _openBrowserAsync() -> None:
-                try:
-                    time.sleep(0.4)
-                    webbrowser.open(url)
-                except Exception:
-                    pass
-
-            threading.Thread(target=_openBrowserAsync, daemon=True).start()
-
+def executeBatch(app: ServerApp, batchId: str) -> None:
+    if not _workerLock.acquire(blocking=False):
+        return
     try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n  [SHUTDOWN] Exiting Lumiya service (Ctrl+C)...", flush=True)
+        batch = app.qMgr.batches.get(batchId)
+        if not batch:
+            return
+        validFiles = [f for f in batch.files if f.valid and f.status in ("STAGED", "STOPPED", "FAILED")]
+        if not validFiles:
+            return
+
+        # Snapshot batch parameters at launch so mid-run UI edits do not mutate an active batch
+        snap = {
+            "epsilon": float(batch.epsilon),
+            "steps": int(batch.steps),
+            "computeLevel": float(batch.computeLevel),
+            "seed": int(batch.seed),
+            "convertPng": bool(batch.convertPng),
+            "stegoMode": str(batch.stegoMode),
+            "stegoPayload": str(batch.stegoPayload),
+            "stegoText": str(batch.stegoTextActive),
+            "stegoMark": str(batch.stegoMarkActive),
+            "stegoStrength": float(batch.stegoStrength),
+            "stegoScale": float(batch.stegoScale),
+            "stegoPlacement": str(batch.stegoPlacement),
+            "layers": copy.deepcopy(batch.layers),
+            "guidancePrompt": str(batch.guidancePrompt),
+            "geoAnchorLow": float(batch.geoAnchorLow),
+            "geoAnchorHigh": float(batch.geoAnchorHigh),
+            "temporalWeight": float(batch.temporalWeight),
+            "maskAugFactor": float(batch.maskAugFactor),
+        }
+
+        batch.state = "RUNNING"
+        batch.exportDir.mkdir(parents=True, exist_ok=True)
+        app.rt.busy = True
+        app.rt.paused = False
+        app.rt.stopRequested = False
+        app.rt.activeBatch = batch.batchId
+        app.rt.total = len(validFiles)
+        app.qMgr.rev += 1
+        doneCount = 0
+        errCount = 0
+
+        for idx, qfile in enumerate(validFiles, start=1):
+            if app.rt.stopRequested:
+                qfile.status = "STOPPED"
+                app.qMgr.rev += 1
+                continue
+
+            qfile.status = "RUNNING"
+            app.qMgr.rev += 1
+            app.rt.idx = idx
+            app.rt.currentFile = qfile.name
+            app.rt.step = 0
+            app.rt.steps = snap["steps"]
+
+            def stepCb(s: int, tot: int, el: float) -> None:
+                app.rt.step = s
+                app.rt.steps = tot
+                app.rt.stepRate = s / max(el, 1e-4)
+                pct = s / max(tot, 1)
+                app.rt.eta = (el / pct - el) if pct > 0 else 0.0
+
+            def ctrlCb() -> str:
+                if app.rt.stopRequested:
+                    return "STOP"
+                if batch.state != "RUNNING":
+                    batch.state = "RUNNING"
+                    app.qMgr.rev += 1
+                return "RUN"
+
+            try:
+                tFile = time.time()
+                outExt = ".png" if snap["convertPng"] else qfile.ext
+                outBytes, w, h, psnr, shift = app.engine.processImage(
+                    qfile.rawBytes,
+                    fileExt=outExt,
+                    epsilon255=snap["epsilon"],
+                    steps=snap["steps"],
+                    computeLevel=snap["computeLevel"],
+                    seed=snap["seed"],
+                    stegoOpts={
+                        "payload": snap["stegoPayload"],
+                        "mark": snap["stegoMark"],
+                        "strength": snap["stegoStrength"],
+                        "scale": snap["stegoScale"],
+                        "placement": snap["stegoPlacement"],
+                    },
+                    stegoMode=snap["stegoMode"],
+                    stegoText=snap["stegoText"],
+                    layers=snap["layers"],
+                    stepCb=stepCb,
+                    controlCb=ctrlCb,
+                    emulateDebug=app.rt.emulateExecution,
+                    guidancePrompt=snap["guidancePrompt"],
+                    geoAnchorLow=snap["geoAnchorLow"],
+                    geoAnchorHigh=snap["geoAnchorHigh"],
+                    temporalWeight=snap["temporalWeight"],
+                    maskAugFactor=snap["maskAugFactor"],
+                )
+                # A redo gets a new file name, so earlier exports and their History rows stay intact.
+                stem = Path(sanitizeFilename(qfile.name)).stem
+                outPath = batch.exportDir / f"{stem}_lumiya{outExt}"
+                counter = 1
+                while outPath.exists():
+                    outPath = batch.exportDir / f"{stem}_lumiya_{counter}{outExt}"
+                    counter += 1
+                outPath.write_bytes(outBytes)
+                qfile.outPath = str(outPath)
+                qfile.hasStego = snap["stegoMode"] in ("combined", "only") and bool(
+                    snap["stegoText"].strip() or snap["stegoMark"]
+                )
+                qfile.psnr = psnr
+                qfile.shift = shift
+                qfile.exportRev += 1
+                qfile.status = "DONE"
+                doneCount += 1
+                app.qMgr.rev += 1
+
+                dtFile = time.time() - tFile
+                TermLog.emit(
+                    f"Exported {TermLog.GREEN}\"{outPath.name}\"{TermLog.RESET} ({w}x{h}, {psnr:.1f}dB) in {dtFile:.2f}s",
+                    "ioHandler.py",
+                    "OK",
+                )
+
+                app.rt.history.insert(
+                    0,
+                    {
+                        "name": outPath.name,
+                        "batch": batch.batchId,
+                        "size": f"{w}x{h}",
+                        "psnr": f"{psnr:.1f}",
+                        "shift": f"{shift:.1f}",
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    },
+                )
+                app.rt.saveHistory()
+            except InterruptedError:
+                qfile.status = "STOPPED"
+                batch.state = "STOPPED"
+                app.qMgr.rev += 1
+                break
+            except Exception as exc:
+                qfile.status = "FAILED"
+                qfile.errorMsg = str(exc)
+                errCount += 1
+                app.qMgr.rev += 1
+                TermLog.emit(f"Error processing {qfile.name}: {exc}", "worker.py", "ERROR")
+
+        if app.rt.stopRequested or batch.state == "STOPPED":
+            batch.state = "STOPPED"
+        elif doneCount == 0 and errCount > 0:
+            batch.state = "FAILED"
+        else:
+            batch.state = "COMPLETED"
+        app.qMgr.rev += 1
+
+        app.algoMgr.rev += 1
+        CFG.save(CONFIG_FILE)
+    finally:
         try:
-            cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, qMgr.batches, engine, clearRawBytes=True)
+            cleanMemoryAndStorage(ROOT_DIR, app.resultsRoot, app.qMgr.batches, app.engine, clearRawBytes=False)
         except Exception:
             pass
-        server.server_close()
-        os._exit(0)
-    except Exception as exc:
-        TermLog.emit(f"Server runtime exception: {exc}", "server.py", "ERROR")
-        server.server_close()
-        os._exit(1)
+        app.rt.busy = False
+        app.rt.paused = False
+        app.rt.stopRequested = False
+        app.rt.activeBatch = "-"
+        app.rt.currentFile = "Idle"
+        app.rt.step = 0
+        app.rt.eta = 0.0
+        app.rt.stepRate = 0.0
+        _workerLock.release()
 
 
 def runComputeWorker() -> None:

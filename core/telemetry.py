@@ -11,6 +11,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
 SMI_RETRY_S = 60.0
+# On laptops nvmlDeviceGetPowerUsage blocks ~0.5 s inside the driver (measured on an RTX A1000 Mobile), so it is
+# read rarely instead of every poll; the other NVML reads take under 1 ms.
+POWER_POLL_S = 15.0
+# With no browser tab reading the snapshot for this long, polling pauses: nothing would show the values.
+IDLE_PAUSE_S = 5.0
+# Used when the driver does not report the board's power limit.
+FALLBACK_POWER_LIMIT_W = 600.0
 
 
 class _NvmlUtilization(ctypes.Structure):
@@ -86,6 +93,10 @@ class TelemetryMonitor:
         self._nvmlHandle: Any = None
         self._smiRetryAt: float = 0.0
         self._lastSmiTime: float = 0.0
+        self._powerAt: float = 0.0
+        self._powerW: float = 0.0
+        self._powerLimitW: float = FALLBACK_POWER_LIMIT_W
+        self._lastReadAt: float = time.time()
         self._cachedHw: Tuple[float, float, float, float, str, float, str] = (
             0.0,
             0.0,
@@ -127,11 +138,15 @@ class TelemetryMonitor:
                     if lib.nvmlDeviceGetHandleByIndex_v2(0, ctypes.byref(handle)) == 0:
                         self._nvmlLib = lib
                         self._nvmlHandle = handle
+                        limitMilli = ctypes.c_uint(0)
+                        if lib.nvmlDeviceGetEnforcedPowerLimit(handle, ctypes.byref(limitMilli)) == 0 and limitMilli.value:
+                            self._powerLimitW = limitMilli.value / 1000.0
                         return
             except Exception:
                 continue
 
     def read(self) -> SensorSnapshot:
+        self._lastReadAt = time.time()
         with self.lock:
             return SensorSnapshot(**self.snap.__dict__)
 
@@ -154,10 +169,18 @@ class TelemetryMonitor:
                     memU = float(memInfo.used) / (1024.0 ** 3)
                     memT = float(memInfo.total) / (1024.0 ** 3)
 
-                pwrMilli = ctypes.c_uint(0)
-                gpuPower = 0.0
-                if self._nvmlLib.nvmlDeviceGetPowerUsage(self._nvmlHandle, ctypes.byref(pwrMilli)) == 0:
-                    gpuPower = float(pwrMilli.value) / 1000.0
+                if time.time() - self._powerAt >= POWER_POLL_S:
+                    self._powerAt = time.time()
+                    pwrMilli = ctypes.c_uint(0)
+                    if self._nvmlLib.nvmlDeviceGetPowerUsage(self._nvmlHandle, ctypes.byref(pwrMilli)) == 0:
+                        watts = float(pwrMilli.value) / 1000.0
+                        # Laptop drivers occasionally report success with a garbage value (seen: 749.7 W on a 35 W
+                        # GPU). Keep the last good value and retry on the next poll instead of showing it for 15 s.
+                        if watts <= self._powerLimitW * 1.5:
+                            self._powerW = watts
+                        else:
+                            self._powerAt = 0.0
+                gpuPower = self._powerW
 
                 pwrLbl = "GPU POWER" if gpuPower > 0.5 else "SYS POWER (EST)"
                 self._cachedHw = (gpuUtil, tempC, memU, memT, "GPU TEMP", gpuPower, pwrLbl)
@@ -268,6 +291,9 @@ class TelemetryMonitor:
         if self.depsStatus.get("psutil") and self.psutil is not None:
             self.psutil.cpu_percent(interval=None)
         while True:
+            if time.time() - self._lastReadAt > IDLE_PAUSE_S:
+                time.sleep(max(0.25, self.cfg.pollMs / 1000.0))
+                continue
             vm = self.psutil.virtual_memory() if (self.depsStatus.get("psutil") and self.psutil) else None
             cpu = self.psutil.cpu_percent(interval=None) if (self.depsStatus.get("psutil") and self.psutil) else 0.0
             ram = vm.percent if vm else 0.0

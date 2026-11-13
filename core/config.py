@@ -13,7 +13,8 @@ from typing import Any, Dict, List
 from stego.mark import PLACEMENTS
 
 # The one place the version is written; Python, the UI stream and the .bat/.sh launchers all read it from here.
-APP_VERSION = "v0.6.076.2530 (Pilot)"
+APP_NAME = "PORTtralica Lumiya"
+APP_VERSION = "v0.6.080.9110 (Pilot)"
 CONFIG_SCHEMA_VERSION = APP_VERSION.split()[0]
 MAX_STEPS = 5000
 VALID_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff")
@@ -29,6 +30,10 @@ LEGACY_CONFIG_KEYS: Dict[str, str] = {
 }
 
 THEME_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+# A font family name ends up inside a quoted CSS string: letters, digits and . , & ' ( ) + - only, never quotes,
+# backslashes, braces or semicolons. Empty means the default font (Geist).
+FONT_NAME_RE = re.compile(r"^[\w .,&'()+-]{0,64}$")
+FAVORITE_FONTS_LIMIT = 200
 LEGACY_THEME_ALIASES: Dict[str, str] = {
     "1": "carbon",
     "2": "blue_steel",
@@ -156,6 +161,8 @@ def clampSetting(key: str, val: Any, default: Any) -> Any:
 class SuiteConfig:
     configVersion: str = CONFIG_SCHEMA_VERSION
     theme: str = "carbon"
+    fontFamily: str = ""
+    favoriteFonts: List[str] = field(default_factory=list)
     computeBackend: str = "auto"
     epsilon: float = 8.0
     computeLevel: float = 1.0
@@ -205,6 +212,10 @@ class SuiteConfig:
                 vStr = themeRaw.lower().replace("-", "_").replace(" ", "_").replace("è", "e").replace("é", "e")
                 # Any .ltheme id is valid; the aliases only translate spellings older configs saved.
                 self.theme = LEGACY_THEME_ALIASES.get(vStr) or (themeRaw if THEME_ID_RE.match(themeRaw) else self.theme)
+            elif key == "fontFamily":
+                fontRaw = val.strip() if isinstance(val, str) else None
+                if fontRaw is not None and FONT_NAME_RE.match(fontRaw):
+                    self.fontFamily = fontRaw
             elif key in CHOICES:
                 if val in CHOICES[key]:
                     setattr(self, key, val)
@@ -212,6 +223,9 @@ class SuiteConfig:
                 setattr(self, key, clampSetting(key, val, getattr(self, key)))
             elif isinstance(getattr(self, key), bool):
                 setattr(self, key, bool(val))
+            elif key == "favoriteFonts" and isinstance(val, list):
+                names = [x.strip() for x in val if isinstance(x, str)]
+                self.favoriteFonts = list(dict.fromkeys(n for n in names if n and FONT_NAME_RE.match(n)))[:FAVORITE_FONTS_LIMIT]
             elif key == "favoriteAlgos" and isinstance(val, list):
                 self.favoriteAlgos = [str(x) for x in val]
             elif key == "layers" and isinstance(val, dict):

@@ -957,6 +957,17 @@ check_distro
 
 if command -v git >/dev/null 2>&1; then
     echo -e "  [${GREEN}FOUND${RESET}]     Git CLI                : Installed in PATH"
+    if [ ! -d ".git" ]; then
+        git init -q 2>/dev/null || true
+        git remote add origin "https://github.com/khrizantema2x8/lumiya.git" 2>/dev/null || git remote set-url origin "https://github.com/khrizantema2x8/lumiya.git" 2>/dev/null || true
+        if git fetch --quiet --depth=20 origin main 2>/dev/null; then
+            git branch -M main 2>/dev/null || true
+            git reset --mixed origin/main >/dev/null 2>&1 || true
+            echo -e "  [${GREEN}ATTACHED${RESET}]  Git Repository         : Auto-linked to official GitHub origin"
+        else
+            rm -rf .git 2>/dev/null || true
+        fi
+    fi
 else
     echo -e "  [${YELLOW}MISSING${RESET}]   Git CLI                : Not detected in PATH (Recommended: Git 2.45+)"
 fi

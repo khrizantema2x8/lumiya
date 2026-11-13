@@ -265,6 +265,21 @@ if !ERRORLEVEL! EQU 0 (
         echo   [%YELLOW%MISSING%RESET%]   Git CLI                : Not detected ^(Recommended: Git 2.45+^)
     )
 )
+if not exist "%~dp0.git" (
+    where git >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        git init -q >nul 2>&1
+        git remote add origin https://github.com/khrizantema2x8/lumiya.git >nul 2>&1
+        git fetch --quiet --depth=20 origin main >nul 2>&1
+        if !ERRORLEVEL! EQU 0 (
+            git branch -M main >nul 2>&1
+            git reset --mixed origin/main >nul 2>&1
+            echo   [%GREEN%ATTACHED%RESET%]  Git Repository         : Auto-linked to official GitHub origin
+        ) else (
+            if exist "%~dp0.git" rd /s /q "%~dp0.git" >nul 2>&1
+        )
+    )
+)
 
 :: 2. Remove any legacy local .env virtualenv so Lumiya strictly uses Conda
 set "SELECTED_ENV="

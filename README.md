@@ -4,7 +4,7 @@
 
 # PORTtralica Lumiya
 
-[![Version v0.6.076.2530](https://img.shields.io/badge/Release-v0.6.076.2530%20(Pilot)-E5B869.svg)](#)
+[![Version v0.6.080.9110](https://img.shields.io/badge/Release-v0.6.080.9110%20(Pilot)-E5B869.svg)](#)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![PyTorch CUDA 12.6–13.2](https://img.shields.io/badge/PyTorch-CUDA%2012.6%E2%80%9313.2-EE4C2C.svg)](https://pytorch.org/)
 [![Platform: Windows & Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6.svg)](#system-requirements)

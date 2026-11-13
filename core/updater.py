@@ -18,6 +18,8 @@ from core.config import APP_VERSION, DEFAULT_ALGO_IDS, SuiteConfig
 
 INTEGRITY_MAGIC = "LMY_INTEGRITY_V1:"
 
+OFFICIAL_REMOTE_URL = "https://github.com/khrizantema2x8/lumiya.git"
+
 ALLOWED_REMOTE_PATTERNS = (
     re.compile(r"^https://github\.com/khrizantema2x[08]/lumiya(?:\.git)?/?$", re.IGNORECASE),
     re.compile(r"^git@github\.com:khrizantema2x[08]/lumiya(?:\.git)?$", re.IGNORECASE),
@@ -33,6 +35,10 @@ CORE_SERVICES_FILES: Tuple[str, ...] = (
     "core/security.py",
     "core/telemetry.py",
     "core/updater.py",
+    "core/server.py",
+    "core/queue.py",
+    "core/termlog.py",
+    "core/fonts.py",
     "core/ui.html",
     "core/requirements.txt",
 )
@@ -335,16 +341,49 @@ def _extractRemoteVersion(rootDir: Path) -> str:
     return ""
 
 
+def _tryBootstrapGit(rootDir: Path) -> bool:
+    """Auto-initializes Git metadata and connects to official GitHub repository if .git is missing (e.g. from ZIP extraction)."""
+    gitBin = shutil.which("git")
+    if not gitBin:
+        return False
+    dotGit = rootDir / ".git"
+    try:
+        initRes = _runGit(rootDir, ["init", "--quiet"])
+        if initRes.returncode != 0:
+            return False
+        remRes = _runGit(rootDir, ["remote", "get-url", "origin"], timeout=3.0)
+        if remRes.returncode == 0:
+            _runGit(rootDir, ["remote", "set-url", "origin", OFFICIAL_REMOTE_URL], timeout=3.0)
+        else:
+            _runGit(rootDir, ["remote", "add", "origin", OFFICIAL_REMOTE_URL], timeout=3.0)
+        fetchRes = _runGit(rootDir, ["fetch", "--quiet", "--depth=20", "origin", "main"], timeout=20.0)
+        if fetchRes.returncode == 0:
+            _runGit(rootDir, ["branch", "-M", "main"], timeout=3.0)
+            _runGit(rootDir, ["reset", "--mixed", "origin/main"], timeout=5.0)
+            return True
+        shutil.rmtree(dotGit, ignore_errors=True)
+    except Exception:
+        shutil.rmtree(dotGit, ignore_errors=True)
+    return False
+
+
 def checkRemoteUpdate(rootDir: Path, versionStr: str = APP_VERSION, fetchRemote: bool = True) -> Dict[str, Any]:
     """Inspects local Git state, verifies remote origin against allowlist, and checks for incoming commits on origin/main."""
     localVersion = (versionStr or APP_VERSION).split()[0].strip()
     integrity = computeProgramIntegrity(rootDir, versionStr)
     if not (rootDir / ".git").exists():
-        return {
-            "ok": False,
-            "error": "This directory is not a Git repository (.git missing).",
-            "integrity": integrity,
-        }
+        if not _tryBootstrapGit(rootDir):
+            hasGit = bool(shutil.which("git"))
+            err = (
+                "Git repository metadata (.git) is missing and could not reach GitHub. Check network connection."
+                if hasGit else
+                "Git CLI is not installed on this system. Install Git to enable in-app updates."
+            )
+            return {
+                "ok": False,
+                "error": err,
+                "integrity": integrity,
+            }
     try:
         remRes = _runGit(rootDir, ["remote", "get-url", "origin"], timeout=5.0)
         remoteUrl = remRes.stdout.strip() if remRes.returncode == 0 else ""

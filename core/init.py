@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from core.cleaner import cleanMemoryAndStorage
 from core.config import (
+    APP_NAME,
     APP_VERSION,
     BOUNDS,
     CHOICES,
@@ -36,6 +37,7 @@ from core.updater import (
 )
 
 __all__ = [
+    "APP_NAME",
     "APP_VERSION",
     "BOUNDS",
     "CHOICES",
