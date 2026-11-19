@@ -1,0 +1,260 @@
+  /* ======================================================================= */
+  /* THEMES PALETTES                                                         */
+  /* Carbon (Original) + Previous Themes + New Amere Variants                */
+  /* ======================================================================= */
+  :root {
+    --font-sans-default: 'Geist', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-sans: var(--font-sans-default);
+    --font-mono: 'Geist Mono', monospace;
+  }
+  :root, :root[data-theme="carbon"], [data-theme="carbon"] {
+    color-scheme: dark;
+    --theme-id: "carbon";
+    --bg: #161616;
+    --header-bg: #0f0f0f;
+    --brand-bg: #0f0f0f;
+    --panel: #262626;
+    --panelAlt: #1f1f1f;
+    --panelHover: #2d2d2d;
+    --panelDark: #141414;
+    --line: #393939;
+    --lineStrong: #525252;
+    --inspect-grid: #1a1a1a;
+    --telemetry-bg: #262626;
+    --telemetry-graph-bg: #181818;
+    --history-row-bg: #262626;
+    --drop-bg: #262626;
+    --drop-hover-bg: #2d2d2d;
+    --dots-bg: #262626;
+    --split-drop-bg: #141414;
+    --input-bg: #141414;
+    --tab-bg: #141414;
+    --tab-hover-bg: #1f1f1f;
+    --scrollbar-track: #141414;
+    --scrollbar-thumb: #3d3d3d;
+    --scrollbar-thumb-hover: #585858;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #393939;
+    --fg: #f4f4f4;
+    --muted: #c6c6c6;
+    --dim: #8d8d8d;
+    --gold: #f3d689;
+    --blue: #0f62fe;
+    --blueHover: #0353e9;
+    --green: #42be65;
+    --yellow: #f1c21b;
+    --red: #fa4d56;
+    --cyan: #3ddbd9;
+  }
+  :root[data-theme="blue_steel"], [data-theme="blue_steel"] {
+    --theme-id: "blue_steel";
+    --bg: #152326;
+    --header-bg: #0c1113;
+    --brand-bg: #0c1113;
+    --panel: #0e1c1f;
+    --panelAlt: #081214;
+    --panelHover: #16282c;
+    --panelDark: #070e10;
+    --line: #182c30;
+    --lineStrong: #243e44;
+    --inspect-grid: #19272a;
+    --telemetry-bg: #0e1c1f;
+    --telemetry-graph-bg: #060b0c;
+    --history-row-bg: #0e1c1f;
+    --drop-bg: #0e1c1f;
+    --drop-hover-bg: #16282c;
+    --dots-bg: #0e1c1f;
+    --split-drop-bg: #070e10;
+    --input-bg: #070e10;
+    --tab-bg: #0b1416;
+    --tab-hover-bg: #122124;
+    --scrollbar-track: #0a1314;
+    --scrollbar-thumb: #1b3035;
+    --scrollbar-thumb-hover: #28444b;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #233337;
+  }
+  :root[data-theme="tropical"], [data-theme="tropical"] {
+    --theme-id: "tropical";
+    --bg: #2a3227;
+    --header-bg: #101a13;
+    --brand-bg: #101a13;
+    --panel: #1e2f25;
+    --panelAlt: #15221b;
+    --panelHover: #273e31;
+    --panelDark: #0e1814;
+    --line: #243a2d;
+    --lineStrong: #355240;
+    --inspect-grid: #2e362b;
+    --telemetry-bg: #1e2f25;
+    --telemetry-graph-bg: #111a14;
+    --history-row-bg: #1e2f25;
+    --drop-bg: #1e2f25;
+    --drop-hover-bg: #273e31;
+    --dots-bg: #1e2f25;
+    --split-drop-bg: #0e1814;
+    --input-bg: #0e1814;
+    --tab-bg: #0f1915;
+    --tab-hover-bg: #1a2c22;
+    --scrollbar-track: #0e1814;
+    --scrollbar-thumb: #26392c;
+    --scrollbar-thumb-hover: #395240;
+    --theme-active-border: #42be65;
+    --right-divider: #393939;
+  }
+  :root[data-theme="freshen"], [data-theme="freshen"] {
+    --theme-id: "freshen";
+    --bg: #083530;
+    --header-bg: #002118;
+    --brand-bg: #002118;
+    --panel: #02362b;
+    --panelAlt: #00221b;
+    --panelHover: #034839;
+    --panelDark: #001a14;
+    --line: #064336;
+    --lineStrong: #0c5e4c;
+    --inspect-grid: #0c3934;
+    --telemetry-bg: #02362b;
+    --telemetry-graph-bg: #001611;
+    --history-row-bg: #02362b;
+    --drop-bg: #02362b;
+    --drop-hover-bg: #034839;
+    --dots-bg: #02362b;
+    --split-drop-bg: #001a14;
+    --input-bg: #001a14;
+    --tab-bg: #001d16;
+    --tab-hover-bg: #023126;
+    --scrollbar-track: #001a14;
+    --scrollbar-thumb: #044336;
+    --scrollbar-thumb-hover: #0c624f;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #4b5956;
+  }
+  /* --- Amere Variants (Deep Mockup-Calibrated Undertones) --- */
+  :root[data-theme="blue_steel_amere"], [data-theme="blue_steel_amere"] {
+    --theme-id: "blue_steel_amere";
+    --bg: #0d1718;
+    --header-bg: #0d1111;
+    --brand-bg: #0d1111;
+    --panel: #132527;
+    --panelAlt: #0a1719;
+    --panelHover: #182e30;
+    --panelDark: #070e0f;
+    --line: #1b3035;
+    --lineStrong: #28444b;
+    --inspect-grid: #111b1c;
+    --telemetry-bg: #132527;
+    --telemetry-graph-bg: #070d0e;
+    --history-row-bg: #132527;
+    --drop-bg: #132527;
+    --drop-hover-bg: #182e30;
+    --dots-bg: #132527;
+    --split-drop-bg: #070e0f;
+    --input-bg: #070e0f;
+    --tab-bg: #0b1416;
+    --tab-hover-bg: #122124;
+    --scrollbar-track: #0a1314;
+    --scrollbar-thumb: #1b3035;
+    --scrollbar-thumb-hover: #28444b;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #28444b;
+  }
+  :root[data-theme="tropical_amere"], [data-theme="tropical_amere"] {
+    --theme-id: "tropical_amere";
+    --bg: #14221b;
+    --header-bg: #121a16;
+    --brand-bg: #121a16;
+    --panel: #213124;
+    --panelAlt: #16231a;
+    --panelHover: #2a3d2e;
+    --panelDark: #0f1914;
+    --line: #283e30;
+    --lineStrong: #3d5a47;
+    --inspect-grid: #18261f;
+    --telemetry-bg: #213124;
+    --telemetry-graph-bg: #121c15;
+    --history-row-bg: #213124;
+    --drop-bg: #213124;
+    --drop-hover-bg: #2a3d2e;
+    --dots-bg: #213124;
+    --split-drop-bg: #0f1914;
+    --input-bg: #0f1914;
+    --tab-bg: #0f1915;
+    --tab-hover-bg: #1a2c22;
+    --scrollbar-track: #0e1814;
+    --scrollbar-thumb: #26392c;
+    --scrollbar-thumb-hover: #395240;
+    --theme-active-border: #42be65;
+    --right-divider: #364d3c;
+  }
+  :root[data-theme="freshen_amere"], [data-theme="freshen_amere"] {
+    --theme-id: "freshen_amere";
+    --bg: #002921;
+    --header-bg: #002118;
+    --brand-bg: #002118;
+    --panel: #063d37;
+    --panelAlt: #032b26;
+    --panelHover: #094e46;
+    --panelDark: #001f19;
+    --line: #0a4d42;
+    --lineStrong: #126f5f;
+    --inspect-grid: #042d25;
+    --telemetry-bg: #063d37;
+    --telemetry-graph-bg: #001913;
+    --history-row-bg: #063d37;
+    --drop-bg: #063d37;
+    --drop-hover-bg: #094e46;
+    --dots-bg: #063d37;
+    --split-drop-bg: #001f19;
+    --input-bg: #001f19;
+    --tab-bg: #001d16;
+    --tab-hover-bg: #023126;
+    --scrollbar-track: #001a14;
+    --scrollbar-thumb: #044336;
+    --scrollbar-thumb-hover: #0c624f;
+    --theme-active-border: #3ddbd9;
+    --right-divider: #4b5956;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0 !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 0px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+  ::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
+  }
+  html, body {
+    height: 100vh;
+    overflow: hidden;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button, input, select, textarea {
+    font-family: inherit;
+  }
+

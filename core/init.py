@@ -25,7 +25,6 @@ from core.security import (
     openPathForeground,
     parseJsonBody,
     sanitizeFilename,
-    verifyBrandAssets,
 )
 from core.telemetry import SensorSnapshot, TelemetryMonitor, resolveHardwareTier
 from core.updater import (
@@ -67,6 +66,5 @@ __all__ = [
     "safeFloat",
     "safeInt",
     "sanitizeFilename",
-    "verifyBrandAssets",
 ]
 

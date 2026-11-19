@@ -4,11 +4,11 @@
 
 # PORTtralica Lumiya
 
-[![Version v0.6.080.9110](https://img.shields.io/badge/Release-v0.6.080.9110%20(Pilot)-E5B869.svg)](#)
+[![Version v0.6.093.4730](https://img.shields.io/badge/Release-v0.6.093.4730%20(Pilot)-E5B869.svg)](#)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![PyTorch CUDA 12.6–13.2](https://img.shields.io/badge/PyTorch-CUDA%2012.6%E2%80%9313.2-EE4C2C.svg)](https://pytorch.org/)
 [![Platform: Windows & Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6.svg)](#system-requirements)
-[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/License-PolyForm%20Shield%201.0.0-gold.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-gold.svg)](LICENSE)
 
 **PORTtralica Lumiya** is a local-first adversarial photo defense and steganographic forensic suite built to protect photography and visual artwork against unauthorized AI scraping, style mimicry, generative inpainting, and biometric identity cloning. It brings open-source defenses from peer-reviewed machine learning papers (`ICML`, `ICLR`, `CVPR`, `ICCV`, `NeurIPS`, `arXiv`) into a single self-hosted engine with a native-resolution darkroom inspector and multi-layer steganography.
 
@@ -22,7 +22,7 @@ Everything runs locally on your own hardware — no photos or telemetry ever lea
 
 ## Important Disclaimer
 
-PORTtralica Lumiya is an evaluative pilot developed and maintained as an independent research project. While core algorithms and steganographic pipelines are audited against their published paper specifications, several literature modules (marked with `▲`) remain in active development awaiting upstream author checkpoints or multi-GPU video pipelines. Reproducible academic contributions to `algos/` are welcome under the [PolyForm Shield 1.0.0 License](LICENSE) (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+PORTtralica Lumiya is an evaluative pilot developed and maintained as an independent research project. While core algorithms and steganographic pipelines are audited against their published paper specifications, several literature modules (marked with `▲`) remain in active development awaiting upstream author checkpoints or multi-GPU video pipelines. Reproducible academic contributions to `algos/` are welcome under the [GNU AGPLv3 License](LICENSE) (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ---
 
@@ -208,8 +208,8 @@ All defense modules in `algos/` are adapted from peer-reviewed papers and prepri
 
 ## License and Community Contributions
 
-PORTtralica Lumiya is licensed under the **PolyForm Shield License 1.0.0** (`PolyForm-Shield-1.0.0`). See [LICENSE](LICENSE) for the full legal text.
+PORTtralica Lumiya is licensed under the **GNU Affero General Public License v3.0** (`AGPL-3.0-only`). Copyright (c) 2026 PORTtralica Media Group. See [LICENSE](LICENSE) for the full legal text.
 
 * **Commercial Creative Use Permitted:** You may freely use Lumiya to protect your own or your clients' commercial photography, editorial work, campaigns, and visual archives without royalties or fees.
-* **Commercial Software Resale Prohibited:** You may not sell, rebrand, or operate Lumiya itself as a paid commercial SaaS, paid API, or competing software product.
+* **Share Your Changes:** You may modify, redistribute or sell Lumiya, but anything you distribute or run for others over a network (including SaaS or an API) must make its complete source available under AGPLv3.
 * **Contributing New Algorithms:** Community implementations in `algos/` are warmly welcomed. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for paper citation and reproducibility guidelines.

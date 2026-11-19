@@ -423,36 +423,22 @@ do_install() {
     fi
     echo "[HARDWARE] Torch build: $TORCH_BUILD" >> "$MANIFEST"
 
-    # Core Dependencies
-    echo "  [04/05] Installing pinned diffusion, image & telemetry packages..."
-    if [ "$TORCH_BUILD" != "cpu" ] && [ -n "$TORCH_BUILD" ]; then
-        "$PY_BIN" -m pip install --no-cache-dir \
-            --index-url "https://download.pytorch.org/whl/$TORCH_BUILD" \
-            --extra-index-url https://pypi.org/simple \
-            "diffusers>=0.30.0" \
-            "transformers>=4.44.0" \
-            "accelerate>=0.33.0" \
-            "huggingface-hub>=0.24.0" \
-            "safetensors>=0.4.3" \
-            "Pillow>=10.3.0" \
-            "psutil>=5.9.8" \
-            "numpy>=1.26.0" \
-            "nvidia-ml-py>=12.535.133"
-        # Ensure step 4 never silently swapped CUDA torch for a PyPI CPU wheel
-        if ! "$PY_BIN" -c "import torch; raise SystemExit(0 if getattr(torch.version, 'cuda', None) is not None else 1)" 2>/dev/null; then
-            "$PY_BIN" -m pip install --upgrade --force-reinstall --no-deps --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/$TORCH_BUILD"
+    # Core Dependencies (from core/requirements.txt)
+    echo "  [04/05] Installing pinned diffusion, image & telemetry packages from core/requirements.txt..."
+    mapfile -t REQ_SPECS < <("$PY_BIN" -c "from pathlib import Path; from core.updater import filterSafeRequirements; print('\n'.join(filterSafeRequirements(Path('core/requirements.txt').read_text(encoding='utf-8'))))")
+    if [ "${#REQ_SPECS[@]}" -gt 0 ]; then
+        if [ "$TORCH_BUILD" != "cpu" ] && [ -n "$TORCH_BUILD" ]; then
+            "$PY_BIN" -m pip install --no-cache-dir \
+                --index-url "https://download.pytorch.org/whl/$TORCH_BUILD" \
+                --extra-index-url https://pypi.org/simple \
+                "${REQ_SPECS[@]}"
+            # Ensure step 4 never silently swapped CUDA torch for a PyPI CPU wheel
+            if ! "$PY_BIN" -c "import torch; raise SystemExit(0 if getattr(torch.version, 'cuda', None) is not None else 1)" 2>/dev/null; then
+                "$PY_BIN" -m pip install --upgrade --force-reinstall --no-deps --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/$TORCH_BUILD"
+            fi
+        else
+            "$PY_BIN" -m pip install --no-cache-dir "${REQ_SPECS[@]}"
         fi
-    else
-        "$PY_BIN" -m pip install --no-cache-dir \
-            "diffusers>=0.30.0" \
-            "transformers>=4.44.0" \
-            "accelerate>=0.33.0" \
-            "huggingface-hub>=0.24.0" \
-            "safetensors>=0.4.3" \
-            "Pillow>=10.3.0" \
-            "psutil>=5.9.8" \
-            "numpy>=1.26.0" \
-            "nvidia-ml-py>=12.535.133"
     fi
 
     "$PY_BIN" -m pip list --format=freeze > "$POST_LIST" 2>/dev/null || true
@@ -460,7 +446,7 @@ do_install() {
     # Manifest Output
     echo "" >> "$MANIFEST"
     echo "--- [1] TARGET SPECIFICATION ---" >> "$MANIFEST"
-    echo "Python, torch ($TORCH_BUILD), torchvision, diffusers, transformers, accelerate, Pillow>=10.3.0, psutil>=5.9.8" >> "$MANIFEST"
+    echo "Python, torch ($TORCH_BUILD), torchvision, core/requirements.txt" >> "$MANIFEST"
 
     echo "" >> "$MANIFEST"
     echo "--- [2] KEPT PACKAGES ---" >> "$MANIFEST"
@@ -753,7 +739,7 @@ do_reinstall_torch() {
                 CUDA_LEVEL=126
             fi
         fi
-        TARGET_WHEEL="cu126"
+        TARGET_WHEEL=""
         for ver in 132 130 128 126 124 121 118; do
             if [ "$CUDA_LEVEL" -ge "$ver" ]; then
                 if "$SELECTED_PY" -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url "https://download.pytorch.org/whl/cu$ver"; then
@@ -764,6 +750,11 @@ do_reinstall_torch() {
                 fi
             fi
         done
+        if [ -z "$TARGET_WHEEL" ]; then
+            TARGET_WHEEL="cpu"
+            echo -e "  [${YELLOW}FALLBACK${RESET}] No NVIDIA CUDA wheel matched (CUDA_LEVEL=$CUDA_LEVEL); installing CPU PyTorch..."
+            "$SELECTED_PY" -m pip install --upgrade --force-reinstall --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+        fi
     else
         echo -e "  [${CYAN}CUDA${RESET}] Reinstalling hardware-matched PyTorch ($TARGET_WHEEL) into $SELECTED_ENV..."
         if [ "$TARGET_WHEEL" = "cpu" ]; then

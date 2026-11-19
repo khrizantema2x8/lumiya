@@ -1,7 +1,7 @@
-"""Security, filename sanitization, brand asset integrity verification, and localhost origin checks."""
+"""Security, filename sanitization, and localhost origin checks."""
 from __future__ import annotations
 
-import hashlib
+import hmac
 import json
 import re
 import subprocess
@@ -38,7 +38,6 @@ WINDOWS_RESERVED_NAMES = frozenset(
 )
 
 _ILLEGAL_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
-_SEALED_BRAND_HASHES: Dict[str, str] = {}
 
 
 def sanitizeFilename(filename: str, fallback: str = "image.png") -> str:
@@ -69,7 +68,7 @@ def isTrustedRequest(
     reqToken: str = "",
 ) -> bool:
     """Blocks cross-site and DNS-rebinding requests; verifies Origin matches Host even in --listen mode."""
-    if authToken and reqToken != authToken:
+    if authToken and not hmac.compare_digest(reqToken, authToken):
         return False
     if allowRemote:
         if not host:
@@ -88,34 +87,6 @@ def parseJsonBody(rawBody: bytes) -> Dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
-
-
-def verifyBrandAssets(rootDir: Path) -> Dict[str, Any]:
-    """Computes and verifies SHA-256 digests of official brand assets (logo.png, lumiya_blk.ico, lumiya_t.ico)."""
-    assets = ("logo.png", "lumiya_blk.ico", "lumiya_t.ico")
-    report: Dict[str, Any] = {"ok": True, "assets": {}, "tampered": []}
-    for name in assets:
-        p = rootDir / "identity" / name
-        if not p.exists() and (rootDir / name).exists():
-            p = rootDir / name
-        if not p.exists() and (rootDir / "assets" / name).exists():
-            p = rootDir / "assets" / name
-        if not p.exists():
-            report["assets"][name] = {"exists": False, "sha256": ""}
-            continue
-        try:
-            digest = hashlib.sha256(p.read_bytes()).hexdigest().upper()
-            if name not in _SEALED_BRAND_HASHES:
-                _SEALED_BRAND_HASHES[name] = digest
-            matched = _SEALED_BRAND_HASHES[name] == digest
-            if not matched:
-                report["ok"] = False
-                report["tampered"].append(name)
-            report["assets"][name] = {"exists": True, "sha256": digest, "verified": matched}
-        except Exception as exc:
-            report["ok"] = False
-            report["assets"][name] = {"exists": True, "error": str(exc), "verified": False}
-    return report
 
 
 def openPathForeground(targetPath: Path) -> None:

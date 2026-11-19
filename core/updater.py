@@ -39,7 +39,20 @@ CORE_SERVICES_FILES: Tuple[str, ...] = (
     "core/queue.py",
     "core/termlog.py",
     "core/fonts.py",
+    "core/analysis.py",
     "core/ui.html",
+    "core/ui/css/tokens.css",
+    "core/ui/css/base.css",
+    "core/ui/css/workspace.css",
+    "core/ui/css/organize.css",
+    "core/ui/css/inspect.css",
+    "core/ui/js/core.js",
+    "core/ui/js/fonts.js",
+    "core/ui/js/workspace.js",
+    "core/ui/js/inspect.js",
+    "core/ui/js/analysis.js",
+    "core/ui/js/organize.js",
+    "core/ui/js/boot.js",
     "core/requirements.txt",
 )
 
@@ -47,6 +60,7 @@ STEGO_FILES: Tuple[str, ...] = (
     "stego/__init__.py",
     "stego/lsb.py",
     "stego/mark.py",
+    "stego/scan.py",
 )
 
 
@@ -327,18 +341,30 @@ def _parseVersionTuple(verStr: str) -> Tuple[int, ...]:
 
 
 def _extractRemoteVersion(rootDir: Path) -> str:
-    """Extracts the version string from `origin/main:core/integrity.lmy` or `origin/main:protect.py`."""
+    """Extracts the version string from `origin/main:core/integrity.lmy` or `origin/main:core/config.py`."""
     lmyShow = _runGit(rootDir, ["show", "origin/main:core/integrity.lmy"], timeout=5.0)
     if lmyShow.returncode == 0 and lmyShow.stdout.strip():
         rVer, _ = _parseIntegrityText(lmyShow.stdout.strip())
         if rVer:
             return rVer
-    pyShow = _runGit(rootDir, ["show", "origin/main:protect.py"], timeout=5.0)
+    pyShow = _runGit(rootDir, ["show", "origin/main:core/config.py"], timeout=5.0)
     if pyShow.returncode == 0 and pyShow.stdout:
         m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', pyShow.stdout)
         if m:
             return m.group(1).split()[0].strip()
     return ""
+
+
+def _readLocalVersionFromDisk(rootDir: Path, fallback: str = APP_VERSION) -> str:
+    cfgPath = rootDir / "core" / "config.py"
+    if cfgPath.is_file():
+        try:
+            m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', cfgPath.read_text(encoding="utf-8", errors="replace"))
+            if m:
+                return m.group(1).strip()
+        except Exception:
+            pass
+    return fallback
 
 
 def _tryBootstrapGit(rootDir: Path) -> bool:
@@ -542,13 +568,14 @@ def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: s
     except Exception as exc:
         return rollback(f"Post-update syntax verification failed ({exc}).")
 
-    # Post-update gate 2: the UI must exist. Brand files are not compared here: an update may legitimately ship new ones.
-    uiPath = (rootDir / "core" / "ui.html") if (rootDir / "core" / "ui.html").is_file() else (rootDir / "ui.html")
-    if not uiPath.is_file():
-        return rollback("Post-update check failed: core/ui.html is missing.")
+    # Post-update gate 2: all core service and UI files must exist. Brand files are not compared here: an update may legitimately ship new ones.
+    missingCore = [rel for rel in CORE_SERVICES_FILES if not (rootDir / rel).is_file()]
+    if missingCore:
+        return rollback(f"Post-update check failed: missing {', '.join(missingCore)}.")
 
     # Sync non-Torch requirements if core/requirements.txt changed
     depsSynced: List[str] = []
+    depsError = ""
     postReqSha = hashFileDigests(reqPath)[0] if reqPath.is_file() else ""
     if postReqSha and postReqSha != preReqSha:
         safeSpecs = filterSafeRequirements(reqPath.read_text(encoding="utf-8", errors="replace"))
@@ -562,12 +589,19 @@ def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: s
             )
             if pipRes.returncode == 0:
                 depsSynced = safeSpecs
+            else:
+                errLines = (pipRes.stderr or pipRes.stdout or "").strip().splitlines()
+                depsError = errLines[-1] if errLines else f"pip exited with code {pipRes.returncode}"
 
-    # Migrate and repopulate user/config.json without replacing existing user preferences
-    SuiteConfig.load(rootDir / "user" / "config.json")
-
-    postStatus = checkRemoteUpdate(rootDir, versionStr=versionStr, fetchRemote=False)
+    # Read the newly pulled version from disk so integrity checks do not compare against the old process's APP_VERSION.
+    # Config migration runs on restart (exit 42) using the updated SuiteConfig class.
+    newVersion = _readLocalVersionFromDisk(rootDir, versionStr)
+    postStatus = checkRemoteUpdate(rootDir, versionStr=newVersion, fetchRemote=False)
     doneMsg = f"Updated from {preSha[:10]} to {postStatus.get('localSha', '')}."
+    if stashed:
+        doneMsg += " Local edits were saved to git stash."
+    if depsError:
+        doneMsg += f" Warning: dependency sync failed ({depsError})."
     return {
         "ok": True,
         "updated": True,
@@ -575,6 +609,7 @@ def runProtectedUpdate(rootDir: Path, pyExe: str = sys.executable, versionStr: s
         "toSha": postStatus.get("localSha", ""),
         "stashedLocalEdits": stashed,
         "depsSynced": depsSynced,
+        "depsError": depsError,
         "message": doneMsg,
         "msg": doneMsg,
         "status": postStatus,

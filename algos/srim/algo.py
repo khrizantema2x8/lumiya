@@ -38,6 +38,7 @@ def transformInput(xDef, step, ctx):
     jh = max(16, round((h * jitter) / 8) * 8)
     jw = max(16, round((w * jitter) / 8) * 8)
     mode = _KERNELS[step % len(_KERNELS)]
+    ctx["_srimAnchorKey"] = (jh, jw)
     if mode in ("bicubic", "bilinear"):
         xScaled = F.interpolate(xDef, size=(jh, jw), mode=mode, align_corners=False, antialias=True)
         return F.interpolate(xScaled, size=(h, w), mode=mode, align_corners=False, antialias=True)
@@ -54,7 +55,7 @@ def computeLoss(dist, ctx):
     relDev = (diffNorm / origNorm).mean()
 
     emaMap = ctx.setdefault("_srimEma", {})
-    key = tuple(zAdv.shape[-2:])
+    key = ctx.get("_srimAnchorKey") or tuple(zAdv.shape[-2:])
     prevR = emaMap.get(key, float(relDev.detach().item()))
     curR = 0.7 * prevR + 0.3 * float(relDev.detach().item())
     emaMap[key] = curR

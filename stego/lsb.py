@@ -68,7 +68,7 @@ def extractSteganographyPil(rawBytes: bytes) -> Dict[str, Any]:
 
             rgb = im.convert("RGB")
             flat = np.array(rgb, dtype=np.uint8).reshape(-1)
-            maxPairs = min(flat.size, 65536 * 4)
+            maxPairs = min(flat.size, 65536 * 4) & ~3
             pairs = flat[:maxPairs] & 3
             bArr = (
                 (pairs[0::4] << 6)

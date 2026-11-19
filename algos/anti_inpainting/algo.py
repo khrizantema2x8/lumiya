@@ -52,8 +52,8 @@ def computeLoss(dist, ctx):
     # Sample K=6 latent candidates from posterior N(zMean, zStd^2) and select worst-case closer to centroid
     gen = ctx.get("generator")
     epsK = (
-        torch.randn((6, *zMean.shape[1:]), generator=gen, device=zMean.device, dtype=zMean.dtype)
-        if gen is not None and zMean.device.type == "cpu"
+        torch.randn((6, *zMean.shape[1:]), generator=gen, dtype=torch.float32).to(device=zMean.device, dtype=zMean.dtype)
+        if gen is not None
         else torch.randn((6, *zMean.shape[1:]), device=zMean.device, dtype=zMean.dtype)
     )
     zSamples = zMean + zStd * epsK

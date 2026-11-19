@@ -1,16 +1,9 @@
 import math
-import sys
-import types
 from typing import Any, Dict, List, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# Ensure the dynamically loaded module is registered in sys.modules
-if __name__ not in sys.modules:
-     dummyMod = types.ModuleType(__name__)
-     sys.modules[__name__] = dummyMod
 
 algoMeta = {
     "id": "veto",
@@ -244,11 +237,12 @@ class VetoJointAttentionEngine(nn.Module):
         headDim = max(4, tokenDim // self.numHeads)
 
         txtLen = 16
-        promptGen = torch.Generator(device=device).manual_seed(2026)
-        txtTokens = torch.randn((bsz, txtLen, tokenDim), generator=promptGen, device=device, dtype=torch.float32) * 0.05
+        promptSeed = 2026 + sum((i + 1) * ord(ch) for i, ch in enumerate(params.surrogatePrompt or ""))
+        promptGen = torch.Generator(device="cpu").manual_seed(promptSeed)
+        txtTokens = (torch.randn((bsz, txtLen, tokenDim), generator=promptGen, dtype=torch.float32) * 0.05).to(device)
 
-        canvasGen = torch.Generator(device=device).manual_seed(100 + (stepIndex % 4))
-        canvasNoiseLatent = torch.randn(refMean.shape, generator=canvasGen, device=device, dtype=torch.float32)
+        canvasGen = torch.Generator(device="cpu").manual_seed(100 + (stepIndex % 4))
+        canvasNoiseLatent = torch.randn(refMean.shape, generator=canvasGen, dtype=torch.float32).to(device)
         canvasTokens = self.buildMultiScaleVisualTokens(canvasNoiseLatent)
 
         totalSeqLen = txtLen + visLen + visLen

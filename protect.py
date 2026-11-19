@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import copy
 import importlib.metadata
 import importlib.util
@@ -16,7 +15,6 @@ import sys
 import threading
 import time
 import uuid
-import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -31,10 +29,10 @@ from core.init import (
     TelemetryMonitor,
     clampSetting,
     computeProgramIntegrity,
+    isLoopbackClient,
     runProtectedUpdate,
     safeInt,
     sanitizeFilename,
-    verifyBrandAssets,
 )
 from core.queue import QueueManager, RuntimeState
 from core.server import ServerApp, findAvailablePort, serve
@@ -43,7 +41,6 @@ from stego.mark import embedMark
 
 # The progress bar uses block characters a legacy console codepage cannot encode.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-warnings.filterwarnings("ignore", message=".*pynvml.*deprecated.*", category=UserWarning)
 
 
 def _installGlobalExceptionHook() -> None:
@@ -233,7 +230,7 @@ def probeStartupDeps() -> None:
         except Exception:
             DEPS_STATUS["cuda"] = False
             DEPS_STATUS["versions"]["cuda"] = "Not Available"
-    elif DEPS_STATUS["torch"]:
+    elif DEPS_STATUS["torch"] and any(f in sys.argv for f in ("--worker", "--headless", "--doctor")):
         cudaProbeOk = False
         probeErr = ""
         probeInfo = {}
@@ -350,36 +347,44 @@ for _pin in REQ_FILE.read_text(encoding="utf-8").splitlines() if REQ_FILE.is_fil
 HISTORY_FILE = USER_DIR / "history.json"
 MANIFEST_FILE = USER_DIR / "install_manifest.log"
 
-BRAND_STATUS = verifyBrandAssets(ROOT_DIR)
 CFG = SuiteConfig.load(CONFIG_FILE)
 
 
 def nativeTiles(width: int, height: int, workingDim: int = 768, allowRamSpillover: bool = True, vramGb: float = 6.0) -> List[Tuple[int, int, int, int]]:
-    """Builds 1:1 native-resolution tile coordinates (y0, y1, x0, x1) with dimensions divisible by 8 so PGD never blurs gradients via downsampling."""
-    maxDim = max(512, int(workingDim or 768))
-    if allowRamSpillover or vramGb >= 8.0:
-        maxDim = max(maxDim, 1024)
-    tileH = max(8, min((height // 8) * 8, (maxDim // 8) * 8))
-    tileW = max(8, min((width // 8) * 8, (maxDim // 8) * 8))
+    """Builds 1:1 native-resolution tile coordinates (y0, y1, x0, x1) respecting workingDim; single-tile remainders are reflect-padded at encode time."""
+    maxDim = max(256, int(workingDim or 768))
+    spanH = max(8, (maxDim // 8) * 8)
+    spanW = max(8, (maxDim // 8) * 8)
 
-    def axisStops(total: int, span: int) -> List[int]:
+    def axisRanges(total: int, span: int) -> List[Tuple[int, int]]:
         if total <= span:
-            return [0]
+            return [(0, total)]
         stride = max(8, int(span * 0.85))
         stops = list(range(0, total - span, stride))
         if not stops or stops[-1] != total - span:
             stops.append(total - span)
-        return stops
+        return [(s, s + span) for s in stops]
 
-    ys = axisStops(height, tileH)
-    xs = axisStops(width, tileW)
-    return [(y0, y0 + tileH, x0, x0 + tileW) for y0 in ys for x0 in xs]
+    ys = axisRanges(height, spanH)
+    xs = axisRanges(width, spanW)
+    return [(y0, y1, x0, x1) for y0, y1 in ys for x0, x1 in xs]
+
+
+def _padToMultipleOf8(t: Any) -> Any:
+    h, w = t.shape[-2], t.shape[-1]
+    padH = (8 - (h % 8)) % 8
+    padW = (8 - (w % 8)) % 8
+    if not (padH or padW):
+        return t
+    mode = "reflect" if (padH < h and padW < w) else "replicate"
+    return F.pad(t, (0, padW, 0, padH), mode=mode)
 
 
 class ModularDefenseEngine:
     def __init__(self, algoMgr: AlgoPluginManager, useSubprocess: bool = True) -> None:
         self.algoMgr = algoMgr
         self.useSubprocess = useSubprocess
+        self._procLock = threading.Lock()
         self.computeProc: Optional[subprocess.Popen] = None
         self.vae: Optional[Any] = None
         self.vaeDevice: Optional[str] = None
@@ -390,7 +395,7 @@ class ModularDefenseEngine:
         return bool(DEPS_STATUS["torch"] and DEPS_STATUS["diffusers"] and DEPS_STATUS["pil"])
 
     def resolveDevice(self) -> str:
-        if CFG.computeBackend in ("auto", "cuda", "opengl") and DEPS_STATUS["cuda"]:
+        if CFG.computeBackend in ("auto", "cuda") and DEPS_STATUS["cuda"]:
             return "cuda"
         return "cpu"
 
@@ -448,38 +453,39 @@ class ModularDefenseEngine:
 
     def unloadModel(self) -> bool:
         """Terminates the isolated CUDA compute worker subprocess and releases any in-process caches to drop idle RAM/VRAM to baseline."""
-        hadModel = self.vae is not None or bool(self.cache) or (self.computeProc is not None)
-        if getattr(self, "workerErrFile", None) and not self.workerErrFile.closed:
-            try:
-                self.workerErrFile.close()
-            except Exception:
-                pass
-            self.workerErrFile = None
-        if self.computeProc is not None:
-            proc = self.computeProc
-            self.computeProc = None
-            try:
-                if proc.stdin:
-                    proc.stdin.close()
-            except Exception:
-                pass
-            try:
-                proc.kill()
-                proc.wait(timeout=3.0)
-            except Exception:
-                pass
-        if self.vae is not None:
-            try:
-                self.vae.to("cpu")
-            except Exception:
-                pass
-        self.vae = None
-        self.vaeDevice = None
-        self.cache.clear()
-        if self.algoMgr is not None and hasattr(self.algoMgr, "plugins"):
-            for p in self.algoMgr.plugins.values():
-                p["module"] = None
-        return hadModel
+        with self._procLock:
+            hadModel = self.vae is not None or bool(self.cache) or (self.computeProc is not None)
+            if getattr(self, "workerErrFile", None) and not self.workerErrFile.closed:
+                try:
+                    self.workerErrFile.close()
+                except Exception:
+                    pass
+                self.workerErrFile = None
+            if self.computeProc is not None:
+                proc = self.computeProc
+                self.computeProc = None
+                try:
+                    if proc.stdin:
+                        proc.stdin.close()
+                except Exception:
+                    pass
+                try:
+                    proc.kill()
+                    proc.wait(timeout=3.0)
+                except Exception:
+                    pass
+            if self.vae is not None:
+                try:
+                    self.vae.to("cpu")
+                except Exception:
+                    pass
+            self.vae = None
+            self.vaeDevice = None
+            self.cache.clear()
+            if self.algoMgr is not None and hasattr(self.algoMgr, "plugins"):
+                for p in self.algoMgr.plugins.values():
+                    p["module"] = None
+            return hadModel
 
     @staticmethod
     def visibilityMap(xOrig: Any) -> Any:
@@ -501,12 +507,12 @@ class ModularDefenseEngine:
         return self.cache[key]
 
     def cleanLatentTile(self, xOrig: Any, y0: int, y1: int, x0: int, x1: int, device: str, dtype: Any) -> Tuple[Any, Any]:
-        """Cached clean 1:1 native-resolution tile [-1, 1] and its VAE latent mean for divergence/relative losses."""
+        """Cached clean 1:1 native-resolution tile [-1, 1] (reflect-padded to a multiple of 8) and its VAE latent mean."""
         xKey = (-1, y0, y1, x0, x1, device, "xOrigTile")
         zKey = (-1, y0, y1, x0, x1, device, str(dtype))
         if xKey not in self.cache or zKey not in self.cache:
             with torch.no_grad():
-                xOrigWork = xOrig[:, :, y0:y1, x0:x1] * 2.0 - 1.0
+                xOrigWork = _padToMultipleOf8(xOrig[:, :, y0:y1, x0:x1] * 2.0 - 1.0)
                 zOrigMean = self.vae.encode(xOrigWork.to(dtype)).latent_dist.mean.detach().float()
                 self.cache[xKey] = xOrigWork
                 self.cache[zKey] = zOrigMean
@@ -546,9 +552,6 @@ class ModularDefenseEngine:
                 outBuf.seek(0)
                 outBuf.truncate(0)
                 pilImg.convert("RGB").save(outBuf, format="JPEG", quality=CFG.jpegQuality, subsampling=0, optimize=True, **saveKw)
-            markBytes = opts.get("mark") if (hasStego and opts.get("payload") == "image") else None
-            if markBytes:
-                outBuf.write(base64.b64decode(markBytes))
         elif ext == ".png":
             if exifBytes:
                 saveKw["exif"] = exifBytes
@@ -599,6 +602,7 @@ class ModularDefenseEngine:
         computeLevel: float = 1.0,
         seed: int = 0,
         stegoOpts: Optional[Dict[str, Any]] = None,
+        overrideSteps: int = 0,
     ) -> Tuple[bytes, int, int, float, float]:
         opts = stegoOpts or {}
         payloadType = str(opts.get("payload", "text"))
@@ -655,6 +659,7 @@ class ModularDefenseEngine:
                 computeLevel=computeLevel,
                 seed=seed,
                 opts=opts,
+                overrideSteps=overrideSteps,
             )
 
         device, dtype = self.ensureLoaded()
@@ -699,25 +704,28 @@ class ModularDefenseEngine:
         }
         for k in [ck for ck in self.cache if isinstance(ck[0], int) and ck[0] < 0]:
             self.cache.pop(k, None)
-        totalSteps = sum(max(1, round(int(paper.get("steps", steps)) * computeLevel)) for _, paper in activePlugins)
+        def _pluginStepCount(paper: Dict[str, Any]) -> int:
+            baseSteps = int(overrideSteps) if overrideSteps > 0 else int(paper.get("steps", steps))
+            return max(1, round(baseSteps * computeLevel))
+
+        totalSteps = sum(_pluginStepCount(paper) for _, paper in activePlugins)
         tStart = time.time()
         step = appliedSteps = 0
 
         try:
             for mod, paper in activePlugins:
-                pluginSteps = max(1, round(int(paper.get("steps", steps)) * computeLevel))
+                pluginSteps = _pluginStepCount(paper)
                 visitsPerTile = max(1, math.ceil(pluginSteps / max(1, len(tiles))))
                 stepRatio = 1.6 / visitsPerTile
                 lossFn = getattr(mod, "computeLoss", None)
                 if lossFn is None:
                     continue
                 transformFn = getattr(mod, "transformInput", None)
-                for _ in range(pluginSteps):
+                for localStep in range(1, pluginSteps + 1):
                     if controlCb() == "STOP":
                         raise InterruptedError("Batch stopped by user.")
                     step += 1
                     y0, y1, x0, x1 = tiles[(step - 1) % len(tiles)]
-                    workH, workW = y1 - y0, x1 - x0
                     xOrigTile = xOrig[:, :, y0:y1, x0:x1]
                     limitTile = limitMap[:, :, y0:y1, x0:x1]
                     deltaTile = delta[:, :, y0:y1, x0:x1].detach().clone().requires_grad_(True)
@@ -728,18 +736,20 @@ class ModularDefenseEngine:
                         deltaTile = torch.zeros_like(xOrigTile, requires_grad=True)
                         xAdvTile = xOrigTile.clone()
 
-                    xWork = xAdvTile * 2.0 - 1.0
+                    xWork = _padToMultipleOf8(xAdvTile * 2.0 - 1.0)
+                    padH, padW = xWork.shape[-2], xWork.shape[-1]
                     xOrigWork, zOrigMean = self.cleanLatentTile(xOrig, y0, y1, x0, x1, device, dtype)
-                    ctx["zTargetMean"] = self.grayTarget(workH, workW, device, dtype)
+                    ctx["zTargetMean"] = self.grayTarget(padH, padW, device, dtype)
                     ctx["zOrigMean"] = zOrigMean
                     ctx["xOrigWork"] = xOrigWork
                     ctx["xWork"] = xWork
-                    ctx["step"] = step
+                    ctx["step"] = localStep
+                    ctx["globalStep"] = step
                     ctx["totalSteps"] = pluginSteps
 
                     loss = gradTile = xIn = None
                     try:
-                        xIn = transformFn(xWork, step, ctx) if transformFn else xWork
+                        xIn = transformFn(xWork, localStep, ctx) if transformFn else xWork
                         ctx["xIn"] = xIn
                         self.validateTensorShape(xIn, 4, "xIn")
                         loss = lossFn(self.vae.encode(xIn.to(dtype)).latent_dist, ctx)
@@ -753,7 +763,7 @@ class ModularDefenseEngine:
                             if hasattr(self.vae, "enable_tiling"):
                                 self.vae.enable_tiling()
                             with torch.autograd.graph.save_on_cpu(pin_memory=False):
-                                xIn = transformFn(xWork, step, ctx) if transformFn else xWork
+                                xIn = transformFn(xWork, localStep, ctx) if transformFn else xWork
                                 ctx["xIn"] = xIn
                                 loss = lossFn(self.vae.encode(xIn.to(dtype)).latent_dist, ctx)
                                 gradTile = torch.autograd.grad(loss, deltaTile)[0] if torch.isfinite(loss) else None
@@ -827,6 +837,7 @@ class ModularDefenseEngine:
         computeLevel: float,
         seed: int,
         opts: Dict[str, Any],
+        overrideSteps: int = 0,
     ) -> Tuple[bytes, int, int, float, float]:
         """Runs PyTorch/CUDA optimization inside an isolated child process so unloadModel() frees 100% of CUDA/DLL RAM."""
         if not self.majorDepsReady:
@@ -849,25 +860,27 @@ class ModularDefenseEngine:
         jobOut = ipcDir / f".lumiya_out_{uid}.tmp"
         try:
             jobIn.write_bytes(rawBytes)
-            if self.computeProc is None or self.computeProc.poll() is not None:
-                startupInfo = None
-                if sys.platform == "win32":
-                    startupInfo = subprocess.STARTUPINFO()
-                    startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                workerErrPath = RESULTS_ROOT / ".worker.log"
-                self.workerErrFile = open(workerErrPath, "w", encoding="utf-8", errors="replace")
-                self.computeProc = subprocess.Popen(
-                    [sys.executable, "-u", str(Path(__file__).resolve()), "--compute-worker"],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=self.workerErrFile,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    bufsize=1,
-                    cwd=str(ROOT_DIR),
-                    startupinfo=startupInfo,
-                )
+            with self._procLock:
+                if self.computeProc is None or self.computeProc.poll() is not None:
+                    startupInfo = None
+                    if sys.platform == "win32":
+                        startupInfo = subprocess.STARTUPINFO()
+                        startupInfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    workerErrPath = RESULTS_ROOT / ".worker.log"
+                    self.workerErrFile = open(workerErrPath, "w", encoding="utf-8", errors="replace")
+                    self.computeProc = subprocess.Popen(
+                        [sys.executable, "-u", str(Path(__file__).resolve()), "--compute-worker"],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=self.workerErrFile,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        bufsize=1,
+                        cwd=str(ROOT_DIR),
+                        startupinfo=startupInfo,
+                    )
+                proc = self.computeProc
 
             req = {
                 "inPath": str(jobIn),
@@ -875,6 +888,7 @@ class ModularDefenseEngine:
                 "fileExt": fileExt,
                 "epsilon255": epsilon255,
                 "steps": steps,
+                "overrideSteps": overrideSteps,
                 "stegoMode": stegoMode,
                 "stegoText": stegoText,
                 "layers": layers,
@@ -888,17 +902,20 @@ class ModularDefenseEngine:
                 "stegoOpts": opts,
                 "cfg": CFG.snapshotForStream(),
             }
-            assert self.computeProc.stdin is not None and self.computeProc.stdout is not None
-            self.computeProc.stdin.write(json.dumps(req) + "\n")
-            self.computeProc.stdin.flush()
+            assert proc is not None and proc.stdin is not None and proc.stdout is not None
+            proc.stdin.write(json.dumps(req) + "\n")
+            proc.stdin.flush()
 
             while True:
                 if controlCb() == "STOP":
                     self.unloadModel()
                     raise InterruptedError("Batch stopped by user.")
-                line = self.computeProc.stdout.readline()
+                line = proc.stdout.readline()
                 if not line:
-                    exitCode = self.computeProc.poll()
+                    if controlCb() == "STOP":
+                        self.unloadModel()
+                        raise InterruptedError("Batch stopped by user.")
+                    exitCode = proc.poll()
                     errLog = ""
                     try:
                         workerErrPath = RESULTS_ROOT / ".worker.log"
@@ -976,7 +993,6 @@ def runServer(
         themesDir=THEMES_DIR,
         uiFile=UI_FILE,
         manifestFile=MANIFEST_FILE,
-        brandStatus=BRAND_STATUS,
         allowRemote=allowRemote,
         authToken=authToken,
         port=port,
@@ -1155,15 +1171,16 @@ def executeBatch(app: ServerApp, batchId: str) -> None:
             cleanMemoryAndStorage(ROOT_DIR, app.resultsRoot, app.qMgr.batches, app.engine, clearRawBytes=False)
         except Exception:
             pass
-        app.rt.busy = False
-        app.rt.paused = False
-        app.rt.stopRequested = False
-        app.rt.activeBatch = "-"
-        app.rt.currentFile = "Idle"
-        app.rt.step = 0
-        app.rt.eta = 0.0
-        app.rt.stepRate = 0.0
-        _workerLock.release()
+        with app.stateLock:
+            app.rt.busy = False
+            app.rt.paused = False
+            app.rt.stopRequested = False
+            app.rt.activeBatch = "-"
+            app.rt.currentFile = "Idle"
+            app.rt.step = 0
+            app.rt.eta = 0.0
+            app.rt.stepRate = 0.0
+            _workerLock.release()
 
 
 def runComputeWorker() -> None:
@@ -1218,6 +1235,7 @@ def runComputeWorker() -> None:
                 computeLevel=float(req.get("computeLevel", 1.0)),
                 seed=int(req.get("seed", 0)),
                 stegoOpts=dict(req.get("stegoOpts") or {}),
+                overrideSteps=int(req.get("overrideSteps", 0)),
             )
             Path(req["outPath"]).write_bytes(outBytes)
             realOut.write("DONE\t" + json.dumps({"w": w, "h": h, "psnr": psnr, "shift": shift}) + "\n")
@@ -1286,10 +1304,12 @@ def runHeadlessCli(args: argparse.Namespace) -> None:
     stegoText = (args.stego_text or "").strip()
     stegoMode = "combined" if stegoText else "off"
     budget = clampSetting("epsilon", args.budget, CFG.epsilon)
-    steps = clampSetting("steps", args.steps, CFG.steps)
+    overrideSteps = clampSetting("steps", args.steps, CFG.steps) if args.steps > 0 else 0
+    steps = overrideSteps or CFG.steps
 
     for idx, fPath in enumerate(files, start=1):
-        TermLog.emit(f"[{idx}/{len(files)}] Protecting {fPath.name} (budget={budget}/255, steps={steps})...", "cli.py", "INFO")
+        stepsLabel = str(overrideSteps) if overrideSteps > 0 else "paper"
+        TermLog.emit(f"[{idx}/{len(files)}] Protecting {fPath.name} (budget={budget}/255, steps={stepsLabel})...", "cli.py", "INFO")
         outBytes, w, h, psnr, shift = engine.processImage(
             rawBytes=fPath.read_bytes(),
             fileExt=fPath.suffix.lower(),
@@ -1301,6 +1321,7 @@ def runHeadlessCli(args: argparse.Namespace) -> None:
             stepCb=lambda s, tot, el: None,
             controlCb=lambda: "RUN",
             emulateDebug=args.debug,
+            overrideSteps=overrideSteps,
         )
         dest = outDir / f"{fPath.stem}_lumiya{fPath.suffix.lower()}"
         dest.write_bytes(outBytes)
@@ -1332,7 +1353,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", type=str, default="", help="Output directory for --headless mode")
     parser.add_argument("--algo", type=str, default="photoguard", help="Comma-separated algorithm IDs for --headless mode")
     parser.add_argument("--budget", type=float, default=CFG.epsilon, help="Perturbation budget (1-32) for --headless mode")
-    parser.add_argument("--steps", type=int, default=CFG.steps, help="Optimization steps for --headless mode")
+    parser.add_argument("--steps", type=int, default=0, help="Optimization steps override for --headless mode (0 = paper default)")
     parser.add_argument("--stego-text", type=str, default="", help="Optional watermark text for --headless mode")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--compute-worker", action="store_true", help=argparse.SUPPRESS)
@@ -1382,7 +1403,7 @@ if __name__ == "__main__":
         sys.exit(1)
     if args.clean:
         rep = cleanMemoryAndStorage(ROOT_DIR, RESULTS_ROOT, {}, None, clearRawBytes=True)
-        TermLog.emit(f"Cleaned workspace ({rep.get('removedFiles', 0)} temp files removed).", "cleaner.py", "OK")
+        TermLog.emit(f"Cleaned workspace ({rep.get('tempFilesRemoved', 0)} temp files removed).", "cleaner.py", "OK")
         sys.exit(0)
     if args.doctor:
         runDoctor()
@@ -1392,7 +1413,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     bindHost = "0.0.0.0" if args.listen else args.host
-    allowRemote = bool(args.listen or bindHost in ("0.0.0.0", "::"))
+    allowRemote = bool(args.listen or not isLoopbackClient(bindHost))
     authToken = args.auth_token or os.environ.get("LUMIYA_AUTH_TOKEN", "")
     if allowRemote and not authToken and not args.compute_worker:
         # Without a token, any machine on the network could drive the app; the launcher passes this one to the worker.

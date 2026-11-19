@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -30,11 +31,11 @@ def cleanMemoryAndStorage(
     if "psutil" in sys.modules and sys.modules["psutil"] is not None:
         try:
             psMod = sys.modules["psutil"]
-            myUser = psMod.Process().username()
-            for proc in psMod.process_iter(["pid", "name", "cmdline", "username"]):
-                if proc.info.get("username") == myUser:
+            myPid = os.getpid()
+            for proc in psMod.process_iter(["pid", "ppid", "cmdline"]):
+                if proc.info.get("ppid") == myPid and proc.info.get("pid") != myPid:
                     cmdList = proc.info.get("cmdline") or []
-                    if "--compute-worker" in cmdList and proc.info.get("pid") != psMod.Process().pid:
+                    if "--compute-worker" in cmdList:
                         proc.kill()
                         report["modelUnloaded"] = True
         except Exception:

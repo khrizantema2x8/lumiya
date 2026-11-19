@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to PORTtralica Lumiya.
 
-Lumiya is licensed under the PolyForm Shield License 1.0.0. We welcome collaborative open research, bug reports, and especially community contributions to the defense algorithms catalog located in the `algos/` directory.
+Lumiya is licensed under the GNU Affero General Public License v3.0 (AGPLv3). We welcome collaborative open research, bug reports, and especially community contributions to the defense algorithms catalog located in the `algos/` directory.
 
 ---
 
@@ -34,5 +34,5 @@ Each new algorithm folder submitted to `algos/<algo_name>/` must contain:
 ## Code of Conduct and Scope
 
 - Core codebase contributions (`protect.py`, `ui.html`, `core/`, `stego/`) should focus on stability, performance, local privacy, and bug fixes.
-- All contributions remain subject to the terms of the PolyForm Shield License 1.0.0.
+- All contributions remain subject to the terms of the GNU Affero General Public License v3.0 (AGPLv3).
 

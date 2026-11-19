@@ -10,26 +10,10 @@ if /I "%~1"=="-h" goto show_help
 if /I "%~1"=="--help" goto show_help
 if /I "%~1"=="/h" goto show_help
 if /I "%~1"=="/?" goto show_help
-if /I "%~1"=="install" (
-    shift
-    call "%~dp0install.bat" %*
-    exit /b %ERRORLEVEL%
-)
-if /I "%~1"=="--install" (
-    shift
-    call "%~dp0install.bat" %*
-    exit /b %ERRORLEVEL%
-)
-if /I "%~1"=="-i" (
-    shift
-    call "%~dp0install.bat" %*
-    exit /b %ERRORLEVEL%
-)
-if /I "%~1"=="setup" (
-    shift
-    call "%~dp0install.bat" %*
-    exit /b %ERRORLEVEL%
-)
+if /I "%~1"=="install" goto forward_install
+if /I "%~1"=="--install" goto forward_install
+if /I "%~1"=="-i" goto forward_install
+if /I "%~1"=="setup" goto forward_install
 if /I "%~1"=="/uninstall" goto forward_uninstall
 if /I "%~1"=="--uninstall" goto forward_uninstall
 if /I "%~1"=="-u" goto forward_uninstall
@@ -48,58 +32,80 @@ if /I "%~1"=="--reinstall-torch" goto do_reinstall_torch
 if /I "%~1"=="clean" (
     shift
     set "EXTRA_DOCTOR=--clean"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="--clean" (
     shift
     set "EXTRA_DOCTOR=--clean"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="integrity" (
     shift
     set "EXTRA_DOCTOR=--integrity"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="--integrity" (
     shift
     set "EXTRA_DOCTOR=--integrity"
-    goto proceed_run
+    goto collect_pass_args
+)
+if /I "%~1"=="verify" (
+    shift
+    set "EXTRA_DOCTOR=--integrity"
+    goto collect_pass_args
+)
+if /I "%~1"=="--verify" (
+    shift
+    set "EXTRA_DOCTOR=--integrity"
+    goto collect_pass_args
 )
 if /I "%~1"=="cluster" (
     shift
     set "EXTRA_DOCTOR=--cluster"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="doctor" (
     shift
     set "EXTRA_DOCTOR=--doctor"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="update" (
     shift
     set "EXTRA_DOCTOR=--update"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="--update" (
     shift
     set "EXTRA_DOCTOR=--update"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="headless" (
     shift
     set "EXTRA_DOCTOR=--headless"
-    goto proceed_run
+    goto collect_pass_args
 )
 if /I "%~1"=="-p" goto handle_port_flag
 if /I "%~1"=="--port" goto handle_port_flag
 if /I "%~1"=="port" goto handle_port_flag
 goto check_numeric_port
 
+:forward_install
+shift
+set "PASS_ARGS="
+:collect_install_args
+if "%~1"=="" goto run_install_sub
+set "PASS_ARGS=!PASS_ARGS! %1"
+shift
+goto collect_install_args
+:run_install_sub
+call "%~dp0install.bat" !PASS_ARGS!
+exit /b %ERRORLEVEL%
+
 :handle_port_flag
 set "CLI_PORT=%~2"
 shift
 shift
-goto proceed_run
+goto collect_pass_args
 
 :check_numeric_port
 echo %~1| findstr /r "^[0-9][0-9]*$" >nul 2>&1
@@ -107,7 +113,13 @@ if not errorlevel 1 (
     set "CLI_PORT=%~1"
     shift
 )
-goto proceed_run
+:collect_pass_args
+set "PASS_ARGS="
+:collect_pass_loop
+if "%~1"=="" goto proceed_run
+set "PASS_ARGS=!PASS_ARGS! %1"
+shift
+goto collect_pass_loop
 
 :show_help
 chcp 65001 >nul 2>&1
@@ -181,9 +193,16 @@ exit /b %ERRORLEVEL%
 :do_free_port
 set "FREE_PORT=%~2"
 if "%FREE_PORT%"=="" set "FREE_PORT=7860"
-echo   [PORT] Freeing port %FREE_PORT% and terminating lingering processes...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :%FREE_PORT%') do taskkill /f /pid %%a >nul 2>&1
-echo   [CLEARED] Port %FREE_PORT% cleared.
+echo !FREE_PORT!| findstr /r "^[0-9][0-9]*$" >nul 2>&1
+if errorlevel 1 (
+    echo   [ERROR] Invalid port: !FREE_PORT!
+    exit /b 1
+)
+echo   [PORT] Freeing port !FREE_PORT! and terminating listening processes...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r /c:":!FREE_PORT! .*LISTENING"') do (
+    if not "%%a"=="0" taskkill /f /pid %%a >nul 2>&1
+)
+echo   [CLEARED] Port !FREE_PORT! cleared.
 exit /b 0
 
 :do_reinstall_torch
@@ -423,7 +442,7 @@ set "LUMIYA_BANNER_PRINTED=1"
 set "PORT_ARG="
 if defined CLI_PORT set "PORT_ARG=--port !CLI_PORT!"
 
-"!SELECTED_PY!" "%~dp0protect.py" !PORT_ARG! !EXTRA_DOCTOR! %*
+"!SELECTED_PY!" "%~dp0protect.py" !PORT_ARG! !EXTRA_DOCTOR! !PASS_ARGS!
 set "EXIT_CODE=!ERRORLEVEL!"
 if !EXIT_CODE! NEQ 0 (
     echo [%DATE% %TIME%] [run.bat] protect.py exited with non-zero code !EXIT_CODE!. >> "!ERRLOG!"

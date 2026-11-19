@@ -14,7 +14,7 @@ from stego.mark import PLACEMENTS
 
 # The one place the version is written; Python, the UI stream and the .bat/.sh launchers all read it from here.
 APP_NAME = "PORTtralica Lumiya"
-APP_VERSION = "v0.6.080.9110 (Pilot)"
+APP_VERSION = "v0.6.093.4730 (Pilot)"
 CONFIG_SCHEMA_VERSION = APP_VERSION.split()[0]
 MAX_STEPS = 5000
 VALID_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff")
@@ -26,7 +26,6 @@ LEGACY_CONFIG_KEYS: Dict[str, str] = {
     "compute": "computeLevel",
     "dim": "workingDim",
     "ramSpillover": "allowRamSpillover",
-    "vramHeadroomMb": "reserveVramMb",
 }
 
 THEME_ID_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
@@ -51,11 +50,8 @@ LEGACY_THEME_ALIASES: Dict[str, str] = {
 
 # Settings with a fixed set of values; anything else from a request is ignored.
 CHOICES: Dict[str, tuple] = {
-    "computeBackend": ("auto", "cuda", "opengl", "cpu"),
+    "computeBackend": ("auto", "cuda", "cpu"),
     "precision": ("fp16", "fp32"),
-    "protectionMode": ("photo_only", "all"),
-    "resolutionPolicy": ("native_tiled", "strict_native"),
-    "eotPreset": ("off", "standard", "aggressive"),
     "stegoMode": ("off", "combined", "only"),
     "stegoPayload": ("text", "binary", "image"),
     "stegoPlacement": PLACEMENTS,
@@ -78,7 +74,6 @@ BOUNDS: Dict[str, tuple] = {
     "seed": (0, 2_147_483_647),
     "steps": (10, MAX_STEPS),
     "workingDim": (256, 2048),
-    "reserveVramMb": (200, 4000),
     "jpegQuality": (85, 100),
     "pollMs": (250, 5000),
 }
@@ -175,7 +170,6 @@ class SuiteConfig:
     maskAugFactor: float = 1.00
     workingDim: int = 768
     precision: str = "fp16"
-    reserveVramMb: int = 600
     jpegQuality: int = 98
     preserveExif: bool = True
     preserveIcc: bool = True
@@ -187,9 +181,6 @@ class SuiteConfig:
     loadWarnPct: float = 85.0
     overrideHardware: bool = False
     allowRamSpillover: bool = True
-    protectionMode: str = "photo_only"
-    resolutionPolicy: str = "native_tiled"
-    eotPreset: str = "standard"
     autoPaperDefaults: bool = True
     stegoMode: str = "off"
     stegoText: str = "PORTtralica Lumiya - Protected Asset"

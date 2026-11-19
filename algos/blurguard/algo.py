@@ -33,6 +33,23 @@ def _depthwiseGaussianBlur(x: torch.Tensor, sigma: float = 2.8, kernelSize: int 
     return F.conv2d(F.pad(x, (pad, pad, pad, pad), mode="reflect"), k2d, groups=x.shape[1])
 
 
+_RING_WEIGHT_CACHE: dict = {}
+
+
+def _getRadialRingWeights(h: int, w: int, numBins: int, device: torch.device):
+    key = (h, w, int(numBins), str(device))
+    if key not in _RING_WEIGHT_CACHE:
+        yy = torch.linspace(-1.0, 1.0, h, device=device).view(h, 1)
+        xx = torch.linspace(-1.0, 1.0, w, device=device).view(1, w)
+        radius = torch.sqrt(yy ** 2 + xx ** 2).clamp(0.0, 1.4142)
+        binEdges = torch.linspace(0.20, 1.0, max(4, int(numBins)) + 1, device=device)
+        masks = (radius.unsqueeze(0) >= binEdges[:-1].view(-1, 1, 1)) & (radius.unsqueeze(0) < binEdges[1:].view(-1, 1, 1))
+        counts = masks.flatten(1).sum(dim=1).float()
+        keep = counts > 0
+        _RING_WEIGHT_CACHE[key] = (masks[keep].float() / counts[keep].view(-1, 1, 1)).flatten(1) if keep.any() else None
+    return _RING_WEIGHT_CACHE[key]
+
+
 def _radialPsdLogRatioLoss(xAdv: torch.Tensor, xOrig: torch.Tensor, numBins: int = 24) -> torch.Tensor:
     """Computes radial 2D FFT power spectral density log-ratio regularizer across concentric frequency rings (jsu-kim/BlurGuard)."""
     eps = 1e-8
@@ -42,21 +59,12 @@ def _radialPsdLogRatioLoss(xAdv: torch.Tensor, xOrig: torch.Tensor, numBins: int
     psdOrig = (fftOrig.real ** 2 + fftOrig.imag ** 2).mean(dim=1) + eps
 
     h, w = psdAdv.shape[-2:]
-    yy = torch.linspace(-1.0, 1.0, h, device=xAdv.device).view(h, 1)
-    xx = torch.linspace(-1.0, 1.0, w, device=xAdv.device).view(1, w)
-    radius = torch.sqrt(yy ** 2 + xx ** 2).clamp(0.0, 1.4142)
-    binEdges = torch.linspace(0.20, 1.0, max(4, int(numBins)) + 1, device=xAdv.device)
-    ringLosses = []
-    for idx in range(len(binEdges) - 1):
-        ringMask = ((radius >= binEdges[idx]) & (radius < binEdges[idx + 1])).float()
-        ringSum = ringMask.sum()
-        if ringSum > 0:
-            ringAdv = (psdAdv * ringMask).sum(dim=(-2, -1)) / ringSum
-            ringOrig = (psdOrig * ringMask).sum(dim=(-2, -1)) / ringSum
-            ringLosses.append(torch.abs(torch.log10(ringAdv + eps) - torch.log10(ringOrig + eps)).mean())
-    if not ringLosses:
+    weights = _getRadialRingWeights(h, w, numBins, xAdv.device)
+    if weights is None:
         return torch.abs(torch.log10(psdAdv) - torch.log10(psdOrig)).mean()
-    return torch.stack(ringLosses).mean()
+    ringAdv = torch.matmul(psdAdv.flatten(1), weights.t())
+    ringOrig = torch.matmul(psdOrig.flatten(1), weights.t())
+    return torch.abs(torch.log10(ringAdv + eps) - torch.log10(ringOrig + eps)).mean()
 
 
 def computeLoss(dist, ctx):

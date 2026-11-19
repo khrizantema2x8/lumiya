@@ -1,0 +1,219 @@
+  /* Header & Compensated Logo Alignment for 'y' Descender Tail */
+  header {
+    height: 50px;
+    flex-shrink: 0;
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    padding-right: 24px;
+    z-index: 300;
+  }
+  .header-left { display: flex; align-items: stretch; }
+  .brand {
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-right: 1px solid var(--line);
+    background: var(--header-bg);
+    overflow: visible;
+  }
+  .brand-logo-img {
+    height: 30px;
+    width: auto;
+    display: block;
+    /* Compensates for the cursive 'y' descender tail so PORTtrallica cap-height sits centered */
+    transform: translateY(4px);
+  }
+  .brand-fallback {
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: var(--gold);
+    font-size: 15px;
+    display: none;
+  }
+  .browser-tabs { display: flex; align-items: stretch; }
+  .tab-btn {
+    padding: 0 24px;
+    background: var(--tab-bg);
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--line);
+    border-top: 2px solid transparent;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+  .tab-btn:hover { background: var(--tab-hover-bg); color: var(--fg); }
+  .tab-btn.active { background: var(--bg); color: var(--fg); border-top: 2px solid var(--blue); }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .hdr-icon-btn { width: 26px; padding: 0; }
+  .hdr-icon-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+  /* One motion for everything that expands or collapses: islands, panels, queue and history trees. */
+  :root {
+    --panel-ease: cubic-bezier(0.65, 0, 0.35, 1);
+    --panel-dur: 0.34s;
+    --dock-strip: 12px;
+    interpolate-size: allow-keywords;
+  }
+
+  /* B-05 resizable islands. initDocks() sets two variables per island: the grid column (0 when collapsed) and the
+     panel's own width, which stays put so a collapsing panel slides out instead of squeezing its content. */
+  .layout, .insp-upper { transition: grid-template-columns var(--panel-dur) var(--panel-ease); }
+  #work-layout { padding-left: var(--dock-strip); }
+  #insp-upper { padding: 0 var(--dock-strip); }
+  #work-layout > .left { width: var(--dock-work-left-w, 400px); justify-self: end; }
+  #insp-upper > .insp-left { width: var(--dock-insp-left-w, 270px); justify-self: end; }
+  #insp-upper > .insp-right { width: var(--dock-insp-right-w, 340px); justify-self: start; }
+  body.docks-dragging .layout, body.docks-dragging .insp-upper { transition: none; }
+  body.docks-dragging { cursor: col-resize; user-select: none; }
+  .dock-collapsed { visibility: hidden; transition: visibility 0s var(--panel-dur); }
+  /* Resize handle on the island's inner edge. */
+  .dock-gutter {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    z-index: 30;
+    cursor: col-resize;
+  }
+  .dock-gutter:hover { background: linear-gradient(90deg, transparent 3px, var(--blue) 3px, var(--blue) 5px, transparent 5px); }
+  .dock-gutter.collapsed { display: none; }
+  /* Collapse strip on the screen edge: the whole strip is the button. Hidden until hovered while collapsed. */
+  .dock-edge {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--dock-strip);
+    z-index: 31;
+    padding: 0;
+    border: none;
+    background: var(--panelDark);
+    color: var(--dim);
+    font-size: 8px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity var(--panel-dur) var(--panel-ease), color 0.15s ease, background 0.15s ease;
+  }
+  .dock-edge:hover { color: var(--fg); background: var(--panelHover); }
+  .dock-edge.collapsed { opacity: 0; }
+  .dock-edge.collapsed:hover { opacity: 1; }
+  .empty-queue { background: var(--panel); border: 1px solid var(--line); padding: 24px; text-align: center; color: var(--dim); font-size: 13px; letter-spacing: 0.3px; }
+  .empty-queue-face { font-size: 32px; margin-bottom: 8px; opacity: 0.65; }
+  .hdr-icon-btn.spinning svg { animation: spin 0.9s linear infinite; }
+
+  /* Wide Notification & Missing Dependencies Banner */
+  .wide-banner {
+    display: none;
+    background: #302605;
+    border-bottom: 1px solid var(--yellow);
+    color: var(--fg);
+    padding: 10px 24px;
+    font-size: 13px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wide-banner.visible { display: flex; }
+  .wide-banner.error-mode { background: #351013; border-color: var(--red); }
+
+  /* Debug Emulation Bar */
+  .debug-bar {
+    display: none;
+    background: #141e30;
+    border-bottom: 1px solid var(--blue);
+    padding: 8px 24px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .debug-bar.visible { display: flex; }
+
+  /* Top Sensor Strip (6 Sensors) */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .stat {
+    padding: 12px 20px;
+    border-right: 1px solid var(--line);
+    position: relative;
+    height: 68px;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .stat-content { position: relative; z-index: 2; }
+  .stat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .stat-name { font-size: 11px; color: var(--dim); letter-spacing: 0.3px; }
+  .stat-val { font-family: var(--font-sans); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; display: flex; align-items: baseline; gap: 8px; }
+  .stat-sub, .temp-f { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  .warn-tri {
+    display: none;
+    color: var(--yellow);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 5px;
+  }
+  .warn-tri.active { display: inline-block; }
+  .warn-tri.crit { color: var(--red); }
+  .sensor-popover {
+    display: none;
+    position: absolute;
+    top: 64px;
+    right: 12px;
+    width: 280px;
+    background: #1a1a1a;
+    border: 1px solid var(--yellow);
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.45;
+    z-index: 200;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.75);
+  }
+  .sensor-popover.crit { border-color: var(--red); }
+  .sensor-popover.open { display: block; }
+
+  .tab-page {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .tab-page.active {
+    display: flex;
+    flex-direction: column;
+  }
+  /* While the font lists are built at start-up, the hidden Configuration page is laid out invisibly so each font's
+     first-use cost is paid then; afterwards it is display: none again and re-showing it only reuses warm caches.
+     (content-visibility: hidden kept the layout too, but Chrome then drew the font list slowly on every scroll frame.) */
+  #page-cfg.cfg-prelayout:not(.active) { display: block; position: absolute; left: 0; right: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+  #page-cfg.active {
+    display: block;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    contain: paint;
+  }
+

@@ -234,22 +234,26 @@ if not defined TORCH_BUILD (
 )
 echo [HARDWARE] Torch build: !TORCH_BUILD! >> "%MANIFEST%"
 
-echo   [04/05] Installing pinned diffusion, image ^& telemetry packages...
+echo   [04/05] Installing pinned diffusion, image ^& telemetry packages from core\requirements.txt...
+set "REQ_ARGS="
+for /f "usebackq delims=" %%R in (`python -c "from pathlib import Path; from core.updater import filterSafeRequirements; print('\n'.join(filterSafeRequirements(Path('core/requirements.txt').read_text(encoding='utf-8'))))"`) do (
+    set "REQ_ARGS=!REQ_ARGS! "%%R""
+)
 if not "!TORCH_BUILD!"=="cpu" if defined TORCH_BUILD (
-    python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/!TORCH_BUILD! --extra-index-url https://pypi.org/simple "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
+    python -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/!TORCH_BUILD! --extra-index-url https://pypi.org/simple !REQ_ARGS!
     python -c "import torch; raise SystemExit(0 if getattr(torch.version, 'cuda', None) is not None else 1)" >nul 2>&1
     if !ERRORLEVEL! NEQ 0 (
         python -m pip install --upgrade --force-reinstall --no-deps --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/!TORCH_BUILD!
     )
 ) else (
-    python -m pip install --no-cache-dir "diffusers>=0.30.0" "transformers>=4.44.0" "accelerate>=0.33.0" "huggingface-hub>=0.24.0" "safetensors>=0.4.3" "Pillow>=10.3.0" "psutil>=5.9.8" "numpy>=1.26.0" "nvidia-ml-py>=12.535.133"
+    python -m pip install --no-cache-dir !REQ_ARGS!
 )
 
 python -m pip list --format=freeze > "%POST_LIST%"
 
 echo. >> "%MANIFEST%"
 echo --- [1] TARGET SPECIFICATION --- >> "%MANIFEST%"
-echo Python=3.13, torch (driver-matched build), torchvision, diffusers, transformers, accelerate, Pillow>=10.3.0, psutil>=5.9.8 >> "%MANIFEST%"
+echo Python=3.12, torch (driver-matched build), torchvision, core/requirements.txt >> "%MANIFEST%"
 
 echo. >> "%MANIFEST%"
 echo --- [2] KEPT PACKAGES --- >> "%MANIFEST%"

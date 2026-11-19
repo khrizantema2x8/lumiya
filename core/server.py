@@ -19,12 +19,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from core.analysis import ANALYSIS_LOCK, runAnalysis
 from core.cleaner import cleanMemoryAndStorage
 from core.fonts import FONT_MIME, scanAppFonts, scanSystemFonts
 from core.config import APP_NAME, APP_VERSION, BOUNDS, CHOICES, THEME_ID_RE, SuiteConfig, clampSetting, safeFloat, safeInt
 from core.loader import AlgoPluginManager
 from core.queue import QueueManager, RuntimeState, validateBatchConfig
-from core.security import isLoopbackClient, isTrustedRequest, openPathForeground, parseJsonBody, verifyBrandAssets
+from core.security import isLoopbackClient, isTrustedRequest, openPathForeground, parseJsonBody
 from core.telemetry import TelemetryMonitor
 from core.termlog import TermLog
 from core.updater import checkRemoteUpdate, computeProgramIntegrity, runProtectedUpdate
@@ -60,12 +61,12 @@ class ServerApp:
     themesDir: Path
     uiFile: Path
     manifestFile: Path
-    brandStatus: Dict[str, Any]
     allowRemote: bool
     authToken: str
     port: int
     executeBatch: Callable[[str], None] = lambda batchId: None
     sseLock: threading.Lock = field(default_factory=threading.Lock)
+    stateLock: threading.Lock = field(default_factory=threading.Lock)
     sseCount: int = 0
 
 
@@ -243,26 +244,20 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
         ):
             # Font files keep their published names, e.g. "IBMPlexSans[wdth,wght].ttf", so the path arrives percent-encoded.
-            rel = urllib.parse.unquote(parsed.path).lstrip("/")
-            if rel.startswith("identity/"):
-                sub = rel[len("identity/"):]
-                assetPath = (app.identityDir / sub).resolve()
+            assetPath: Optional[Path] = None
+            idRoot = app.identityDir.resolve()
+            if parsed.path.startswith("/identity/"):
+                sub = urllib.parse.unquote(parsed.path[len("/identity/"):]).lstrip("/")
+                cand = (idRoot / sub).resolve()
+                if idRoot in cand.parents and cand.is_file():
+                    assetPath = cand
             else:
-                assetPath = app.identityDir / rel
-            if not assetPath.exists() and (app.rootDir / rel).exists():
-                assetPath = app.rootDir / rel
-            if not assetPath.exists() and (app.rootDir / "assets" / rel).exists():
-                assetPath = app.rootDir / "assets" / rel
-            if (
-                assetPath.is_file()
-                and (
-                    app.identityDir in assetPath.parents
-                    or (app.rootDir / "assets") in assetPath.parents
-                    or assetPath.parent == app.rootDir
-                )
-            ):
-                if assetPath.name in ("logo.png", "lumiya_blk.ico", "lumiya_t.ico"):
-                    verifyBrandAssets(app.rootDir)
+                baseName = parsed.path.lstrip("/")
+                for cand in (idRoot / baseName, app.rootDir.resolve() / baseName, app.rootDir.resolve() / "assets" / baseName):
+                    if cand.is_file():
+                        assetPath = cand
+                        break
+            if assetPath is not None:
                 data = assetPath.read_bytes()
                 ext = assetPath.suffix.lower()
                 mimeMap = {
@@ -288,6 +283,22 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.wfile.write(data)
             else:
                 self.send_error(HTTPStatus.NOT_FOUND)
+        elif parsed.path.startswith("/ui/") and parsed.path.endswith((".css", ".js")):
+            uiDir = (app.uiFile.parent / "ui").resolve()
+            assetPath = (uiDir / urllib.parse.unquote(parsed.path)[len("/ui/"):]).resolve()
+            if uiDir in assetPath.parents and assetPath.is_file():
+                data = assetPath.read_bytes()
+                self.send_response(HTTPStatus.OK)
+                self._sendSecurityHeaders()
+                mime = "text/css" if assetPath.suffix == ".css" else "text/javascript"
+                self.send_header("Content-Type", f"{mime}; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                # no-cache: an update must never run new markup against stale scripts.
+                self.send_header("Cache-Control", "no-cache, must-revalidate")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
         elif parsed.path == "/api/stream":
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "text/event-stream")
@@ -298,21 +309,16 @@ class RequestHandler(BaseHTTPRequestHandler):
                 app.sseCount += 1
             sentAlgoRev = -1
             sentBatchRev = -1
+            sentDepsJson = ""
+            firstFrame = True
             try:
                 while True:
                     majorReady = app.engine.majorDepsReady or app.rt.emulateExecution
                     curAlgoRev = app.algoMgr.rev
                     curBatchRev = app.qMgr.rev
                     payload: Dict[str, Any] = {
-                        "appName": APP_NAME,
-                        "appVersion": APP_VERSION,
-                        "resultsRoot": str(app.resultsRoot),
-                        "brandIntegrity": app.brandStatus,
                         "hw": app.mon.read().__dict__,
                         "cfg": app.cfg.snapshotForStream(),
-                        "deps": app.deps,
-                        "bounds": BOUNDS,
-                        "computeLevels": CHOICES["computeLevel"],
                         "majorReady": majorReady,
                         "ui": {
                             "busy": app.rt.busy,
@@ -330,6 +336,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                             "history": list(app.rt.history[:40]),
                         },
                     }
+                    if firstFrame:
+                        payload["appName"] = APP_NAME
+                        payload["appVersion"] = APP_VERSION
+                        payload["resultsRoot"] = str(app.resultsRoot)
+                        payload["bounds"] = BOUNDS
+                        payload["computeLevels"] = CHOICES["computeLevel"]
+                        firstFrame = False
+                    depsJson = json.dumps(app.deps, sort_keys=True)
+                    if depsJson != sentDepsJson:
+                        payload["deps"] = app.deps
+                        sentDepsJson = depsJson
                     if curAlgoRev != sentAlgoRev:
                         payload["algos"] = app.algoMgr.listMetadata()
                         sentAlgoRev = curAlgoRev
@@ -409,8 +426,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         ):
             self.send_error(HTTPStatus.FORBIDDEN)
             return
-        length = safeInt(self.headers.get("Content-Length", "0"), 0, 0, 200_000_000)
-        rawBody = self.rfile.read(length) if length > 0 else b""
+        maxBodyBytes = 200_000_000
+        rawLen = safeInt(self.headers.get("Content-Length", "0"), 0, 0)
+        if rawLen > maxBodyBytes:
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Upload exceeds 200 MB limit.")
+            return
+        rawBody = self.rfile.read(rawLen) if rawLen > 0 else b""
         clientIp = self.client_address[0] if self.client_address else ""
 
         if parsed.path == "/api/create_batch":
@@ -430,13 +451,41 @@ class RequestHandler(BaseHTTPRequestHandler):
             res = inspectStego(rawBody)
             self.sendJson({"ok": True, **res})
 
+        elif parsed.path == "/api/analyze":
+            tool = qs.get("tool", [""])[0]
+            if tool == "latent":
+                with app.stateLock:
+                    if app.rt.busy:
+                        self.sendJson({"ok": False, "error": "Latent Shift waits until the running batch finishes (it shares the model)."})
+                        return
+            bid, fid = qs.get("batch", [""])[0], qs.get("file", [""])[0]
+            before: Optional[bytes] = None
+            if bid:
+                found = app.qMgr.getFileBytes(bid, fid, preferExport=True)
+                if not found:
+                    self.sendJson({"ok": False, "error": "Processed file not found on disk or memory."})
+                    return
+                after = found[0]
+                orig = app.qMgr.getFileBytes(bid, fid, preferExport=False)
+                before = orig[0] if orig and orig[0] != after else None
+            elif rawBody:
+                after = rawBody
+            else:
+                self.sendJson({"ok": False, "error": "No image was received."})
+                return
+            params = {
+                "quality": safeInt(qs.get("quality", ["90"])[0], 90, 10, 100),
+                "precision": app.cfg.precision,
+            }
+            self.sendJson(runAnalysis(tool, app.engine, before, after, params))
+
         elif parsed.path == "/api/stego_prepare":
             try:
                 mark, compressed = prepareMark(rawBody)
                 self.sendJson({"ok": True, "mark": mark, "compressed": compressed})
             except MarkError as exc:
                 self.sendJson({"ok": False, "error": str(exc)})
-            except (OSError, ValueError):
+            except Exception:
                 self.sendJson({"ok": False, "error": "This file could not be read as an image."})
 
         elif parsed.path == "/api/open_result":
@@ -457,17 +506,28 @@ class RequestHandler(BaseHTTPRequestHandler):
             bid = info.get("batchId", "")
             b = app.qMgr.batches.get(bid)
 
-            if act == "run" and not app.rt.busy and b and (app.engine.majorDepsReady or app.rt.emulateExecution or b.stegoMode == "only"):
+            if act == "run" and b and (app.engine.majorDepsReady or app.rt.emulateExecution or b.stegoMode == "only"):
                 okCfg, errCfg = validateBatchConfig(b, app.algoMgr, requireFiles=True)
                 if not okCfg:
                     self.sendJson({"ok": False, "error": errCfg})
                     return
+                with app.stateLock:
+                    if ANALYSIS_LOCK.locked():
+                        self.sendJson({"ok": False, "error": "Wait for Forensic Analytics to finish before starting a batch."})
+                        return
+                    if app.rt.busy:
+                        self.sendJson({"ok": False})
+                        return
+                    app.rt.busy = True
+                    app.rt.activeBatch = bid
+                    app.rt.stopRequested = False
                 threading.Thread(target=app.executeBatch, args=(bid,), daemon=True).start()
                 self.sendJson({"ok": True})
             elif act == "stop" and app.rt.busy and app.rt.activeBatch == bid:
                 app.rt.stopRequested = True
+                app.engine.unloadModel()
                 self.sendJson({"ok": True})
-            elif act == "restart" and not app.rt.busy and b:
+            elif act == "restart" and b:
                 okCfg, errCfg = validateBatchConfig(b, app.algoMgr, requireFiles=True)
                 if not okCfg:
                     self.sendJson({"ok": False, "error": errCfg})
@@ -477,12 +537,22 @@ class RequestHandler(BaseHTTPRequestHandler):
                         {"ok": False, "error": "Originals were released from memory. Add the photos again to redo this batch."}
                     )
                     return
-                for f in b.files:
-                    if f.valid:
-                        f.status = "STAGED"
-                        f.hasStego = False
-                b.state = "STAGED"
-                app.qMgr.rev += 1
+                with app.stateLock:
+                    if ANALYSIS_LOCK.locked():
+                        self.sendJson({"ok": False, "error": "Wait for Forensic Analytics to finish before starting a batch."})
+                        return
+                    if app.rt.busy:
+                        self.sendJson({"ok": False})
+                        return
+                    for f in b.files:
+                        if f.valid:
+                            f.status = "STAGED"
+                            f.hasStego = False
+                    b.state = "STAGED"
+                    app.rt.busy = True
+                    app.rt.activeBatch = bid
+                    app.rt.stopRequested = False
+                    app.qMgr.rev += 1
                 threading.Thread(target=app.executeBatch, args=(bid,), daemon=True).start()
                 self.sendJson({"ok": True})
             elif act == "update_params" and b and b.state != "RUNNING":
@@ -517,7 +587,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif act == "delete_batch":
                 if app.rt.busy and app.rt.activeBatch == bid:
                     app.rt.stopRequested = True
-                    time.sleep(0.4)
+                    app.engine.unloadModel()
+                    deadline = time.monotonic() + 5.0
+                    while app.rt.busy and app.rt.activeBatch == bid and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                if app.rt.busy and app.rt.activeBatch == bid:
+                    self.sendJson({"ok": False, "error": "Batch is still stopping. Try deleting again in a moment."})
+                    return
                 keepExp = bool(info.get("keepExports"))
                 app.qMgr.deleteBatch(bid, keepExports=keepExp)
                 if not keepExp:
@@ -574,7 +650,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             newCfg = parseJsonBody(rawBody)
             app.cfg.applyDict(newCfg)
             app.cfg.save(app.configFile)
-            if "overrideHardware" in newCfg or "protectionMode" in newCfg:
+            if "overrideHardware" in newCfg:
                 app.algoMgr.rev += 1
             self.sendJson({"ok": True})
 
